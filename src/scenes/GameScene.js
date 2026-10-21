@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import Player from '../entities/Player.js';
+import Hud from '../ui/Hud.js';
 import { MAPS } from '../data/maps.js';
 
 export default class GameScene extends Phaser.Scene {
@@ -28,9 +29,11 @@ export default class GameScene extends Phaser.Scene {
     this.cameras.main.setBounds(0, 0, width, height);
     this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
 
+    this.hud = new Hud(this);
+
     // Debug readout, pinned to the screen.
     this.debugText = this.add
-      .text(16, 16, '', { fontFamily: 'monospace', fontSize: '16px', color: '#ffffff' })
+      .text(16, 44, '', { fontFamily: 'monospace', fontSize: '14px', color: '#aaaacc' })
       .setScrollFactor(0)
       .setDepth(100);
   }
@@ -50,8 +53,9 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
-  update() {
-    this.player.update();
+  update(time, delta) {
+    this.player.update(delta);
+    this.hud.update(this.player);
 
     // Temporary: fell off the map → respawn. Proper void death comes in Step 3.
     if (this.player.y > this.map.height + 100) {
@@ -62,7 +66,7 @@ export default class GameScene extends Phaser.Scene {
     this.debugText.setText([
       `x: ${Math.round(this.player.x)}  y: ${Math.round(this.player.y)}`,
       `vx: ${Math.round(b.velocity.x)}  vy: ${Math.round(b.velocity.y)}`,
-      `onGround: ${this.player.onGround}`,
+      `onGround: ${this.player.onGround}  fuel: ${Math.round(this.player.fuel)}`,
     ]);
   }
 }

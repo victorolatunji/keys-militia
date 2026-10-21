@@ -1,15 +1,16 @@
 # Keys Militia
 *A VAO game. Living plan book: update it whenever the plan changes.*
 
-**Version:** 0.5 (planning)
+**Version:** 0.6
 **Owner:** Victor Olatunji / VAO
 **Budget:** $0, free tools and free assets only
-**Status:** Planning, no code yet
+**Status:** Phase 0 complete. Phase 1 (Movement) in progress, steps 1 and 2 done.
+**Live build:** https://victorolatunji.github.io/keys-militia/
 
 ---
 
 ## 1. Pitch
-A 2D arena shooter in the style of Mini Militia, where **typing is your weapon**. Move with arrows or mouse, and type the word above an enemy to fire at them.
+A 2D arena shooter **influenced by Mini Militia**, but its own game: **typing is your weapon**. Move with arrows or mouse, and type the word above an enemy to fire at them.
 
 ## 2. Pillars
 1. **Move or type, never both at once.** Reposition, then fight.
@@ -81,9 +82,11 @@ A 2D arena shooter in the style of Mini Militia, where **typing is your weapon**
 ## 6. Movement
 - **Gravity is always on.** Nobody floats in place.
 - **Slow fall while typing mid-air:** you drift down slowly, not fast. Typing long words in the air is a risk, especially over the void.
-- **Jetpack** for players and most enemies, with a **fuel bar** that refills on the ground.
+- **Jetpack** for players and most enemies, with a **fuel bar** that refills on the ground only.
+- **Jetpack feel:** thrust builds speed (acceleration), capped rise speed, release Up and you arc back down. Down in the air falls faster.
 - **Jet booster** pickup gives extra fuel or speed.
 - **Run out of fuel over the void, and you fall.**
+- **Tuning** lives in `src/data/player.js` (run speed, air speed, thrust, rise cap, fuel drain and refill).
 
 ---
 
@@ -171,33 +174,65 @@ Offline modes cost nothing to run. Online modes come after launch (see roadmap).
 ## 13. Tech stack ($0)
 | Part | Tool |
 |---|---|
-| Engine | Phaser 3 (JavaScript, runs in the browser; no Unity needed) |
+| Engine | Phaser 3 (pinned with `npm install phaser@3`; Phaser 4 exists but we stay on 3) |
 | Build tool | Vite |
-| Runtime | Node.js |
+| Runtime | Node.js (v24 locally, v22 in CI) |
 | Editor | VS Code |
-| Code hosting | GitHub |
-| Game hosting | itch.io and/or Vercel / GitHub Pages |
+| Shell | Windows PowerShell (project commands are written for PowerShell) |
+| Code hosting | GitHub (`victorolatunji/keys-militia`, public) |
+| Game hosting | GitHub Pages via GitHub Actions (dev builds); itch.io at launch |
 | Map editor | Tiled (exports to Phaser) |
 | Physics | Phaser Arcade Physics (built in) |
-| Art | Kenney.nl (CC0), recolors, Piskel / Aseprite |
+| Art | Kenney.nl (CC0), Inkscape (free, vector characters), recolors, Piskel / Aseprite |
 | Sound | jsfxr, Kenney audio packs |
 | Saves | localStorage, later Supabase / Firebase free tier |
 | Online (later) | WebRTC peer-to-peer (e.g. PeerJS) |
 
 Log every asset and its license in `CREDITS.md`.
 
-**Art approach:** build every phase with placeholder shapes (rectangles and circles) first. Swap in real sprites once the mechanics feel right.
+**Art approach:** build every phase with placeholder shapes (rectangles and circles) first. Swap in real sprites in the art pass (Phase 9.5) once the mechanics feel right.
+
+**Commands:**
+| Command | What it does |
+|---|---|
+| `npm run dev` | Local dev server at http://localhost:5173 (auto-reloads) |
+| `npm run build` | Production build into `dist/` |
+| `npm run preview` | Serve the production build locally |
+| `git push` (to `main`) | Builds and deploys the live site automatically |
 
 ---
 
-## 14. Project structure (planned)
+## 14. Art direction
+**Goal:** influenced by Mini Militia, but its own game with its own look. We borrow genre ideas, never their style or assets.
+
+**Keep (genre):** side view, small chunky outlined cartoon characters, floating islands with grass tops and rocky cross-sections, parallax backgrounds, jetpack flames and smoke, bright tracers, explosion bursts.
+
+**Make it ours:**
+- **Words first:** words are always the highest-contrast thing on screen (bright text on a dark plate). Backgrounds muted, characters mid-contrast.
+- **Typing effects:** letters light up as typed; a finished word shatters into letters that fly at the target; a typo shakes the word red and puffs smoke from the gun.
+- **Cast:** soldier, zombie, bot, wizard, archer, ninja. Rounder and more colorful than military sprites, one bold team accent color.
+- **Visible void:** dark misty drop with a faint glow under every map.
+- **Per-map palettes:** each map has its own color identity.
+- **Camera:** slightly wider than Mini Militia so multiple words stay readable.
+
+**Sizes:** character 32×48 px at a 1280×720 game resolution (Phaser FIT scaling).
+
+---
+
+## 15. Project structure
+✅ = exists now. Everything else is planned.
 ```
 keys-militia/
-├── index.html
+├── index.html                   ✅
+├── package.json                 ✅
+├── vite.config.js               ✅ base './' for GitHub Pages
+├── .gitignore                   ✅
+├── .github/workflows/
+│   └── deploy.yml               ✅ auto-deploy to GitHub Pages on push to main
 ├── src/
-│   ├── main.js              # Phaser config
-│   ├── scenes/              # Boot, Menu, Lobby, Game, GameOver, Settings
-│   ├── entities/            # Player, Bot, Projectile, Crate, Pickup
+│   ├── main.js                  ✅ Phaser config
+│   ├── scenes/                  # Boot ✅, Game ✅, Menu, Lobby, GameOver, Settings
+│   ├── entities/                # Player ✅, Bot, Projectile, Crate, Pickup
 │   ├── systems/
 │   │   ├── TypingSystem.js      # words, lock-on, typos
 │   │   ├── LineOfSight.js       # which enemies get words
@@ -205,49 +240,62 @@ keys-militia/
 │   │   ├── AirdropSystem.js     # crates, pickup panel, death drops
 │   │   ├── HazardSystem.js      # map hazards and advantages
 │   │   └── ScoreSystem.js       # kills, assists, fall credit, MVP
+│   ├── ui/
+│   │   └── Hud.js               ✅ fuel bar now; HP, weapon slots, pickup panel later
 │   └── data/
+│       ├── player.js            ✅ movement tuning (shared by all characters)
+│       ├── maps.js              ✅ test map config
 │       ├── words.js
 │       ├── weapons.js
 │       ├── enemies.js
-│       ├── characters.js
-│       └── maps.js
-├── public/assets/           # sprites, tilesets, sounds, maps
-├── README.md                # this plan book
-└── CREDITS.md               # asset licenses
+│       └── characters.js
+├── public/assets/               # sprites, tilesets, sounds, maps
+├── README.md                    ✅ this plan book
+└── CREDITS.md                   ✅ asset licenses
 ```
 
 ---
 
-## 15. Roadmap
-| Phase | Goal | Done when |
-|---|---|---|
-| 0 | Setup | Phaser + Vite running, blank scene online |
-| 1 | Movement | Arrows, diagonals, gravity, jetpack, fuel, slow fall while typing, void death on a test map |
-| 2 | Typing combat | Line-of-sight words, lock-on, HP, word chains, typos |
-| 3 | Weapons | 2 gun slots, throwables with aim and falloff, Shift switch |
-| 4 | Airdrops | Crates, proximity panel, death drops with timeout |
-| 5 | Enemies | Shooter, rusher, bomber bots |
-| 6 | Effects | Blood, gibs, pain sounds, gore toggle |
-| 7 | Maps | All launch maps with hazards and advantages, open and enclosed |
-| 8 | Offline modes | Team vs Bots, Zombies, Endless, scoring, awards |
-| 9 | Menus and guest | Menu, settings, name and character select, local saves |
-| 10 | Launch | Published on itch.io, linked from the VAO site |
-| 11 | Online | Sign-in, lobby, FFA and TDM |
-| 12+ | Upgrades | Coins, more weapons, characters and maps |
+## 16. Roadmap
+| Phase | Goal | Done when | Status |
+|---|---|---|---|
+| 0 | Setup | Phaser + Vite running, blank scene online | ✅ |
+| 1 | Movement | Arrows, diagonals, gravity, jetpack, fuel, slow fall while typing, void death on a test map | 🔄 |
+| 2 | Typing combat | Line-of-sight words, lock-on, HP, word chains, typos | |
+| 3 | Weapons | 2 gun slots, throwables with aim and falloff, Shift switch | |
+| 4 | Airdrops | Crates, proximity panel, death drops with timeout | |
+| 5 | Enemies | Shooter, rusher, bomber bots | |
+| 6 | Effects | Blood, gibs, pain sounds, gore toggle | |
+| 7 | Maps | All launch maps with hazards and advantages, open and enclosed | |
+| 8 | Offline modes | Team vs Bots, Zombies, Endless, scoring, awards | |
+| 9 | Menus and guest | Menu, settings, name and character select, local saves | |
+| 9.5 | Art pass | Replace placeholders with final sprites, tiles, backgrounds and effects | |
+| 10 | Launch | Published on itch.io, linked from the VAO site | |
+| 11 | Online | Sign-in, lobby, FFA and TDM | |
+| 12+ | Upgrades | Coins, more weapons, characters and maps | |
+
+**Phase 1 progress:**
+- [x] Step 1: test map, walking, gravity, camera follow
+- [x] Step 2: jetpack, fuel bar, diagonals, Down to descend
+- [ ] Step 3: void visual, void death, drop-in respawn
+- [ ] Step 4: typing state (stop, slow fall in the air, arrows resume)
+- [ ] Step 5: test map rebuilt in Tiled
 
 ---
 
-## 16. Open decisions
+## 17. Open decisions
 - [ ] Final hazard and advantage behavior per map (test in prototype)
 - [ ] Match length and kill targets
 - [ ] Exact weapon stats (damage, word length)
 - [ ] Airdrop timer and death-drop timeout
 - [ ] Mouse movement details
 - [ ] Slow-fall speed while typing
+- [ ] Final movement tuning (starting values in `src/data/player.js`)
 
 ---
 
-## 17. Changelog
+## 18. Changelog
+- **0.6:** Phase 0 done: Phaser 3 + Vite, Boot and Game scenes, live on GitHub Pages with auto-deploy. Art direction section. Art pass phase (9.5). Phase 1 steps 1–2: test map config, player walking, gravity, camera follow, jetpack with fuel bar, diagonals, Down to descend. Added `src/ui/` and `src/data/player.js`. Positioning: influenced by Mini Militia, not in its style.
 - **0.5:** Word refresh timer, word lock, unique first letters, per-player words in multiplayer; placeholder-art-first approach.
 - **0.4:** Gravity always on; slow fall while typing in mid-air replaces hovering.
 - **0.3:** Audience set to everyone: word difficulty setting, family-friendly defaults, gore toggle levels.
