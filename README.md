@@ -1,10 +1,10 @@
 # Keys Militia
 *A VAO game. Living plan book: update it whenever the plan changes.*
 
-**Version:** 0.6
+**Version:** 0.7
 **Owner:** Victor Olatunji / VAO
 **Budget:** $0, free tools and free assets only
-**Status:** Phase 0 complete. Phase 1 (Movement) in progress, steps 1 and 2 done.
+**Status:** Phase 1 complete. Phase 2 (Typing combat) next.
 **Live build:** https://victorolatunji.github.io/keys-militia/
 
 ---
@@ -36,6 +36,7 @@ A 2D arena shooter **influenced by Mini Militia**, but its own game: **typing is
 **Move or type rule:**
 - When you start typing, your character **stops moving and auto-faces** the target. On the ground you hold position; **in the air you drift down slowly** (no hovering in place).
 - Press any arrow to move again. Your half-typed word stays saved.
+- Only a **fresh** arrow press cancels typing. Holding an arrow while you start typing does not.
 - Words use **lowercase letters only**, so Shift, Space, digits and arrows never clash with typing.
 
 ---
@@ -81,12 +82,13 @@ A 2D arena shooter **influenced by Mini Militia**, but its own game: **typing is
 
 ## 6. Movement
 - **Gravity is always on.** Nobody floats in place.
-- **Slow fall while typing mid-air:** you drift down slowly, not fast. Typing long words in the air is a risk, especially over the void.
-- **Jetpack** for players and most enemies, with a **fuel bar** that refills on the ground only.
+- **Slow fall while typing mid-air:** you drift down slowly, not fast. Upward momentum carries briefly, then you drift. Typing long words in the air is a risk, especially over the void.
+- **Jetpack** for players and most enemies, with a **fuel bar** that refills on the ground only (also while typing on the ground).
 - **Jetpack feel:** thrust builds speed (acceleration), capped rise speed, release Up and you arc back down. Down in the air falls faster.
+- **Escape move:** pressing Up while typing mid-air exits typing and fires the jetpack instantly.
 - **Jet booster** pickup gives extra fuel or speed.
 - **Run out of fuel over the void, and you fall.**
-- **Tuning** lives in `src/data/player.js` (run speed, air speed, thrust, rise cap, fuel drain and refill).
+- **Tuning** lives in `src/data/player.js` (run speed, air speed, thrust, rise cap, fuel drain and refill, typing fall speed, respawn delay).
 
 ---
 
@@ -107,10 +109,12 @@ A 2D arena shooter **influenced by Mini Militia**, but its own game: **typing is
 ## 8. Maps
 **Shared rules:**
 - Every map floats over a **void**. Fall in and you die.
+- **The void** is drawn as a dark gradient with rising mist (map config: void top, death line, colors). Falling past the death line kills you, clears your half-typed text, and you drop back in from the sky after a short delay.
 - Maps are either **open sky** (limitless upward) or **enclosed** (dome or roof).
 - Each map has **one hazard and one advantage**.
 - **Typeable hazards:** some hazards show a word, and typing it triggers the trap on enemies.
 - Each map is a **config** (tileset, background, sky type, hazard, advantage, spawn points), so new maps are cheap to add.
+- **Maps are built in Tiled:** 32×32 tiles, tile layer `ground` (every painted tile is solid), object layer `spawns` with a point named `player`. Tileset embedded in the map, tile layer format CSV, saved as `.json`. The config in `maps.js` points at the Tiled file and holds everything else (void, background, hazards).
 
 **Map list (draft, tune while prototyping):**
 | Map | Sky | Hazard | Advantage |
@@ -181,14 +185,14 @@ Offline modes cost nothing to run. Online modes come after launch (see roadmap).
 | Shell | Windows PowerShell (project commands are written for PowerShell) |
 | Code hosting | GitHub (`victorolatunji/keys-militia`, public) |
 | Game hosting | GitHub Pages via GitHub Actions (dev builds); itch.io at launch |
-| Map editor | Tiled (exports to Phaser) |
+| Map editor | Tiled (exports to Phaser as JSON) |
 | Physics | Phaser Arcade Physics (built in) |
 | Art | Kenney.nl (CC0), Inkscape (free, vector characters), recolors, Piskel / Aseprite |
 | Sound | jsfxr, Kenney audio packs |
 | Saves | localStorage, later Supabase / Firebase free tier |
 | Online (later) | WebRTC peer-to-peer (e.g. PeerJS) |
 
-Log every asset and its license in `CREDITS.md`.
+Log every asset and its license in `CREDITS.md`, including in-house placeholders.
 
 **Art approach:** build every phase with placeholder shapes (rectangles and circles) first. Swap in real sprites in the art pass (Phase 9.5) once the mechanics feel right.
 
@@ -205,7 +209,7 @@ Log every asset and its license in `CREDITS.md`.
 ## 14. Art direction
 **Goal:** influenced by Mini Militia, but its own game with its own look. We borrow genre ideas, never their style or assets.
 
-**Keep (genre):** side view, small chunky outlined cartoon characters, floating islands with grass tops and rocky cross-sections, parallax backgrounds, jetpack flames and smoke, bright tracers, explosion bursts.
+**Borrowed from the genre:** side view, small chunky outlined cartoon characters, floating islands with grass tops and rocky cross-sections, parallax backgrounds, jetpack flames and smoke, bright tracers, explosion bursts.
 
 **Make it ours:**
 - **Words first:** words are always the highest-contrast thing on screen (bright text on a dark plate). Backgrounds muted, characters mid-contrast.
@@ -215,7 +219,7 @@ Log every asset and its license in `CREDITS.md`.
 - **Per-map palettes:** each map has its own color identity.
 - **Camera:** slightly wider than Mini Militia so multiple words stay readable.
 
-**Sizes:** character 32×48 px at a 1280×720 game resolution (Phaser FIT scaling).
+**Sizes:** character 32×48 px, tiles 32×32 px, at a 1280×720 game resolution (Phaser FIT scaling).
 
 ---
 
@@ -231,25 +235,28 @@ keys-militia/
 │   └── deploy.yml               ✅ auto-deploy to GitHub Pages on push to main
 ├── src/
 │   ├── main.js                  ✅ Phaser config
-│   ├── scenes/                  # Boot ✅, Game ✅, Menu, Lobby, GameOver, Settings
+│   ├── scenes/                  # Boot ✅ (loads maps), Game ✅, Menu, Lobby, GameOver, Settings
 │   ├── entities/                # Player ✅, Bot, Projectile, Crate, Pickup
 │   ├── systems/
-│   │   ├── TypingSystem.js      # words, lock-on, typos
+│   │   ├── VoidSystem.js        ✅ void visuals, fall detection
+│   │   ├── TypingSystem.js      ✅ typing state now; words, lock-on, typos in Phase 2
 │   │   ├── LineOfSight.js       # which enemies get words
 │   │   ├── WeaponSystem.js      # slots, damage, throwables
 │   │   ├── AirdropSystem.js     # crates, pickup panel, death drops
 │   │   ├── HazardSystem.js      # map hazards and advantages
 │   │   └── ScoreSystem.js       # kills, assists, fall credit, MVP
 │   ├── ui/
-│   │   └── Hud.js               ✅ fuel bar now; HP, weapon slots, pickup panel later
+│   │   └── Hud.js               ✅ fuel bar, typing buffer; HP, weapon slots, pickup panel later
 │   └── data/
 │       ├── player.js            ✅ movement tuning (shared by all characters)
-│       ├── maps.js              ✅ test map config
+│       ├── maps.js              ✅ map configs (test map)
 │       ├── words.js
 │       ├── weapons.js
 │       ├── enemies.js
 │       └── characters.js
-├── public/assets/               # sprites, tilesets, sounds, maps
+├── public/assets/
+│   ├── maps/                    # Tiled maps (.json) — test.json ✅
+│   └── tilesets/                # tile images — placeholder-tiles.png ✅
 ├── README.md                    ✅ this plan book
 └── CREDITS.md                   ✅ asset licenses
 ```
@@ -260,8 +267,8 @@ keys-militia/
 | Phase | Goal | Done when | Status |
 |---|---|---|---|
 | 0 | Setup | Phaser + Vite running, blank scene online | ✅ |
-| 1 | Movement | Arrows, diagonals, gravity, jetpack, fuel, slow fall while typing, void death on a test map | 🔄 |
-| 2 | Typing combat | Line-of-sight words, lock-on, HP, word chains, typos | |
+| 1 | Movement | Arrows, diagonals, gravity, jetpack, fuel, slow fall while typing, void death on a test map | ✅ |
+| 2 | Typing combat | Line-of-sight words, lock-on, HP, word chains, typos | ⏭️ next |
 | 3 | Weapons | 2 gun slots, throwables with aim and falloff, Shift switch | |
 | 4 | Airdrops | Crates, proximity panel, death drops with timeout | |
 | 5 | Enemies | Shooter, rusher, bomber bots | |
@@ -274,13 +281,6 @@ keys-militia/
 | 11 | Online | Sign-in, lobby, FFA and TDM | |
 | 12+ | Upgrades | Coins, more weapons, characters and maps | |
 
-**Phase 1 progress:**
-- [x] Step 1: test map, walking, gravity, camera follow
-- [x] Step 2: jetpack, fuel bar, diagonals, Down to descend
-- [ ] Step 3: void visual, void death, drop-in respawn
-- [ ] Step 4: typing state (stop, slow fall in the air, arrows resume)
-- [ ] Step 5: test map rebuilt in Tiled
-
 ---
 
 ## 17. Open decisions
@@ -289,12 +289,14 @@ keys-militia/
 - [ ] Exact weapon stats (damage, word length)
 - [ ] Airdrop timer and death-drop timeout
 - [ ] Mouse movement details
-- [ ] Slow-fall speed while typing
+- [ ] Slow-fall speed while typing (starting value 60 px/s in `player.js`)
 - [ ] Final movement tuning (starting values in `src/data/player.js`)
+- [ ] Respawn delay and spawn points per map (starting value 1.5s, one spawn point)
 
 ---
 
 ## 18. Changelog
+- **0.7:** Phase 1 done. Running, gravity, jetpack with fuel bar, diagonals, Down to descend. Typing state: lowercase letters stop you, slow fall mid-air, fresh arrow press resumes, buffer saved. Visible void with fall death and drop-in respawn (`VoidSystem`). Test map rebuilt in Tiled with an in-house placeholder tileset; Boot scene loads maps.
 - **0.6:** Phase 0 done: Phaser 3 + Vite, Boot and Game scenes, live on GitHub Pages with auto-deploy. Art direction section. Art pass phase (9.5). Phase 1 steps 1–2: test map config, player walking, gravity, camera follow, jetpack with fuel bar, diagonals, Down to descend. Added `src/ui/` and `src/data/player.js`. Positioning: influenced by Mini Militia, not in its style.
 - **0.5:** Word refresh timer, word lock, unique first letters, per-player words in multiplayer; placeholder-art-first approach.
 - **0.4:** Gravity always on; slow fall while typing in mid-air replaces hovering.
