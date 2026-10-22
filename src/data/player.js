@@ -21,6 +21,9 @@ export const PLAYER = {
   fuelDrain: 35,        // per second while thrusting (about 3s of flight)
   fuelRefill: 60,       // per second while standing on the ground
 
+  // Typing state
+  typingFallSpeed: 60,  // max fall speed while typing mid-air (slow drift)
+
   // Death and respawn
   respawnDelay: 1500,   // ms between dying and dropping back in
 };

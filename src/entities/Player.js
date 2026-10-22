@@ -12,10 +12,15 @@ export default class Player extends Phaser.GameObjects.Rectangle {
     this.facing = 1;          // 1 = right, -1 = left
     this.fuel = PLAYER.fuelMax;
     this.thrusting = false;
+    this.typing = false;
     this.alive = true;
 
     this.body.setCollideWorldBounds(true);
     this.body.setMaxVelocity(2000, PLAYER.maxFallSpeed);
+
+    // White outline shows the typing state (hidden until typing).
+    this.setStrokeStyle(3, 0xffffff);
+    this.isStroked = false;
 
     // Placeholder visuals
     this.flame = scene.add.rectangle(x, y, 10, 14, PLAYER.flameColor).setVisible(false);
@@ -32,11 +37,40 @@ export default class Player extends Phaser.GameObjects.Rectangle {
     if (!this.alive) return;
 
     const dt = delta / 1000;
-    const { left, right, up, down } = this.cursors;
 
-    this.updateHorizontal(left, right);
-    this.updateJetpack(up, down, dt);
+    if (this.typing) {
+      this.updateTyping(dt);
+    } else {
+      const { left, right, up, down } = this.cursors;
+      this.updateHorizontal(left, right);
+      this.updateJetpack(up, down, dt);
+    }
+
     this.updateVisuals();
+  }
+
+  setTyping(on) {
+    this.typing = on;
+    this.isStroked = on;
+
+    if (on) {
+      this.thrusting = false;
+      this.body.setVelocityX(0);
+      this.body.setAccelerationY(0);
+    }
+  }
+
+  updateTyping(dt) {
+    // Hold position horizontally, no jetpack.
+    this.body.setVelocityX(0);
+    this.body.setAccelerationY(0);
+
+    // In the air: gravity still pulls, but the fall is capped to a slow drift.
+    if (!this.onGround && this.body.velocity.y > PLAYER.typingFallSpeed) {
+      this.body.setVelocityY(PLAYER.typingFallSpeed);
+    }
+
+    this.refillFuel(dt);
   }
 
   updateHorizontal(left, right) {
@@ -70,8 +104,12 @@ export default class Player extends Phaser.GameObjects.Rectangle {
       this.body.setVelocityY(-PLAYER.maxRiseSpeed);
     }
 
-    // Fuel refills only on the ground.
-    if (this.onGround && !this.thrusting) {
+    if (!this.thrusting) this.refillFuel(dt);
+  }
+
+  // Fuel refills only on the ground.
+  refillFuel(dt) {
+    if (this.onGround) {
       this.fuel = Math.min(PLAYER.fuelMax, this.fuel + PLAYER.fuelRefill * dt);
     }
   }
@@ -90,6 +128,8 @@ export default class Player extends Phaser.GameObjects.Rectangle {
   die() {
     this.alive = false;
     this.thrusting = false;
+    this.typing = false;
+    this.isStroked = false;
     this.body.setAcceleration(0, 0);
     this.body.stop();               // zero velocity
     this.body.enable = false;       // no physics while dead

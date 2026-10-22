@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import Player from '../entities/Player.js';
 import Hud from '../ui/Hud.js';
 import VoidSystem from '../systems/VoidSystem.js';
+import TypingSystem from '../systems/TypingSystem.js';
 import { MAPS } from '../data/maps.js';
 import { PLAYER } from '../data/player.js';
 
@@ -28,6 +29,7 @@ export default class GameScene extends Phaser.Scene {
     this.player = new Player(this, spawn.x, spawn.y);
     this.physics.add.collider(this.player, this.platforms);
 
+    this.typing = new TypingSystem(this, this.player);
     this.voidSystem = new VoidSystem(this, this.map, (player) => this.handleFall(player));
 
     // Camera follows the player smoothly and stays inside the map.
@@ -73,6 +75,7 @@ export default class GameScene extends Phaser.Scene {
   }
 
   handleFall(player) {
+    this.typing.reset(); // dying clears your half-typed text
     player.die();
     this.deaths += 1;
 
@@ -90,14 +93,14 @@ export default class GameScene extends Phaser.Scene {
   update(time, delta) {
     this.player.update(delta);
     this.voidSystem.update(this.player);
-    this.hud.update(this.player);
+    this.hud.update(this.player, this.typing);
 
     const b = this.player.body;
     this.debugText.setText([
       `x: ${Math.round(this.player.x)}  y: ${Math.round(this.player.y)}`,
       `vx: ${Math.round(b.velocity.x)}  vy: ${Math.round(b.velocity.y)}`,
       `onGround: ${this.player.onGround}  fuel: ${Math.round(this.player.fuel)}`,
-      `alive: ${this.player.alive}  deaths: ${this.deaths}`,
+      `alive: ${this.player.alive}  deaths: ${this.deaths}  typing: ${this.typing.isTyping}`,
     ]);
   }
 }
