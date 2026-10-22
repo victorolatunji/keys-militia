@@ -12,6 +12,7 @@ export default class Player extends Phaser.GameObjects.Rectangle {
     this.facing = 1;          // 1 = right, -1 = left
     this.fuel = PLAYER.fuelMax;
     this.thrusting = false;
+    this.alive = true;
 
     this.body.setCollideWorldBounds(true);
     this.body.setMaxVelocity(2000, PLAYER.maxFallSpeed);
@@ -28,6 +29,8 @@ export default class Player extends Phaser.GameObjects.Rectangle {
   }
 
   update(delta) {
+    if (!this.alive) return;
+
     const dt = delta / 1000;
     const { left, right, up, down } = this.cursors;
 
@@ -84,9 +87,24 @@ export default class Player extends Phaser.GameObjects.Rectangle {
     }
   }
 
+  die() {
+    this.alive = false;
+    this.thrusting = false;
+    this.body.setAcceleration(0, 0);
+    this.body.stop();               // zero velocity
+    this.body.enable = false;       // no physics while dead
+    this.setVisible(false);
+    this.eye.setVisible(false);
+    this.flame.setVisible(false);
+  }
+
   respawn() {
+    this.body.enable = true;
     this.body.reset(this.spawnPoint.x, this.spawnPoint.y); // move + zero velocity
-    this.body.setAccelerationY(0);
+    this.body.setAcceleration(0, 0);
     this.fuel = PLAYER.fuelMax;
+    this.alive = true;
+    this.setVisible(true);
+    this.eye.setVisible(true);
   }
 }

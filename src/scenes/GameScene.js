@@ -1,7 +1,9 @@
 import Phaser from 'phaser';
 import Player from '../entities/Player.js';
 import Hud from '../ui/Hud.js';
+import VoidSystem from '../systems/VoidSystem.js';
 import { MAPS } from '../data/maps.js';
+import { PLAYER } from '../data/player.js';
 
 export default class GameScene extends Phaser.Scene {
   constructor() {
@@ -10,6 +12,7 @@ export default class GameScene extends Phaser.Scene {
 
   init(data) {
     this.map = MAPS[data.mapKey ?? 'test'];
+    this.deaths = 0;
   }
 
   create() {
@@ -25,11 +28,27 @@ export default class GameScene extends Phaser.Scene {
     this.player = new Player(this, spawn.x, spawn.y);
     this.physics.add.collider(this.player, this.platforms);
 
+    this.voidSystem = new VoidSystem(this, this.map, (player) => this.handleFall(player));
+
     // Camera follows the player smoothly and stays inside the map.
     this.cameras.main.setBounds(0, 0, width, height);
     this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
 
     this.hud = new Hud(this);
+
+    // Center-screen message (death notice for now).
+    this.message = this.add
+      .text(640, 300, '', {
+        fontFamily: 'monospace',
+        fontSize: '36px',
+        color: '#ffffff',
+        backgroundColor: '#000000aa',
+        padding: { x: 16, y: 8 },
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(100)
+      .setVisible(false);
 
     // Debug readout, pinned to the screen.
     this.debugText = this.add
@@ -53,20 +72,32 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
+  handleFall(player) {
+    player.die();
+    this.deaths += 1;
+
+    this.cameras.main.shake(250, 0.01);
+    this.cameras.main.flash(250, 120, 0, 40);
+
+    this.message.setText('Fell into the void').setVisible(true);
+
+    this.time.delayedCall(PLAYER.respawnDelay, () => {
+      this.message.setVisible(false);
+      player.respawn();
+    });
+  }
+
   update(time, delta) {
     this.player.update(delta);
+    this.voidSystem.update(this.player);
     this.hud.update(this.player);
-
-    // Temporary: fell off the map → respawn. Proper void death comes in Step 3.
-    if (this.player.y > this.map.height + 100) {
-      this.player.respawn();
-    }
 
     const b = this.player.body;
     this.debugText.setText([
       `x: ${Math.round(this.player.x)}  y: ${Math.round(this.player.y)}`,
       `vx: ${Math.round(b.velocity.x)}  vy: ${Math.round(b.velocity.y)}`,
       `onGround: ${this.player.onGround}  fuel: ${Math.round(this.player.fuel)}`,
+      `alive: ${this.player.alive}  deaths: ${this.deaths}`,
     ]);
   }
 }

@@ -20,4 +20,7 @@ export const PLAYER = {
   fuelMax: 100,
   fuelDrain: 35,        // per second while thrusting (about 3s of flight)
   fuelRefill: 60,       // per second while standing on the ground
+
+  // Death and respawn
+  respawnDelay: 1500,   // ms between dying and dropping back in
 };

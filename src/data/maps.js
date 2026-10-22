@@ -12,6 +12,14 @@ export const MAPS = {
     // Players drop in from the sky.
     spawn: { x: 600, y: 100 },
 
+    // The void under every map.
+    void: {
+      top: 1240,          // where the darkness starts
+      deathY: 1380,       // cross this line and you die
+      color: 0x05050f,    // darkness color
+      glowColor: 0x9d4edd // rising mist color
+    },
+
     platforms: [
       { x: 300,  y: 1100, w: 1000, h: 120 }, // main island
       { x: 1450, y: 1000, w: 700,  h: 120 }, // right island
