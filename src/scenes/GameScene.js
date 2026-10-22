@@ -17,20 +17,20 @@ export default class GameScene extends Phaser.Scene {
   }
 
   create() {
-    const { width, height, spawn } = this.map;
-
     this.cameras.main.setBackgroundColor(this.map.background);
+
+    const { width, height, spawn } = this.buildTilemap();
 
     // World bounds: walls left, right and top. No floor: below is the void.
     this.physics.world.setBounds(0, 0, width, height, true, true, true, false);
 
-    this.buildPlatforms();
-
     this.player = new Player(this, spawn.x, spawn.y);
-    this.physics.add.collider(this.player, this.platforms);
+    this.physics.add.collider(this.player, this.groundLayer);
 
     this.typing = new TypingSystem(this, this.player);
-    this.voidSystem = new VoidSystem(this, this.map, (player) => this.handleFall(player));
+    this.voidSystem = new VoidSystem(this, this.map, { width, height }, (player) =>
+      this.handleFall(player)
+    );
 
     // Camera follows the player smoothly and stays inside the map.
     this.cameras.main.setBounds(0, 0, width, height);
@@ -59,19 +59,30 @@ export default class GameScene extends Phaser.Scene {
       .setDepth(100);
   }
 
-  buildPlatforms() {
-    this.platforms = this.physics.add.staticGroup();
+  // Builds the level from the Tiled file. Needs a tile layer "ground"
+  // and an object layer "spawns" with a point named "player".
+  buildTilemap() {
+    const { key, tilemapKey, tilesetName, tilesetKey } = this.map;
 
-    for (const p of this.map.platforms) {
-      const cx = p.x + p.w / 2;
-      const cy = p.y + p.h / 2;
+    const tilemap = this.make.tilemap({ key: tilemapKey });
+    const tileset = tilemap.addTilesetImage(tilesetName, tilesetKey);
 
-      const block = this.add.rectangle(cx, cy, p.w, p.h, this.map.groundColor);
-      this.platforms.add(block);
-
-      // Grass strip on top (visual only, no physics).
-      this.add.rectangle(cx, p.y + 4, p.w, 8, this.map.grassColor);
+    this.groundLayer = tilemap.createLayer('ground', tileset, 0, 0);
+    if (!this.groundLayer) {
+      throw new Error(`Map "${key}" needs a tile layer named "ground".`);
     }
+    this.groundLayer.setCollisionByExclusion([-1]); // every painted tile is solid
+
+    const spawn = tilemap.findObject('spawns', (obj) => obj.name === 'player');
+    if (!spawn) {
+      throw new Error(`Map "${key}" needs an object layer "spawns" with a point named "player".`);
+    }
+
+    return {
+      width: tilemap.widthInPixels,
+      height: tilemap.heightInPixels,
+      spawn: { x: spawn.x, y: spawn.y },
+    };
   }
 
   handleFall(player) {

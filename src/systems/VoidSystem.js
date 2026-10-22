@@ -2,9 +2,11 @@ import Phaser from 'phaser';
 
 // The void under every map: draws the darkness and mist, and detects falls.
 export default class VoidSystem {
-  constructor(scene, map, onFall) {
+  constructor(scene, map, worldSize, onFall) {
     this.scene = scene;
     this.map = map;
+    this.width = worldSize.width;
+    this.height = worldSize.height;
     this.deathY = map.void.deathY;
     this.onFall = onFall;
 
@@ -13,9 +15,8 @@ export default class VoidSystem {
   }
 
   drawDarkness() {
-    const { width, height, key } = this.map;
     const { top, color } = this.map.void;
-    const texKey = `void-${key}`;
+    const texKey = `void-${this.map.key}`;
 
     // Build a vertical gradient once: transparent at the top, solid at the bottom.
     if (!this.scene.textures.exists(texKey)) {
@@ -37,12 +38,11 @@ export default class VoidSystem {
     this.scene.add
       .image(0, top, texKey)
       .setOrigin(0, 0)
-      .setDisplaySize(width, height - top)
+      .setDisplaySize(this.width, this.height - top)
       .setDepth(10);
   }
 
   drawMist() {
-    const { width, height } = this.map;
     const { glowColor } = this.map.void;
 
     // Soft white dot texture, tinted by the emitter.
@@ -56,8 +56,8 @@ export default class VoidSystem {
 
     this.scene.add
       .particles(0, 0, 'mist-dot', {
-        x: { min: 0, max: width },
-        y: { min: this.deathY - 40, max: height },
+        x: { min: 0, max: this.width },
+        y: { min: this.deathY - 40, max: this.height },
         lifespan: 4000,
         speedX: { min: -10, max: 10 },
         speedY: { min: -22, max: -8 },  // drifts slowly upward
