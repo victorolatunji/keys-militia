@@ -1,20 +1,24 @@
 import { WORDS } from '../data/words.js';
+import { PLAYER } from '../data/player.js';
 import { pickWord } from './wordPicker.js';
 
-// Typing: words on targets (unique first letters), typing state, lock-on, firing.
-// Step 3 adds typos, Step 4 line of sight and word refresh.
+// Typing: words on targets (unique first letters), typing state, lock-on,
+// firing and typos. Step 4 adds line of sight and word refresh.
 
 const LETTER = /^[a-z]$/; // lowercase only, so Shift/Space/digits never count
 const ARROWS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']);
 
 export default class TypingSystem {
   constructor(scene, player, onFire) {
+    this.scene = scene;
     this.player = player;
     this.onFire = onFire;   // called with the target when a word is finished
     this.isTyping = false;
     this.targets = [];
     this.lock = null;       // target we're typing at
     this.progress = 0;      // letters typed correctly on the locked word
+    this.jammedUntil = 0;   // scene time when the jam ends
+    this.typos = 0;
 
     scene.input.keyboard.on('keydown', this.handleKey, this);
 
@@ -22,6 +26,10 @@ export default class TypingSystem {
     scene.events.once('shutdown', () => {
       scene.input.keyboard.off('keydown', this.handleKey, this);
     });
+  }
+
+  get isJammed() {
+    return this.scene.time.now < this.jammedUntil;
   }
 
   // ---- Targets and words ----
@@ -68,10 +76,15 @@ export default class TypingSystem {
   }
 
   handleLetter(letter) {
+    if (this.isJammed) return; // letters during a jam are ignored
+
     // No lock yet: the first letter picks the target.
     if (!this.lock) {
       const target = this.targets.find((t) => t.alive && t.word && t.word[0] === letter);
-      if (!target) return; // Step 3: this becomes a typo
+      if (!target) {
+        this.typo(); // no word starts with this letter
+        return;
+      }
 
       this.lock = target;
       this.progress = 0;
@@ -79,7 +92,10 @@ export default class TypingSystem {
     }
 
     const word = this.lock.word;
-    if (letter !== word[this.progress]) return; // Step 3: this becomes a typo
+    if (letter !== word[this.progress]) {
+      this.typo();
+      return;
+    }
 
     this.progress += 1;
     this.lock.label.setProgress(this.progress);
@@ -92,6 +108,18 @@ export default class TypingSystem {
     const target = this.lock;
     this.clearLock();
     this.onFire(target);
+  }
+
+  // Wrong letter: break the lock, shake the word, jam the gun.
+  // The word itself stays, so you can retry it after the jam.
+  typo() {
+    const target = this.lock;
+    this.clearLock();
+    if (target) target.label.shake();
+
+    this.jammedUntil = this.scene.time.now + PLAYER.typoJamMs;
+    this.typos += 1;
+    this.player.jamPuff();
   }
 
   clearLock() {
@@ -113,6 +141,7 @@ export default class TypingSystem {
 
   reset() {
     this.clearLock();
+    this.jammedUntil = 0;
     this.setTyping(false);
   }
 }

@@ -23,6 +23,7 @@ export const PLAYER = {
 
   // Typing state
   typingFallSpeed: 60,  // max fall speed while typing mid-air (slow drift)
+  typoJamMs: 500,       // gun jam after a typo; letters are ignored
 
   // Death and respawn
   respawnDelay: 1500,   // ms between dying and dropping back in

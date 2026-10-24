@@ -1,6 +1,8 @@
 import Phaser from 'phaser';
 import { PLAYER } from '../data/player.js';
 
+const SMOKE_COLOR = 0x9a9a9a;
+
 export default class Player extends Phaser.GameObjects.Rectangle {
   constructor(scene, x, y) {
     super(scene, x, y, PLAYER.width, PLAYER.height, PLAYER.color);
@@ -63,6 +65,28 @@ export default class Player extends Phaser.GameObjects.Rectangle {
   // Auto-face a target (called while typing at it).
   faceToward(x) {
     this.facing = x < this.x ? -1 : 1;
+  }
+
+  // Typo feedback: a few grey smoke puffs from the gun.
+  jamPuff() {
+    const x = this.x + this.facing * 18;
+    const y = this.y - 4;
+
+    for (let i = 0; i < 4; i++) {
+      const puff = this.scene.add
+        .circle(x, y, Phaser.Math.Between(4, 7), SMOKE_COLOR, 0.8)
+        .setDepth(41);
+
+      this.scene.tweens.add({
+        targets: puff,
+        x: x + this.facing * Phaser.Math.Between(4, 16),
+        y: y - Phaser.Math.Between(10, 24),
+        alpha: 0,
+        scale: 1.8,
+        duration: 400 + i * 60,
+        onComplete: () => puff.destroy(),
+      });
+    }
   }
 
   updateTyping(dt) {

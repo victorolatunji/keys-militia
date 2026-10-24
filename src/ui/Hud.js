@@ -25,7 +25,7 @@ export default class Hud {
       .rectangle(x + 50, y + 2, BAR_WIDTH, BAR_HEIGHT, FUEL_COLOR)
       .setOrigin(0, 0);
 
-    // Typing state tag, bottom center.
+    // Typing state tag, bottom center: TYPING or JAMMED.
     this.typingTag = scene.add
       .text(640, 690, 'TYPING', {
         fontFamily: 'monospace',
@@ -47,6 +47,12 @@ export default class Hud {
     this.fuelFill.scaleX = pct; // origin is left edge, so it shrinks to the left
     this.fuelFill.setFillStyle(pct < 0.25 ? FUEL_LOW_COLOR : FUEL_COLOR);
 
-    this.typingTag.setVisible(typing.isTyping);
+    if (typing.isJammed) {
+      this.typingTag.setText('JAMMED').setColor('#ff4d6d').setVisible(true);
+    } else if (typing.isTyping) {
+      this.typingTag.setText('TYPING').setColor('#ffffff').setVisible(true);
+    } else {
+      this.typingTag.setVisible(false);
+    }
   }
 }
