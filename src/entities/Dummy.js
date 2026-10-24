@@ -18,17 +18,22 @@ export default class Dummy extends Phaser.GameObjects.Rectangle {
     this.maxHp = config.hp;
     this.hp = config.hp;
     this.alive = true;
-    this.word = null;
+    this.word = null;         // current word (null = no word showing)
+    this.lastWord = null;     // so a returning target gets a different word
+    this.wordExpiresAt = 0;   // scene time when the word refreshes
 
     this.hpBg = scene.add.rectangle(0, 0, HP_WIDTH + 2, HP_HEIGHT + 2, 0x000000, 0.6);
     this.hpFill = scene.add.rectangle(0, 0, HP_WIDTH, HP_HEIGHT, HP_COLOR).setOrigin(0, 0.5);
     this.label = new WordLabel(scene);
+    this.label.setVisible(false);
 
     this.layout();
   }
 
   setWord(word) {
     this.word = word;
+    if (word) this.lastWord = word;
+
     this.label.setWord(word ?? '');
     this.label.setVisible(Boolean(word) && this.alive);
     this.layout();

@@ -29,3 +29,10 @@ export const WORDS = {
     'yesterday', 'zeppelin',
   ],
 };
+
+// Unlocked words change after a random time in this range.
+// Difficulty will scale it in Phase 9 (shorter on Hard, longer on Easy).
+export const WORD_REFRESH = {
+  minMs: 8000,
+  maxMs: 12000,
+};

@@ -33,7 +33,9 @@ export default class GameScene extends Phaser.Scene {
     this.player = new Player(this, spawn.x, spawn.y);
     this.physics.add.collider(this.player, this.groundLayer);
 
-    this.typing = new TypingSystem(this, this.player, (target) => this.handleShot(target));
+    this.typing = new TypingSystem(this, this.player, this.groundLayer, (target) =>
+      this.handleShot(target)
+    );
 
     // Practice targets from the Tiled "dummy" points.
     this.dummies = dummySpawns.map((p) => new Dummy(this, p.x, p.y));
@@ -146,6 +148,7 @@ export default class GameScene extends Phaser.Scene {
   update(time, delta) {
     this.player.update(delta);
     for (const dummy of this.dummies) dummy.update();
+    this.typing.update();
     this.voidSystem.update(this.player);
     this.hud.update(this.player, this.typing);
 
@@ -157,7 +160,8 @@ export default class GameScene extends Phaser.Scene {
       `onGround: ${this.player.onGround}  fuel: ${Math.round(this.player.fuel)}`,
       `alive: ${this.player.alive}  deaths: ${this.deaths}  typing: ${this.typing.isTyping}`,
       `lock: ${lock ? `${lock.word} (${this.typing.progress}/${lock.word.length})` : '-'}`,
-      `shots: ${this.shots}  kills: ${this.kills}`,
+      `shots: ${this.shots}  kills: ${this.kills}  typos: ${this.typing.typos}`,
+      `words: ${this.dummies.map((d) => d.word ?? '-').join(', ')}`,
     ]);
   }
 }
