@@ -4,6 +4,7 @@
 const STYLE = { fontFamily: 'monospace', fontSize: '20px', fontStyle: 'bold' };
 const TYPED_COLOR = '#ffd166';
 const REST_COLOR = '#ffffff';
+const LOCK_COLOR = 0xffd166;
 const PLATE_HEIGHT = 28;
 const PLATE_PADDING = 16;
 
@@ -15,6 +16,9 @@ export default class WordLabel {
     this.y = 0;
 
     this.plate = scene.add.rectangle(0, 0, 10, PLATE_HEIGHT, 0x000000, 0.75).setDepth(50);
+    this.plate.setStrokeStyle(2, LOCK_COLOR);
+    this.plate.isStroked = false; // outline only while locked
+
     this.typed = scene.add
       .text(0, 0, '', { ...STYLE, color: TYPED_COLOR })
       .setOrigin(0, 0.5)
@@ -34,6 +38,10 @@ export default class WordLabel {
   setProgress(count) {
     this.progress = count;
     this.render();
+  }
+
+  setLocked(locked) {
+    this.plate.isStroked = locked;
   }
 
   setVisible(visible) {

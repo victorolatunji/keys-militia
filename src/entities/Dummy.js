@@ -5,8 +5,10 @@ import { ENEMIES } from '../data/enemies.js';
 const HP_WIDTH = 40;
 const HP_HEIGHT = 6;
 const HP_COLOR = 0x06d6a0;
+const HIT_FLASH_MS = 80;
 
 // Stationary practice target. Placed by its feet (Tiled point on a platform).
+// Emits 'died' and 'respawn' so other systems can react.
 export default class Dummy extends Phaser.GameObjects.Rectangle {
   constructor(scene, feetX, feetY, config = ENEMIES.dummy) {
     super(scene, feetX, feetY - config.height / 2, config.width, config.height, config.color);
@@ -30,6 +32,43 @@ export default class Dummy extends Phaser.GameObjects.Rectangle {
     this.label.setWord(word ?? '');
     this.label.setVisible(Boolean(word) && this.alive);
     this.layout();
+  }
+
+  takeDamage(amount) {
+    if (!this.alive) return;
+
+    this.hp = Math.max(0, this.hp - amount);
+    this.flash();
+    this.layout();
+
+    if (this.hp === 0) this.die();
+  }
+
+  flash() {
+    this.setFillStyle(0xffffff);
+    this.scene.time.delayedCall(HIT_FLASH_MS, () => this.setFillStyle(this.config.color));
+  }
+
+  die() {
+    this.alive = false;
+    this.setWord(null);
+    this.setVisible(false);
+    this.hpBg.setVisible(false);
+    this.hpFill.setVisible(false);
+
+    this.emit('died', this);
+    this.scene.time.delayedCall(this.config.respawnDelay, () => this.respawn());
+  }
+
+  respawn() {
+    this.hp = this.maxHp;
+    this.alive = true;
+    this.setVisible(true);
+    this.hpBg.setVisible(true);
+    this.hpFill.setVisible(true);
+    this.layout();
+
+    this.emit('respawn', this);
   }
 
   layout() {

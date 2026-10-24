@@ -60,6 +60,11 @@ export default class Player extends Phaser.GameObjects.Rectangle {
     }
   }
 
+  // Auto-face a target (called while typing at it).
+  faceToward(x) {
+    this.facing = x < this.x ? -1 : 1;
+  }
+
   updateTyping(dt) {
     // Hold position horizontally, no jetpack.
     this.body.setVelocityX(0);
