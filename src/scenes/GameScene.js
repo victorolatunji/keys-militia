@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import Player from '../entities/Player.js';
+import Dummy from '../entities/Dummy.js';
 import Hud from '../ui/Hud.js';
 import VoidSystem from '../systems/VoidSystem.js';
 import TypingSystem from '../systems/TypingSystem.js';
@@ -19,7 +20,7 @@ export default class GameScene extends Phaser.Scene {
   create() {
     this.cameras.main.setBackgroundColor(this.map.background);
 
-    const { width, height, spawn } = this.buildTilemap();
+    const { width, height, spawn, dummySpawns } = this.buildTilemap();
 
     // World bounds: walls left, right and top. No floor: below is the void.
     this.physics.world.setBounds(0, 0, width, height, true, true, true, false);
@@ -28,6 +29,11 @@ export default class GameScene extends Phaser.Scene {
     this.physics.add.collider(this.player, this.groundLayer);
 
     this.typing = new TypingSystem(this, this.player);
+
+    // Practice targets from the Tiled "dummy" points.
+    this.dummies = dummySpawns.map((p) => new Dummy(this, p.x, p.y));
+    for (const dummy of this.dummies) this.typing.addTarget(dummy);
+
     this.voidSystem = new VoidSystem(this, this.map, { width, height }, (player) =>
       this.handleFall(player)
     );
@@ -61,6 +67,7 @@ export default class GameScene extends Phaser.Scene {
 
   // Builds the level from the Tiled file. Needs a tile layer "ground"
   // and an object layer "spawns" with a point named "player".
+  // Optional: points named "dummy" (placed at the dummy's feet).
   buildTilemap() {
     const { key, tilemapKey, tilesetName, tilesetKey } = this.map;
 
@@ -78,10 +85,13 @@ export default class GameScene extends Phaser.Scene {
       throw new Error(`Map "${key}" needs an object layer "spawns" with a point named "player".`);
     }
 
+    const dummySpawns = tilemap.filterObjects('spawns', (obj) => obj.name === 'dummy') ?? [];
+
     return {
       width: tilemap.widthInPixels,
       height: tilemap.heightInPixels,
       spawn: { x: spawn.x, y: spawn.y },
+      dummySpawns: dummySpawns.map((obj) => ({ x: obj.x, y: obj.y })),
     };
   }
 
@@ -103,6 +113,7 @@ export default class GameScene extends Phaser.Scene {
 
   update(time, delta) {
     this.player.update(delta);
+    for (const dummy of this.dummies) dummy.update();
     this.voidSystem.update(this.player);
     this.hud.update(this.player, this.typing);
 
@@ -112,6 +123,7 @@ export default class GameScene extends Phaser.Scene {
       `vx: ${Math.round(b.velocity.x)}  vy: ${Math.round(b.velocity.y)}`,
       `onGround: ${this.player.onGround}  fuel: ${Math.round(this.player.fuel)}`,
       `alive: ${this.player.alive}  deaths: ${this.deaths}  typing: ${this.typing.isTyping}`,
+      `targets: ${this.dummies.length}  words: ${this.dummies.map((d) => d.word).join(', ')}`,
     ]);
   }
 }

@@ -1,5 +1,8 @@
-// Typing state for Phase 1: letters enter typing mode, fresh arrow presses leave it.
-// Phase 2 replaces the test buffer with real words, lock-on and typos.
+import { WORDS } from '../data/words.js';
+import { pickWord } from './wordPicker.js';
+
+// Typing: words on targets (unique first letters), typing state.
+// Step 2 adds lock-on and shooting, Step 3 typos, Step 4 line of sight.
 
 const LETTER = /^[a-z]$/; // lowercase only, so Shift/Space/digits never count
 const ARROWS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']);
@@ -10,6 +13,7 @@ export default class TypingSystem {
     this.player = player;
     this.isTyping = false;
     this.buffer = '';
+    this.targets = [];
 
     scene.input.keyboard.on('keydown', this.handleKey, this);
 
@@ -18,6 +22,25 @@ export default class TypingSystem {
       scene.input.keyboard.off('keydown', this.handleKey, this);
     });
   }
+
+  // ---- Targets and words ----
+
+  addTarget(target) {
+    this.targets.push(target);
+    this.assignWord(target);
+  }
+
+  assignWord(target) {
+    const used = new Set(
+      this.targets
+        .filter((t) => t !== target && t.word)
+        .map((t) => t.word[0])
+    );
+    const list = WORDS[target.config.wordList];
+    target.setWord(pickWord(list, used, target.word));
+  }
+
+  // ---- Keyboard ----
 
   handleKey(event) {
     if (!this.player.alive) return;
