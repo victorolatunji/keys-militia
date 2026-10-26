@@ -18,8 +18,9 @@ const PREVIEW_STEP = 0.06; // seconds between preview dots
 // Gun slots, Shift switching, firing (damage + tracer), and throwables
 // (hold Space to aim and charge, release to throw, blast with falloff).
 export default class WeaponSystem {
-  constructor(scene, player, typing, groundLayer, worldHeight) {
+  constructor(scene, player, typing, groundLayer, worldHeight, collisions) {
     this.scene = scene;
+    this.collisions = collisions;
     this.player = player;
     this.typing = typing;
     this.groundLayer = groundLayer;
@@ -208,9 +209,11 @@ export default class WeaponSystem {
       origin.y,
       config,
       this.groundLayer,
-      this.worldHeight
+      this.worldHeight,
+      this.player
     );
     grenade.body.setVelocity(vx, vy);
+    this.collisions.addGrenade(grenade);
     grenade.on('explode', (x, y) => this.explode(x, y, config));
 
     this.grenades.push(grenade);

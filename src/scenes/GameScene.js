@@ -5,6 +5,8 @@ import Hud from '../ui/Hud.js';
 import VoidSystem from '../systems/VoidSystem.js';
 import TypingSystem from '../systems/TypingSystem.js';
 import WeaponSystem from '../systems/WeaponSystem.js';
+import AirdropSystem from '../systems/AirdropSystem.js';
+import CollisionSystem from '../systems/CollisionSystem.js';
 import { MAPS } from '../data/maps.js';
 import { PLAYER } from '../data/player.js';
 
@@ -38,20 +40,35 @@ export default class GameScene extends Phaser.Scene {
     this.physics.add.collider(this.player, this.groundLayer);
     this.player.on('died', (cause) => this.handlePlayerDeath(cause));
 
+    // Object-vs-object collisions (characters, crates, grenades).
+    this.collisions = new CollisionSystem(this);
+    this.collisions.addCharacter(this.player);
+
     // Typing and weapons need each other; the arrow functions run later,
     // once both exist.
     this.typing = new TypingSystem(this, this.player, this.groundLayer, {
       onFire: (target) => this.weapons.fire(target),
       getWordList: () => this.weapons.current.wordList,
     });
-    this.weapons = new WeaponSystem(this, this.player, this.typing, this.groundLayer, height);
+    this.weapons = new WeaponSystem(
+      this,
+      this.player,
+      this.typing,
+      this.groundLayer,
+      height,
+      this.collisions
+    );
 
     // Practice targets from the Tiled "dummy" points.
     this.dummies = dummySpawns.map((p) => new Dummy(this, p.x, p.y));
     for (const dummy of this.dummies) {
       this.typing.addTarget(dummy);
+      this.collisions.addCharacter(dummy);
       dummy.on('died', () => (this.kills += 1));
     }
+
+    // Crates parachute in on a timer (pickups come in Phase 4 step 2).
+    this.airdrops = new AirdropSystem(this, this.groundLayer, { width, height }, this.collisions);
 
     this.voidSystem = new VoidSystem(this, this.map, { width, height }, (player) =>
       player.kill('void')
@@ -138,6 +155,7 @@ export default class GameScene extends Phaser.Scene {
     for (const dummy of this.dummies) dummy.update();
     this.typing.update();
     this.weapons.update(delta);
+    this.airdrops.update(delta);
     this.voidSystem.update(this.player);
     this.hud.update(this.player, this.typing, this.weapons);
 
@@ -154,6 +172,7 @@ export default class GameScene extends Phaser.Scene {
       `last shot: ${shot ? `${shot.distance}px  x${shot.multiplier.toFixed(2)}` : '-'}  staggered: ${this.player.staggered}`,
       `thrown: ${this.weapons.thrown}  grenades in air: ${this.weapons.grenades.length}`,
       `words: ${this.dummies.map((d) => d.word ?? '-').join(', ')}`,
+      `crates: ${this.airdrops.crates.map((c) => `${c.item.key} (${c.state})`).join(', ') || '-'}  next drop: ${Math.ceil(this.airdrops.timeToNextDrop / 1000)}s`,
     ]);
   }
 }

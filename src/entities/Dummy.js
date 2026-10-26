@@ -8,11 +8,15 @@ const HP_COLOR = 0x06d6a0;
 const HIT_FLASH_MS = 80;
 
 // Stationary practice target. Placed by its feet (Tiled point on a platform).
+// Solid: it has a physics body that never moves (no gravity, can't be pushed).
 // Emits 'died' and 'respawn' so other systems can react.
 export default class Dummy extends Phaser.GameObjects.Rectangle {
   constructor(scene, feetX, feetY, config = ENEMIES.dummy) {
     super(scene, feetX, feetY - config.height / 2, config.width, config.height, config.color);
     scene.add.existing(this);
+    scene.physics.add.existing(this);
+    this.body.setAllowGravity(false);
+    this.body.setImmovable(true);
 
     this.config = config;
     this.maxHp = config.hp;
@@ -56,6 +60,7 @@ export default class Dummy extends Phaser.GameObjects.Rectangle {
 
   die() {
     this.alive = false;
+    this.body.enable = false; // nothing bumps into a dead dummy
     this.setWord(null);
     this.setVisible(false);
     this.hpBg.setVisible(false);
@@ -68,6 +73,7 @@ export default class Dummy extends Phaser.GameObjects.Rectangle {
   respawn() {
     this.hp = this.maxHp;
     this.alive = true;
+    this.body.enable = true;
     this.setVisible(true);
     this.hpBg.setVisible(true);
     this.hpFill.setVisible(true);

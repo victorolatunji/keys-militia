@@ -58,6 +58,8 @@ export const THROWABLES = {
     knockback: 520,       // px/s push away from the blast at full strength
     knockbackLift: 220,   // extra upward px/s so you pop off the ground
     knockbackFullAt: 40,  // damage at or above this gives the full push
+    mass: 0.2,            // vs 1 for characters: bounces off them, barely moves them
+    ownerIgnoreMs: 300,   // passes through the thrower right after the throw
   },
 };
 

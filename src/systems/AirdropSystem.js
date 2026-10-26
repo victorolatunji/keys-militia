@@ -1,0 +1,87 @@
+import Phaser from 'phaser';
+import Crate from '../entities/Crate.js';
+import { AIRDROPS, AIRDROP_POOL } from '../data/airdrops.js';
+
+// Drops a crate on a timer, above a spot that has ground under it.
+// Pickups (the 1/2/3 panel) arrive in Phase 4 step 2.
+export default class AirdropSystem {
+  constructor(scene, groundLayer, worldSize, collisions) {
+    this.scene = scene;
+    this.collisions = collisions;
+    this.groundLayer = groundLayer;
+    this.width = worldSize.width;
+    this.height = worldSize.height;
+
+    this.crates = [];
+    this.dropped = 0;
+    this.nextDropAt = scene.time.now + AIRDROPS.firstDropMs;
+  }
+
+  // ms until the next drop (for the debug readout).
+  get timeToNextDrop() {
+    return Math.max(0, this.nextDropAt - this.scene.time.now);
+  }
+
+  update(delta) {
+    const now = this.scene.time.now;
+
+    this.crates = this.crates.filter((c) => c.active);
+    for (const crate of this.crates) crate.update(delta);
+
+    if (now >= this.nextDropAt) {
+      if (this.crates.length < AIRDROPS.maxCrates) this.drop();
+      this.nextDropAt = now + AIRDROPS.intervalMs;
+    }
+  }
+
+  drop() {
+    const x = this.findDropX();
+    const crate = new Crate(
+      this.scene,
+      x,
+      AIRDROPS.spawnY,
+      this.pickItem(),
+      this.groundLayer,
+      this.height
+    );
+
+    this.collisions.addCrate(crate);
+    this.crates.push(crate);
+    this.dropped += 1;
+  }
+
+  // Random x with a solid tile somewhere below it, so most crates land.
+  findDropX() {
+    const min = AIRDROPS.edgeMarginPx;
+    const max = this.width - AIRDROPS.edgeMarginPx;
+    let x = Phaser.Math.Between(min, max);
+
+    for (let i = 0; i < AIRDROPS.tries; i++) {
+      x = Phaser.Math.Between(min, max);
+      if (this.hasGroundBelow(x)) return x;
+    }
+
+    return x; // no luck: this one may fall into the void
+  }
+
+  hasGroundBelow(x) {
+    const tileSize = this.groundLayer.tilemap.tileHeight;
+    for (let y = 0; y < this.height; y += tileSize) {
+      const tile = this.groundLayer.getTileAtWorldXY(x, y);
+      if (tile && tile.collides) return true;
+    }
+    return false;
+  }
+
+  // Weighted random pick from the pool.
+  pickItem() {
+    const total = AIRDROP_POOL.reduce((sum, entry) => sum + entry.weight, 0);
+    let roll = Math.random() * total;
+
+    for (const entry of AIRDROP_POOL) {
+      roll -= entry.weight;
+      if (roll < 0) return { ...entry };
+    }
+    return { ...AIRDROP_POOL[0] };
+  }
+}

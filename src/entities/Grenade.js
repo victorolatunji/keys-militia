@@ -4,9 +4,11 @@ const BLINK_COLOR = 0xff4d6d;
 const BURST_COLOR = 0xff9f1c;
 
 // A thrown grenade: arcs, bounces, rolls, blinks, then explodes.
+// Bounces off terrain, crates and characters (see CollisionSystem), but
+// ignores its owner for a moment after the throw.
 // Emits 'explode' (x, y) so WeaponSystem can apply damage.
 export default class Grenade extends Phaser.GameObjects.Arc {
-  constructor(scene, x, y, config, groundLayer, worldHeight) {
+  constructor(scene, x, y, config, groundLayer, worldHeight, owner) {
     super(scene, x, y, config.radius, 0, 360, false, config.color);
     scene.add.existing(this);
     scene.physics.add.existing(this);
@@ -14,9 +16,12 @@ export default class Grenade extends Phaser.GameObjects.Arc {
     this.config = config;
     this.worldHeight = worldHeight;
     this.explodeAt = scene.time.now + config.fuseMs;
+    this.owner = owner;
+    this.ignoreOwnerUntil = scene.time.now + config.ownerIgnoreMs;
 
     this.body.setCircle(config.radius);
     this.body.setBounce(config.bounce);
+    this.body.setMass(config.mass); // light: barely nudges whoever it hits
     this.body.setCollideWorldBounds(true); // walls and top; no floor (the void)
 
     this.collider = scene.physics.add.collider(this, groundLayer);
