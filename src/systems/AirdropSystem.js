@@ -1,9 +1,11 @@
 import Phaser from 'phaser';
 import Crate from '../entities/Crate.js';
-import { AIRDROPS, AIRDROP_POOL } from '../data/airdrops.js';
+import Pickup from '../entities/Pickup.js';
+import { AIRDROPS, AIRDROP_POOL, DEATH_DROPS } from '../data/airdrops.js';
 
-// Drops a crate on a timer, above a spot that has ground under it.
-// Pickups (the 1/2/3 panel) arrive in Phase 4 step 2.
+// Drops a crate on a timer, above a spot that has ground under it,
+// and spills loose pickups when someone dies (death drops).
+// PickupSystem handles the 1/2/3 panel for both.
 export default class AirdropSystem {
   constructor(scene, groundLayer, worldSize, collisions) {
     this.scene = scene;
@@ -13,8 +15,14 @@ export default class AirdropSystem {
     this.height = worldSize.height;
 
     this.crates = [];
+    this.drops = [];   // loose death-drop pickups
     this.dropped = 0;
     this.nextDropAt = scene.time.now + AIRDROPS.firstDropMs;
+  }
+
+  // Everything the pickup panel can open: crates and loose drops.
+  get pickupables() {
+    return [...this.crates, ...this.drops];
   }
 
   // ms until the next drop (for the debug readout).
@@ -27,6 +35,9 @@ export default class AirdropSystem {
 
     this.crates = this.crates.filter((c) => c.active);
     for (const crate of this.crates) crate.update(delta);
+
+    this.drops = this.drops.filter((d) => d.active);
+    for (const drop of this.drops) drop.update();
 
     if (now >= this.nextDropAt) {
       if (this.crates.length < AIRDROPS.maxCrates) this.drop();
@@ -48,6 +59,18 @@ export default class AirdropSystem {
     this.collisions.addCrate(crate);
     this.crates.push(crate);
     this.dropped += 1;
+  }
+
+  // Spill items at a spot (a death). items: [{ type, key, count? }]
+  dropItems(x, y, items) {
+    for (const item of items) {
+      this.drops.push(new Pickup(this.scene, x, y, item, this.groundLayer, this.height));
+    }
+
+    // Too many on the map: the oldest go first.
+    while (this.drops.length > DEATH_DROPS.maxOnMap) {
+      this.drops.shift().remove();
+    }
   }
 
   // Random x with a solid tile somewhere below it, so most crates land.

@@ -137,6 +137,11 @@ export default class GameScene extends Phaser.Scene {
   handlePlayerDeath(cause) {
     this.typing.reset();      // clears your lock and progress
     this.weapons.cancelAim(); // and any throw in progress
+
+    // Your gear spills out where you died (not in the void: it would just fall).
+    if (cause !== 'void') {
+      this.airdrops.dropItems(this.player.x, this.player.y, this.weapons.loadoutItems());
+    }
     this.deaths += 1;
     if (cause === 'self') this.suicides += 1;
 
@@ -148,7 +153,7 @@ export default class GameScene extends Phaser.Scene {
     this.time.delayedCall(PLAYER.respawnDelay, () => {
       this.message.setVisible(false);
       this.player.respawn();
-      this.weapons.refillThrowables();
+      this.weapons.resetLoadout(); // back to the default guns and grenades
     });
   }
 
@@ -175,7 +180,7 @@ export default class GameScene extends Phaser.Scene {
       `last shot: ${shot ? `${shot.distance}px  x${shot.multiplier.toFixed(2)}` : '-'}  staggered: ${this.player.staggered}`,
       `thrown: ${this.weapons.thrown}  grenades in air: ${this.weapons.grenades.length}`,
       `words: ${this.dummies.map((d) => d.word ?? '-').join(', ')}`,
-      `crates: ${this.airdrops.crates.map((c) => `${c.item.key} (${c.state})`).join(', ') || '-'}  next drop: ${Math.ceil(this.airdrops.timeToNextDrop / 1000)}s  pickups: ${this.pickups.pickups}`,
+      `crates: ${this.airdrops.crates.map((c) => `${c.item.key} (${c.state})`).join(', ') || '-'}  next drop: ${Math.ceil(this.airdrops.timeToNextDrop / 1000)}s  drops: ${this.airdrops.drops.length}  pickups: ${this.pickups.pickups}`,
     ]);
   }
 }

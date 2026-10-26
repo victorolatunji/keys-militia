@@ -6,8 +6,8 @@ import { WEAPONS, THROWABLES } from '../data/weapons.js';
 const SLOT_KEYS = { 1: 0, 2: 1 }; // number key -> gun slot index
 const THROWABLE_KEY = '3';
 
-// Get near a landed crate: it gets a yellow outline and a panel at the
-// bottom of the screen shows what's inside.
+// Get near a landed crate or a loose drop: it gets a yellow outline and a
+// panel at the bottom of the screen shows what's inside.
 // 1 / 2 swap that gun slot with the crate's gun (your old gun goes into
 // the crate, so you can swap back). 3 takes the throwables.
 // The game never pauses, and digits never clash with typing (letters only).
@@ -18,7 +18,8 @@ export default class PickupSystem {
     this.weapons = weapons;
     this.airdrops = airdrops;
 
-    this.target = null; // crate the panel is showing
+    this.target = null;      // crate or drop the panel is showing
+    this.targetStroke = 0;   // its outline color before we highlighted it
     this.pickups = 0;
     this.panel = new PickupPanel(scene);
 
@@ -28,17 +29,17 @@ export default class PickupSystem {
     });
   }
 
-  // Closest settled crate within reach, or null.
+  // Closest settled crate or drop within reach, or null.
   findTarget() {
     if (!this.player.alive) return null;
 
     let best = null;
     let bestDist = AIRDROPS.pickupRadius;
-    for (const crate of this.airdrops.crates) {
-      if (!crate.active || !crate.settled) continue;
-      const d = Phaser.Math.Distance.Between(this.player.x, this.player.y, crate.x, crate.y);
+    for (const source of this.airdrops.pickupables) {
+      if (!source.active || !source.settled) continue;
+      const d = Phaser.Math.Distance.Between(this.player.x, this.player.y, source.x, source.y);
       if (d <= bestDist) {
-        best = crate;
+        best = source;
         bestDist = d;
       }
     }
@@ -48,10 +49,13 @@ export default class PickupSystem {
   update() {
     const target = this.findTarget();
 
-    // Outline the crate the panel is about.
+    // Outline what the panel is about (and restore the old outline after).
     if (target !== this.target) {
-      if (this.target?.active) this.target.setStrokeStyle(2, AIRDROPS.crate.strokeColor);
-      if (target) target.setStrokeStyle(2, AIRDROPS.crate.highlightColor);
+      if (this.target?.active) this.target.setStrokeStyle(2, this.targetStroke);
+      if (target) {
+        this.targetStroke = target.strokeColor;
+        target.setStrokeStyle(2, AIRDROPS.crate.highlightColor);
+      }
       this.target = target;
     }
 
@@ -115,7 +119,7 @@ export default class PickupSystem {
     const name = WEAPONS[crate.item.key].name;
     const oldKey = this.weapons.setGun(slot, crate.item.key);
 
-    // Your old gun goes into the crate; an empty slot leaves the crate empty.
+    // Your old gun goes into the crate (or drop); an empty slot leaves it empty.
     if (oldKey) crate.item = { type: 'gun', key: oldKey };
     else crate.remove();
 

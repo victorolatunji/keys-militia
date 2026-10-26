@@ -55,3 +55,19 @@ export const AIRDROP_POOL = [
   { type: 'gun', key: 'sniper', weight: 2 },
   { type: 'throwable', key: 'grenade', count: 3, weight: 2 },
 ];
+
+// Death drops: when you die, your guns and throwables fall out as loose pickups.
+// Anyone can grab them (same 1/2/3 panel as crates). Nothing drops in the void.
+export const DEATH_DROPS = {
+  lifetimeMs: 60000,     // vanish after this long
+  blinkBeforeMs: 5000,   // blink during the last 5s
+  popSpeedX: 90,         // max sideways speed when they pop out
+  popSpeedY: 220,        // upward speed when they pop out
+  maxOnMap: 8,           // oldest drop disappears past this
+
+  // Look (placeholder art until icons)
+  look: {
+    gun: { width: 24, height: 10, color: 0x9aa5b1, strokeColor: 0x3d4650 },
+    throwable: { width: 12, height: 12, color: 0x3d5a40, strokeColor: 0x1f2f22 },
+  },
+};

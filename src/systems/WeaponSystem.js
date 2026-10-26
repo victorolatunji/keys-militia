@@ -193,10 +193,21 @@ export default class WeaponSystem {
     if (this.aiming) this.stopAim();
   }
 
-  // Called on respawn.
-  refillThrowables() {
+  // Called on respawn: back to the default guns and throwables.
+  resetLoadout() {
+    this.guns = DEFAULT_LOADOUT.guns.map((key) => (key ? WEAPONS[key] : null));
+    this.active = 0;
     this.throwable = THROWABLES[DEFAULT_LOADOUT.throwable.key];
     this.throwableCount = DEFAULT_LOADOUT.throwable.count;
+  }
+
+  // What you're carrying, as pickup items (dropped when you die).
+  loadoutItems() {
+    const items = this.guns.filter(Boolean).map((gun) => ({ type: 'gun', key: gun.key }));
+    if (this.throwableCount > 0) {
+      items.push({ type: 'throwable', key: this.throwable.key, count: this.throwableCount });
+    }
+    return items;
   }
 
   // Pick up throwables. Same type: top up to maxCarry. Different type: swap,
