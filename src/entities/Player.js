@@ -20,6 +20,7 @@ export default class Player extends Phaser.GameObjects.Rectangle {
     this.typing = false;
     this.aiming = false;
     this.alive = true;
+    this.staggerUntil = 0;    // scene time when a blast push stops overriding control
 
     this.body.setCollideWorldBounds(true);
     this.body.setMaxVelocity(2000, PLAYER.maxFallSpeed);
@@ -39,13 +40,20 @@ export default class Player extends Phaser.GameObjects.Rectangle {
     return this.body.blocked.down || this.body.touching.down;
   }
 
+  // True right after a blast push: controls are ignored so the push plays out.
+  get staggered() {
+    return this.scene.time.now < this.staggerUntil;
+  }
+
   update(delta) {
     if (!this.alive) return;
 
     const dt = delta / 1000;
     const { left, right, up, down } = this.cursors;
 
-    if (this.typing) {
+    if (this.staggered) {
+      this.updateStaggered(dt);        // flying from a blast, no control
+    } else if (this.typing) {
       this.updateTyping(dt);           // hold still, slow fall
     } else if (this.aiming) {
       this.updateHorizontal(left, right);
@@ -74,6 +82,16 @@ export default class Player extends Phaser.GameObjects.Rectangle {
     this.scene.time.delayedCall(HIT_FLASH_MS, () => this.setFillStyle(PLAYER.color));
   }
 
+  // Blast push (WeaponSystem decides direction and strength).
+  applyKnockback(vx, vy) {
+    if (!this.alive) return;
+
+    this.thrusting = false;
+    this.body.setAcceleration(0, 0);
+    this.body.setVelocity(vx, vy);
+    this.staggerUntil = this.scene.time.now + PLAYER.knockbackStaggerMs;
+  }
+
   // Any death goes through here, so the scene hears about it once.
   kill(cause) {
     if (!this.alive) return;
@@ -89,8 +107,8 @@ export default class Player extends Phaser.GameObjects.Rectangle {
 
     if (on) {
       this.thrusting = false;
-      this.body.setVelocityX(0);
       this.body.setAccelerationY(0);
+      if (!this.staggered) this.body.setVelocityX(0); // don't cancel a blast push
     }
   }
 
@@ -142,6 +160,13 @@ export default class Player extends Phaser.GameObjects.Rectangle {
       this.body.setVelocityY(PLAYER.typingFallSpeed);
     }
 
+    this.refillFuel(dt);
+  }
+
+  // Knocked back: gravity and the push only. Fuel still refills on the ground.
+  updateStaggered(dt) {
+    this.thrusting = false;
+    this.body.setAccelerationY(0);
     this.refillFuel(dt);
   }
 
@@ -208,6 +233,7 @@ export default class Player extends Phaser.GameObjects.Rectangle {
 
   die() {
     this.alive = false;
+    this.staggerUntil = 0;
     this.thrusting = false;
     this.typing = false;
     this.aiming = false;
@@ -227,6 +253,7 @@ export default class Player extends Phaser.GameObjects.Rectangle {
     this.hp = PLAYER.maxHp;
     this.fuel = PLAYER.fuelMax;
     this.alive = true;
+    this.staggerUntil = 0;
     this.setFillStyle(PLAYER.color);
     this.setVisible(true);
     this.eye.setVisible(true);

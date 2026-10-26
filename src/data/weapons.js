@@ -1,12 +1,18 @@
 // Gun stats. HP is in points (dummies and players have 100).
 // wordList picks from words.js: short / medium / long.
 // Starting values, tune in playtests (README open decision).
+//
+// falloff: damage drops with distance from you to the target.
+//   Full damage up to startPx, then a straight line down to
+//   minMultiplier at endPx (and beyond). null = full damage at any range.
+//   A finished word always hits; only the damage changes.
 export const WEAPONS = {
   pistol: {
     key: 'pistol',
     name: 'Pistol',
     wordList: 'short',
     damage: 25,
+    falloff: { startPx: 250, endPx: 600, minMultiplier: 0.5 },
     tracerColor: 0xfff3b0,
     tracerWidth: 2,
   },
@@ -15,6 +21,7 @@ export const WEAPONS = {
     name: 'Assault Rifle',
     wordList: 'medium',
     damage: 34,
+    falloff: { startPx: 350, endPx: 700, minMultiplier: 0.6 },
     tracerColor: 0xffd166,
     tracerWidth: 3,
   },
@@ -23,6 +30,7 @@ export const WEAPONS = {
     name: 'Sniper',
     wordList: 'long',
     damage: 100,
+    falloff: null,        // long words buy full damage at any range
     tracerColor: 0xffffff,
     tracerWidth: 5,
   },
@@ -47,6 +55,9 @@ export const THROWABLES = {
     directHitRadius: 28,  // within this distance: full damage
     blastRadius: 120,     // damage falls to 0 at this distance
     selfDamage: 1,        // 1 = hurts you fully, 0 = safe for you
+    knockback: 520,       // px/s push away from the blast at full strength
+    knockbackLift: 220,   // extra upward px/s so you pop off the ground
+    knockbackFullAt: 40,  // damage at or above this gives the full push
   },
 };
 

@@ -10,6 +10,8 @@ import {
 } from '../data/weapons.js';
 
 const TRACER_FADE_MS = 150;
+const DAMAGE_COLOR = '#ff9f1c';  // full-damage hit
+const REDUCED_COLOR = '#ffe8b0'; // hit weakened by range falloff
 const PREVIEW_DOTS = 14;
 const PREVIEW_STEP = 0.06; // seconds between preview dots
 
@@ -27,6 +29,7 @@ export default class WeaponSystem {
     this.guns = DEFAULT_LOADOUT.guns.map((key) => (key ? WEAPONS[key] : null));
     this.active = 0;
     this.shots = 0;
+    this.lastShot = null; // { distance, multiplier } for the debug readout
 
     // Throwable
     this.throwable = THROWABLES[DEFAULT_LOADOUT.throwable.key];
@@ -78,13 +81,32 @@ export default class WeaponSystem {
     this.typing.onWeaponChanged(GUN_SWITCH_MS);
   }
 
-  // Called by TypingSystem when a word is finished.
+  // Called by TypingSystem when a word is finished. Always hits;
+  // distance only changes how much damage the shot does.
   fire(target) {
     const gun = this.current;
+    const p = this.player;
+    const distance = Phaser.Math.Distance.Between(p.x, p.y, target.x, target.y);
+    const multiplier = this.falloffMultiplier(gun.falloff, distance);
+    const damage = Math.round(gun.damage * multiplier);
+
     this.shots += 1;
+    this.lastShot = { distance: Math.round(distance), multiplier };
     this.drawTracer(target, gun);
-    target.takeDamage(gun.damage);
-    this.showDamage(target, gun.damage);
+    target.takeDamage(damage);
+    this.showDamage(target, damage, multiplier < 1 ? REDUCED_COLOR : DAMAGE_COLOR);
+  }
+
+  // 1 up close, sliding down to minMultiplier between startPx and endPx.
+  falloffMultiplier(falloff, distance) {
+    if (!falloff) return 1;
+
+    const { startPx, endPx, minMultiplier } = falloff;
+    if (distance <= startPx) return 1;
+    if (distance >= endPx) return minMultiplier;
+
+    const t = (distance - startPx) / (endPx - startPx);
+    return 1 - t * (1 - minMultiplier);
   }
 
   drawTracer(target, gun) {
@@ -102,13 +124,13 @@ export default class WeaponSystem {
   }
 
   // Floating "-34" above whatever got hit.
-  showDamage(victim, amount) {
+  showDamage(victim, amount, color = DAMAGE_COLOR) {
     const text = this.scene.add
       .text(victim.x, victim.y - 30, `-${amount}`, {
         fontFamily: 'monospace',
         fontSize: '18px',
         fontStyle: 'bold',
-        color: '#ff9f1c',
+        color,
         stroke: '#000000',
         strokeThickness: 3,
       })
@@ -221,6 +243,31 @@ export default class WeaponSystem {
 
     victim.takeDamage(damage, cause);
     this.showDamage(victim, damage);
+    this.applyKnockback(x, y, config, victim, damage);
+  }
+
+  // Push survivors away from the blast. Only things with a physics body
+  // and applyKnockback() move (the player now; bots later, not dummies).
+  applyKnockback(x, y, config, victim, damage) {
+    if (!config.knockback || !victim.alive || !victim.applyKnockback) return;
+
+    const strength = Math.min(1, damage / config.knockbackFullAt);
+    let dx = victim.x - x;
+    let dy = victim.y - y;
+    const len = Math.hypot(dx, dy);
+
+    if (len < 1) {
+      dx = 0;  // blast right on top of you: straight up
+      dy = -1;
+    } else {
+      dx /= len;
+      dy /= len;
+    }
+
+    victim.applyKnockback(
+      dx * config.knockback * strength,
+      (dy * config.knockback - config.knockbackLift) * strength
+    );
   }
 
   blastDamage(dist, config) {

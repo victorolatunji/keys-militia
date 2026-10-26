@@ -76,7 +76,11 @@ export default class Hud {
     const lines = weapons.guns.map(
       (g, i) => `${i === weapons.active ? '>' : ' '} ${i + 1}. ${g ? g.name : '(empty)'}`
     );
+    const range = gun.falloff
+      ? `weaker past ${gun.falloff.startPx}px`
+      : 'full dmg at any range';
     lines.push(`dmg ${gun.damage} · ${gun.wordList} words`);
+    lines.push(range);
     lines.push(`${weapons.throwable.name} x${weapons.throwableCount}`);
     lines.push('Shift: switch · Space: throw');
     this.weaponText.setText(lines);

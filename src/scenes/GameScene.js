@@ -143,6 +143,7 @@ export default class GameScene extends Phaser.Scene {
 
     const b = this.player.body;
     const lock = this.typing.lock;
+    const shot = this.weapons.lastShot;
     this.debugText.setText([
       `x: ${Math.round(this.player.x)}  y: ${Math.round(this.player.y)}`,
       `vx: ${Math.round(b.velocity.x)}  vy: ${Math.round(b.velocity.y)}`,
@@ -150,6 +151,7 @@ export default class GameScene extends Phaser.Scene {
       `alive: ${this.player.alive}  deaths: ${this.deaths}  suicides: ${this.suicides}`,
       `lock: ${lock ? `${lock.word} (${this.typing.progress}/${lock.word.length})` : '-'}`,
       `shots: ${this.weapons.shots}  kills: ${this.kills}  typos: ${this.typing.typos}`,
+      `last shot: ${shot ? `${shot.distance}px  x${shot.multiplier.toFixed(2)}` : '-'}  staggered: ${this.player.staggered}`,
       `thrown: ${this.weapons.thrown}  grenades in air: ${this.weapons.grenades.length}`,
       `words: ${this.dummies.map((d) => d.word ?? '-').join(', ')}`,
     ]);
