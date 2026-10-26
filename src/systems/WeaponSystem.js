@@ -1,28 +1,69 @@
-import { WEAPONS, DEFAULT_LOADOUT, GUN_SWITCH_MS } from '../data/weapons.js';
+import Phaser from 'phaser';
+import Grenade from '../entities/Grenade.js';
+import { hasLineOfSight } from './LineOfSight.js';
+import {
+  WEAPONS,
+  THROWABLES,
+  AIM,
+  DEFAULT_LOADOUT,
+  GUN_SWITCH_MS,
+} from '../data/weapons.js';
 
 const TRACER_FADE_MS = 150;
+const PREVIEW_DOTS = 14;
+const PREVIEW_STEP = 0.06; // seconds between preview dots
 
-// Gun slots, Shift switching, and firing (damage + tracer).
-// Throwables are added in the next steps.
+// Gun slots, Shift switching, firing (damage + tracer), and throwables
+// (hold Space to aim and charge, release to throw, blast with falloff).
 export default class WeaponSystem {
-  constructor(scene, player, typing) {
+  constructor(scene, player, typing, groundLayer, worldHeight) {
     this.scene = scene;
     this.player = player;
     this.typing = typing;
+    this.groundLayer = groundLayer;
+    this.worldHeight = worldHeight;
 
+    // Guns
     this.guns = DEFAULT_LOADOUT.guns.map((key) => (key ? WEAPONS[key] : null));
     this.active = 0;
     this.shots = 0;
 
-    scene.input.keyboard.on('keydown-SHIFT', this.handleShift, this);
+    // Throwable
+    this.throwable = THROWABLES[DEFAULT_LOADOUT.throwable.key];
+    this.throwableCount = DEFAULT_LOADOUT.throwable.count;
+    this.aiming = false;
+    this.aimAngle = AIM.startAngle;
+    this.aimStartedAt = 0;
+    this.grenades = [];
+    this.thrown = 0;
+
+    this.preview = scene.add.graphics().setDepth(45);
+
+    const kb = scene.input.keyboard;
+    kb.addCapture('SPACE'); // stop the browser from scrolling on Space
+    kb.on('keydown-SHIFT', this.handleShift, this);
+    kb.on('keydown-SPACE', this.startAim, this);
+    kb.on('keyup-SPACE', this.releaseAim, this);
+
     scene.events.once('shutdown', () => {
-      scene.input.keyboard.off('keydown-SHIFT', this.handleShift, this);
+      kb.off('keydown-SHIFT', this.handleShift, this);
+      kb.off('keydown-SPACE', this.startAim, this);
+      kb.off('keyup-SPACE', this.releaseAim, this);
     });
   }
 
   get current() {
     return this.guns[this.active];
   }
+
+  // 0 to 1: how charged the throw is.
+  get charge() {
+    if (!this.aiming) return 0;
+    const held = this.scene.time.now - this.aimStartedAt;
+    return Math.min(1, held / this.throwable.chargeMs);
+  }
+
+  // ---- Guns ----
 
   handleShift(event) {
     if (event.repeat || !this.player.alive) return;
@@ -43,6 +84,7 @@ export default class WeaponSystem {
     this.shots += 1;
     this.drawTracer(target, gun);
     target.takeDamage(gun.damage);
+    this.showDamage(target, gun.damage);
   }
 
   drawTracer(target, gun) {
@@ -57,5 +99,173 @@ export default class WeaponSystem {
       duration: TRACER_FADE_MS,
       onComplete: () => g.destroy(),
     });
+  }
+
+  // Floating "-34" above whatever got hit.
+  showDamage(victim, amount) {
+    const text = this.scene.add
+      .text(victim.x, victim.y - 30, `-${amount}`, {
+        fontFamily: 'monospace',
+        fontSize: '18px',
+        fontStyle: 'bold',
+        color: '#ff9f1c',
+        stroke: '#000000',
+        strokeThickness: 3,
+      })
+      .setOrigin(0.5)
+      .setDepth(60);
+
+    this.scene.tweens.add({
+      targets: text,
+      y: text.y - 30,
+      alpha: 0,
+      duration: 700,
+      onComplete: () => text.destroy(),
+    });
+  }
+
+  // ---- Throwables ----
+
+  startAim(event) {
+    if (event.repeat || !this.player.alive || this.aiming) return;
+    if (this.throwableCount <= 0) return;
+
+    this.typing.setTyping(false); // free to move while aiming; lock stays saved
+    this.aiming = true;
+    this.aimStartedAt = this.scene.time.now;
+    this.aimAngle = AIM.startAngle;
+    this.player.setAiming(true);
+  }
+
+  releaseAim() {
+    if (!this.aiming) return;
+
+    const velocity = this.throwVelocity();
+    this.stopAim();
+    this.throwGrenade(velocity);
+  }
+
+  stopAim() {
+    this.aiming = false;
+    this.player.setAiming(false);
+    this.preview.clear();
+  }
+
+  // Called when the player dies mid-aim: no throw.
+  cancelAim() {
+    if (this.aiming) this.stopAim();
+  }
+
+  // Called on respawn.
+  refillThrowables() {
+    this.throwableCount = DEFAULT_LOADOUT.throwable.count;
+  }
+
+  throwOrigin() {
+    const p = this.player;
+    return { x: p.x + p.facing * 14, y: p.y - 10 };
+  }
+
+  throwVelocity() {
+    const t = this.throwable;
+    const speed = t.minSpeed + (t.maxSpeed - t.minSpeed) * this.charge;
+    const rad = Phaser.Math.DegToRad(this.aimAngle);
+
+    return {
+      vx: Math.cos(rad) * speed * this.player.facing,
+      vy: Math.sin(rad) * speed,
+    };
+  }
+
+  throwGrenade({ vx, vy }) {
+    const origin = this.throwOrigin();
+    const config = this.throwable;
+    const grenade = new Grenade(
+      this.scene,
+      origin.x,
+      origin.y,
+      config,
+      this.groundLayer,
+      this.worldHeight
+    );
+    grenade.body.setVelocity(vx, vy);
+    grenade.on('explode', (x, y) => this.explode(x, y, config));
+
+    this.grenades.push(grenade);
+    this.throwableCount -= 1;
+    this.thrown += 1;
+  }
+
+  // Shared blast for every explosive throwable.
+  // Full damage up close, falling to 0 at the edge. Walls block it.
+  explode(x, y, config) {
+    for (const target of this.typing.targets) {
+      this.applyBlast(x, y, config, target, 1);
+    }
+
+    // Your own throwable can hurt you (selfDamage: 0 = safe, 1 = full).
+    if (config.selfDamage > 0) {
+      this.applyBlast(x, y, config, this.player, config.selfDamage, 'self');
+    }
+  }
+
+  applyBlast(x, y, config, victim, multiplier, cause) {
+    if (!victim.alive) return;
+
+    const dist = Phaser.Math.Distance.Between(x, y, victim.x, victim.y);
+    if (dist > config.blastRadius) return;
+    if (!hasLineOfSight(this.groundLayer, x, y - 4, victim.x, victim.y)) return;
+
+    const damage = Math.round(this.blastDamage(dist, config) * multiplier);
+    if (damage <= 0) return;
+
+    victim.takeDamage(damage, cause);
+    this.showDamage(victim, damage);
+  }
+
+  blastDamage(dist, config) {
+    const { damage, directHitRadius, blastRadius } = config;
+    if (dist <= directHitRadius) return damage;
+
+    const t = (dist - directHitRadius) / (blastRadius - directHitRadius);
+    return damage * (1 - t);
+  }
+
+  updateAim(delta) {
+    const dt = delta / 1000;
+    const { up, down } = this.player.cursors;
+
+    // Up/Down tilt the aim (Left/Right move the player, handled in Player).
+    if (up.isDown) this.aimAngle -= AIM.turnSpeed * dt;
+    if (down.isDown) this.aimAngle += AIM.turnSpeed * dt;
+    this.aimAngle = Phaser.Math.Clamp(this.aimAngle, AIM.minAngle, AIM.maxAngle);
+
+    this.drawPreview();
+  }
+
+  // Dotted arc showing where the grenade will fly.
+  drawPreview() {
+    const { vx, vy } = this.throwVelocity();
+    const o = this.throwOrigin();
+    const gravity = this.scene.physics.world.gravity.y;
+
+    this.preview.clear();
+    this.preview.fillStyle(0xffffff, 0.8);
+
+    for (let i = 1; i <= PREVIEW_DOTS; i++) {
+      const t = i * PREVIEW_STEP;
+      const x = o.x + vx * t;
+      const y = o.y + vy * t + 0.5 * gravity * t * t;
+      this.preview.fillCircle(x, y, 3.5 - i * 0.15);
+    }
+  }
+
+  // ---- Frame update ----
+
+  update(delta) {
+    if (this.aiming) this.updateAim(delta);
+
+    this.grenades = this.grenades.filter((g) => g.active);
+    for (const grenade of this.grenades) grenade.update();
   }
 }

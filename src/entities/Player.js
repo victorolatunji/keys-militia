@@ -2,7 +2,9 @@ import Phaser from 'phaser';
 import { PLAYER } from '../data/player.js';
 
 const SMOKE_COLOR = 0x9a9a9a;
+const HIT_FLASH_MS = 80;
 
+// Emits 'died' (cause) — 'void', 'self', and later enemy kills.
 export default class Player extends Phaser.GameObjects.Rectangle {
   constructor(scene, x, y) {
     super(scene, x, y, PLAYER.width, PLAYER.height, PLAYER.color);
@@ -12,9 +14,11 @@ export default class Player extends Phaser.GameObjects.Rectangle {
 
     this.spawnPoint = { x, y };
     this.facing = 1;          // 1 = right, -1 = left
+    this.hp = PLAYER.maxHp;
     this.fuel = PLAYER.fuelMax;
     this.thrusting = false;
     this.typing = false;
+    this.aiming = false;
     this.alive = true;
 
     this.body.setCollideWorldBounds(true);
@@ -39,17 +43,45 @@ export default class Player extends Phaser.GameObjects.Rectangle {
     if (!this.alive) return;
 
     const dt = delta / 1000;
+    const { left, right, up, down } = this.cursors;
 
     if (this.typing) {
-      this.updateTyping(dt);
+      this.updateTyping(dt);           // hold still, slow fall
+    } else if (this.aiming) {
+      this.updateHorizontal(left, right);
+      this.updateAimingAir(dt);        // run, but Up/Down aim instead of jetpack
     } else {
-      const { left, right, up, down } = this.cursors;
       this.updateHorizontal(left, right);
       this.updateJetpack(up, down, dt);
     }
 
     this.updateVisuals();
   }
+
+  // ---- Health ----
+
+  takeDamage(amount, cause) {
+    if (!this.alive) return;
+
+    this.hp = Math.max(0, this.hp - amount);
+    this.flash();
+
+    if (this.hp === 0) this.kill(cause);
+  }
+
+  flash() {
+    this.setFillStyle(0xffffff);
+    this.scene.time.delayedCall(HIT_FLASH_MS, () => this.setFillStyle(PLAYER.color));
+  }
+
+  // Any death goes through here, so the scene hears about it once.
+  kill(cause) {
+    if (!this.alive) return;
+    this.die();
+    this.emit('died', cause);
+  }
+
+  // ---- States ----
 
   setTyping(on) {
     this.typing = on;
@@ -58,6 +90,15 @@ export default class Player extends Phaser.GameObjects.Rectangle {
     if (on) {
       this.thrusting = false;
       this.body.setVelocityX(0);
+      this.body.setAccelerationY(0);
+    }
+  }
+
+  setAiming(on) {
+    this.aiming = on;
+
+    if (on) {
+      this.thrusting = false;
       this.body.setAccelerationY(0);
     }
   }
@@ -89,6 +130,8 @@ export default class Player extends Phaser.GameObjects.Rectangle {
     }
   }
 
+  // ---- Movement ----
+
   updateTyping(dt) {
     // Hold position horizontally, no jetpack.
     this.body.setVelocityX(0);
@@ -99,6 +142,13 @@ export default class Player extends Phaser.GameObjects.Rectangle {
       this.body.setVelocityY(PLAYER.typingFallSpeed);
     }
 
+    this.refillFuel(dt);
+  }
+
+  // Aiming: no jetpack, normal gravity (risky over the void).
+  updateAimingAir(dt) {
+    this.thrusting = false;
+    this.body.setAccelerationY(0);
     this.refillFuel(dt);
   }
 
@@ -154,10 +204,13 @@ export default class Player extends Phaser.GameObjects.Rectangle {
     }
   }
 
+  // ---- Death and respawn ----
+
   die() {
     this.alive = false;
     this.thrusting = false;
     this.typing = false;
+    this.aiming = false;
     this.isStroked = false;
     this.body.setAcceleration(0, 0);
     this.body.stop();               // zero velocity
@@ -171,8 +224,10 @@ export default class Player extends Phaser.GameObjects.Rectangle {
     this.body.enable = true;
     this.body.reset(this.spawnPoint.x, this.spawnPoint.y); // move + zero velocity
     this.body.setAcceleration(0, 0);
+    this.hp = PLAYER.maxHp;
     this.fuel = PLAYER.fuelMax;
     this.alive = true;
+    this.setFillStyle(PLAYER.color);
     this.setVisible(true);
     this.eye.setVisible(true);
   }

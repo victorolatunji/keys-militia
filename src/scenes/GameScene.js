@@ -8,6 +8,12 @@ import WeaponSystem from '../systems/WeaponSystem.js';
 import { MAPS } from '../data/maps.js';
 import { PLAYER } from '../data/player.js';
 
+// What the death message says for each cause.
+const DEATH_MESSAGES = {
+  void: 'Fell into the void',
+  self: 'Blew yourself up',
+};
+
 export default class GameScene extends Phaser.Scene {
   constructor() {
     super('Game');
@@ -16,6 +22,7 @@ export default class GameScene extends Phaser.Scene {
   init(data) {
     this.map = MAPS[data.mapKey ?? 'test'];
     this.deaths = 0;
+    this.suicides = 0;
     this.kills = 0;
   }
 
@@ -29,6 +36,7 @@ export default class GameScene extends Phaser.Scene {
 
     this.player = new Player(this, spawn.x, spawn.y);
     this.physics.add.collider(this.player, this.groundLayer);
+    this.player.on('died', (cause) => this.handlePlayerDeath(cause));
 
     // Typing and weapons need each other; the arrow functions run later,
     // once both exist.
@@ -36,7 +44,7 @@ export default class GameScene extends Phaser.Scene {
       onFire: (target) => this.weapons.fire(target),
       getWordList: () => this.weapons.current.wordList,
     });
-    this.weapons = new WeaponSystem(this, this.player, this.typing);
+    this.weapons = new WeaponSystem(this, this.player, this.typing, this.groundLayer, height);
 
     // Practice targets from the Tiled "dummy" points.
     this.dummies = dummySpawns.map((p) => new Dummy(this, p.x, p.y));
@@ -46,7 +54,7 @@ export default class GameScene extends Phaser.Scene {
     }
 
     this.voidSystem = new VoidSystem(this, this.map, { width, height }, (player) =>
-      this.handleFall(player)
+      player.kill('void')
     );
 
     // Camera follows the player smoothly and stays inside the map.
@@ -71,7 +79,7 @@ export default class GameScene extends Phaser.Scene {
 
     // Debug readout, pinned to the screen.
     this.debugText = this.add
-      .text(16, 44, '', { fontFamily: 'monospace', fontSize: '14px', color: '#aaaacc' })
+      .text(16, 60, '', { fontFamily: 'monospace', fontSize: '14px', color: '#aaaacc' })
       .setScrollFactor(0)
       .setDepth(100);
   }
@@ -106,19 +114,22 @@ export default class GameScene extends Phaser.Scene {
     };
   }
 
-  handleFall(player) {
-    this.typing.reset(); // dying clears your lock and progress
-    player.die();
+  // Every player death (void, own grenade, later enemies) lands here.
+  handlePlayerDeath(cause) {
+    this.typing.reset();      // clears your lock and progress
+    this.weapons.cancelAim(); // and any throw in progress
     this.deaths += 1;
+    if (cause === 'self') this.suicides += 1;
 
     this.cameras.main.shake(250, 0.01);
     this.cameras.main.flash(250, 120, 0, 40);
 
-    this.message.setText('Fell into the void').setVisible(true);
+    this.message.setText(DEATH_MESSAGES[cause] ?? 'You died').setVisible(true);
 
     this.time.delayedCall(PLAYER.respawnDelay, () => {
       this.message.setVisible(false);
-      player.respawn();
+      this.player.respawn();
+      this.weapons.refillThrowables();
     });
   }
 
@@ -126,6 +137,7 @@ export default class GameScene extends Phaser.Scene {
     this.player.update(delta);
     for (const dummy of this.dummies) dummy.update();
     this.typing.update();
+    this.weapons.update(delta);
     this.voidSystem.update(this.player);
     this.hud.update(this.player, this.typing, this.weapons);
 
@@ -134,10 +146,11 @@ export default class GameScene extends Phaser.Scene {
     this.debugText.setText([
       `x: ${Math.round(this.player.x)}  y: ${Math.round(this.player.y)}`,
       `vx: ${Math.round(b.velocity.x)}  vy: ${Math.round(b.velocity.y)}`,
-      `onGround: ${this.player.onGround}  fuel: ${Math.round(this.player.fuel)}`,
-      `alive: ${this.player.alive}  deaths: ${this.deaths}  typing: ${this.typing.isTyping}`,
+      `onGround: ${this.player.onGround}  fuel: ${Math.round(this.player.fuel)}  hp: ${this.player.hp}`,
+      `alive: ${this.player.alive}  deaths: ${this.deaths}  suicides: ${this.suicides}`,
       `lock: ${lock ? `${lock.word} (${this.typing.progress}/${lock.word.length})` : '-'}`,
       `shots: ${this.weapons.shots}  kills: ${this.kills}  typos: ${this.typing.typos}`,
+      `thrown: ${this.weapons.thrown}  grenades in air: ${this.weapons.grenades.length}`,
       `words: ${this.dummies.map((d) => d.word ?? '-').join(', ')}`,
     ]);
   }

@@ -6,6 +6,9 @@ export const PLAYER = {
   eyeColor: 0xffffff,   // small marker showing which way you face
   flameColor: 0xff9f1c,
 
+  // Health
+  maxHp: 100,
+
   // Running and air control
   runSpeed: 260,        // px per second on the ground
   airSpeed: 280,        // px per second in the air

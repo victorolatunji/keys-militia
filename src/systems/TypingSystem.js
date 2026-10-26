@@ -127,6 +127,7 @@ export default class TypingSystem {
     if (event.ctrlKey || event.metaKey || event.altKey) return;
 
     if (LETTER.test(event.key)) {
+      if (this.player.aiming) return; // throwing: letters ignored
       this.setTyping(true);
       this.handleLetter(event.key);
       return;
