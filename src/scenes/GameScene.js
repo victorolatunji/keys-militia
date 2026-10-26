@@ -7,6 +7,7 @@ import TypingSystem from '../systems/TypingSystem.js';
 import WeaponSystem from '../systems/WeaponSystem.js';
 import AirdropSystem from '../systems/AirdropSystem.js';
 import CollisionSystem from '../systems/CollisionSystem.js';
+import PickupSystem from '../systems/PickupSystem.js';
 import { MAPS } from '../data/maps.js';
 import { PLAYER } from '../data/player.js';
 
@@ -67,8 +68,9 @@ export default class GameScene extends Phaser.Scene {
       dummy.on('died', () => (this.kills += 1));
     }
 
-    // Crates parachute in on a timer (pickups come in Phase 4 step 2).
+    // Crates parachute in on a timer; get near a landed one to pick up its item.
     this.airdrops = new AirdropSystem(this, this.groundLayer, { width, height }, this.collisions);
+    this.pickups = new PickupSystem(this, this.player, this.weapons, this.airdrops);
 
     this.voidSystem = new VoidSystem(this, this.map, { width, height }, (player) =>
       player.kill('void')
@@ -156,6 +158,7 @@ export default class GameScene extends Phaser.Scene {
     this.typing.update();
     this.weapons.update(delta);
     this.airdrops.update(delta);
+    this.pickups.update();
     this.voidSystem.update(this.player);
     this.hud.update(this.player, this.typing, this.weapons);
 
@@ -172,7 +175,7 @@ export default class GameScene extends Phaser.Scene {
       `last shot: ${shot ? `${shot.distance}px  x${shot.multiplier.toFixed(2)}` : '-'}  staggered: ${this.player.staggered}`,
       `thrown: ${this.weapons.thrown}  grenades in air: ${this.weapons.grenades.length}`,
       `words: ${this.dummies.map((d) => d.word ?? '-').join(', ')}`,
-      `crates: ${this.airdrops.crates.map((c) => `${c.item.key} (${c.state})`).join(', ') || '-'}  next drop: ${Math.ceil(this.airdrops.timeToNextDrop / 1000)}s`,
+      `crates: ${this.airdrops.crates.map((c) => `${c.item.key} (${c.state})`).join(', ') || '-'}  next drop: ${Math.ceil(this.airdrops.timeToNextDrop / 1000)}s  pickups: ${this.pickups.pickups}`,
     ]);
   }
 }

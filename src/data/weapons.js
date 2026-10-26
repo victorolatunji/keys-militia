@@ -60,6 +60,7 @@ export const THROWABLES = {
     knockbackFullAt: 40,  // damage at or above this gives the full push
     mass: 0.2,            // vs 1 for characters: bounces off them, barely moves them
     ownerIgnoreMs: 300,   // passes through the thrower right after the throw
+    maxCarry: 6,          // most you can hold (airdrops can top you up)
   },
 };
 

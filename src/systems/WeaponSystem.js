@@ -82,6 +82,20 @@ export default class WeaponSystem {
     this.typing.onWeaponChanged(GUN_SWITCH_MS);
   }
 
+  hasGun(key) {
+    return this.guns.some((gun) => gun?.key === key);
+  }
+
+  // Put a gun in a slot (0 or 1). Returns the key of the gun that was there.
+  // Replacing the gun in your hand counts as a switch (words re-roll).
+  setGun(slot, key) {
+    const oldKey = this.guns[slot]?.key ?? null;
+    this.guns[slot] = WEAPONS[key];
+
+    if (slot === this.active) this.typing.onWeaponChanged(GUN_SWITCH_MS);
+    return oldKey;
+  }
+
   // Called by TypingSystem when a word is finished. Always hits;
   // distance only changes how much damage the shot does.
   fire(target) {
@@ -181,7 +195,28 @@ export default class WeaponSystem {
 
   // Called on respawn.
   refillThrowables() {
+    this.throwable = THROWABLES[DEFAULT_LOADOUT.throwable.key];
     this.throwableCount = DEFAULT_LOADOUT.throwable.count;
+  }
+
+  // Pick up throwables. Same type: top up to maxCarry. Different type: swap,
+  // and hand back what you had so it can go into the crate.
+  // Returns { taken, returned: { key, count } | null }.
+  takeThrowable(key, count) {
+    const config = THROWABLES[key];
+
+    if (this.throwable.key === key) {
+      const taken = Math.min(count, config.maxCarry - this.throwableCount);
+      this.throwableCount += Math.max(0, taken);
+      return { taken: Math.max(0, taken), returned: null };
+    }
+
+    const returned =
+      this.throwableCount > 0 ? { key: this.throwable.key, count: this.throwableCount } : null;
+    this.cancelAim();
+    this.throwable = config;
+    this.throwableCount = Math.min(count, config.maxCarry);
+    return { taken: this.throwableCount, returned };
   }
 
   throwOrigin() {

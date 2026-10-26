@@ -27,12 +27,16 @@ export const AIRDROPS = {
   maxFallSpeed: 900,     // fall speed without a chute
   supportCheckMs: 150,   // how often a landed crate checks it still has ground
 
+  // Pickups
+  pickupRadius: 64,      // px from you to a landed crate to open its panel
+
   // Look (placeholder art)
   crate: {
     width: 28,
     height: 24,
     color: 0x8d6e3f,
     strokeColor: 0x4a3720,
+    highlightColor: 0xffd166, // outline of the crate your panel is showing
   },
   chute: {
     radius: 24,          // canopy half-width
