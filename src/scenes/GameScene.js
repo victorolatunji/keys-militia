@@ -4,11 +4,9 @@ import Dummy from '../entities/Dummy.js';
 import Hud from '../ui/Hud.js';
 import VoidSystem from '../systems/VoidSystem.js';
 import TypingSystem from '../systems/TypingSystem.js';
+import WeaponSystem from '../systems/WeaponSystem.js';
 import { MAPS } from '../data/maps.js';
 import { PLAYER } from '../data/player.js';
-
-const TRACER_COLOR = 0xfff3b0;
-const TRACER_FADE_MS = 150;
 
 export default class GameScene extends Phaser.Scene {
   constructor() {
@@ -18,7 +16,6 @@ export default class GameScene extends Phaser.Scene {
   init(data) {
     this.map = MAPS[data.mapKey ?? 'test'];
     this.deaths = 0;
-    this.shots = 0;
     this.kills = 0;
   }
 
@@ -33,9 +30,13 @@ export default class GameScene extends Phaser.Scene {
     this.player = new Player(this, spawn.x, spawn.y);
     this.physics.add.collider(this.player, this.groundLayer);
 
-    this.typing = new TypingSystem(this, this.player, this.groundLayer, (target) =>
-      this.handleShot(target)
-    );
+    // Typing and weapons need each other; the arrow functions run later,
+    // once both exist.
+    this.typing = new TypingSystem(this, this.player, this.groundLayer, {
+      onFire: (target) => this.weapons.fire(target),
+      getWordList: () => this.weapons.current.wordList,
+    });
+    this.weapons = new WeaponSystem(this, this.player, this.typing);
 
     // Practice targets from the Tiled "dummy" points.
     this.dummies = dummySpawns.map((p) => new Dummy(this, p.x, p.y));
@@ -105,30 +106,6 @@ export default class GameScene extends Phaser.Scene {
     };
   }
 
-  // A finished word = one shot. Moves to WeaponSystem in Phase 3.
-  handleShot(target) {
-    this.shots += 1;
-    this.drawTracer(this.player, target);
-
-    target.takeDamage(1); // Phase 3: damage comes from the weapon
-
-    // Word chain: a surviving target gets a fresh word.
-    if (target.alive) this.typing.assignWord(target);
-  }
-
-  drawTracer(from, to) {
-    const g = this.add.graphics().setDepth(40);
-    g.lineStyle(3, TRACER_COLOR, 1);
-    g.lineBetween(from.x + from.facing * 16, from.y - 4, to.x, to.y);
-
-    this.tweens.add({
-      targets: g,
-      alpha: 0,
-      duration: TRACER_FADE_MS,
-      onComplete: () => g.destroy(),
-    });
-  }
-
   handleFall(player) {
     this.typing.reset(); // dying clears your lock and progress
     player.die();
@@ -150,7 +127,7 @@ export default class GameScene extends Phaser.Scene {
     for (const dummy of this.dummies) dummy.update();
     this.typing.update();
     this.voidSystem.update(this.player);
-    this.hud.update(this.player, this.typing);
+    this.hud.update(this.player, this.typing, this.weapons);
 
     const b = this.player.body;
     const lock = this.typing.lock;
@@ -160,7 +137,7 @@ export default class GameScene extends Phaser.Scene {
       `onGround: ${this.player.onGround}  fuel: ${Math.round(this.player.fuel)}`,
       `alive: ${this.player.alive}  deaths: ${this.deaths}  typing: ${this.typing.isTyping}`,
       `lock: ${lock ? `${lock.word} (${this.typing.progress}/${lock.word.length})` : '-'}`,
-      `shots: ${this.shots}  kills: ${this.kills}  typos: ${this.typing.typos}`,
+      `shots: ${this.weapons.shots}  kills: ${this.kills}  typos: ${this.typing.typos}`,
       `words: ${this.dummies.map((d) => d.word ?? '-').join(', ')}`,
     ]);
   }

@@ -5,23 +5,28 @@ import { pickWord } from './wordPicker.js';
 import { hasLineOfSight } from './LineOfSight.js';
 
 // Typing: words on targets you can see (unique first letters), word refresh,
-// typing state, lock-on, firing and typos.
+// typing state, lock-on, firing and typos. The current gun picks word length.
 
 const LETTER = /^[a-z]$/; // lowercase only, so Shift/Space/digits never count
 const ARROWS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']);
 const EYE_OFFSET_Y = -8;  // line of sight starts a bit above the player's center
 
 export default class TypingSystem {
-  constructor(scene, player, groundLayer, onFire) {
+  // options.onFire(target): a word was finished
+  // options.getWordList(): key of the word list for the current gun
+  constructor(scene, player, groundLayer, options) {
     this.scene = scene;
     this.player = player;
     this.groundLayer = groundLayer;
-    this.onFire = onFire;   // called with the target when a word is finished
+    this.onFire = options.onFire;
+    this.getWordList = options.getWordList;
+
     this.isTyping = false;
     this.targets = [];
-    this.lock = null;       // target we're typing at
-    this.progress = 0;      // letters typed correctly on the locked word
-    this.jammedUntil = 0;   // scene time when the jam ends
+    this.lock = null;         // target we're typing at
+    this.progress = 0;        // letters typed correctly on the locked word
+    this.blockedUntil = 0;    // scene time when letters work again
+    this.blockReason = null;  // 'jam' or 'switch'
     this.typos = 0;
 
     scene.input.keyboard.on('keydown', this.handleKey, this);
@@ -32,8 +37,14 @@ export default class TypingSystem {
     });
   }
 
-  get isJammed() {
-    return this.scene.time.now < this.jammedUntil;
+  // 'jam', 'switch', or null when letters are accepted.
+  get blockedReason() {
+    return this.scene.time.now < this.blockedUntil ? this.blockReason : null;
+  }
+
+  block(ms, reason) {
+    this.blockedUntil = this.scene.time.now + ms;
+    this.blockReason = reason;
   }
 
   // ---- Targets and words ----
@@ -50,7 +61,7 @@ export default class TypingSystem {
         .filter((t) => t !== target && t.word)
         .map((t) => t.word[0])
     );
-    const list = WORDS[target.config.wordList];
+    const list = WORDS[this.getWordList()];
     target.setWord(pickWord(list, used, target.word ?? target.lastWord));
     target.wordExpiresAt =
       this.scene.time.now + Phaser.Math.Between(WORD_REFRESH.minMs, WORD_REFRESH.maxMs);
@@ -63,6 +74,15 @@ export default class TypingSystem {
 
   onTargetDied(target) {
     if (this.lock === target) this.clearLock();
+  }
+
+  // Gun switched: break the lock, pause letters, re-roll every visible word.
+  onWeaponChanged(switchMs) {
+    this.clearLock();
+    this.block(switchMs, 'switch');
+    for (const target of this.targets) {
+      if (target.alive && target.word) this.assignWord(target);
+    }
   }
 
   canSee(target) {
@@ -120,7 +140,7 @@ export default class TypingSystem {
   }
 
   handleLetter(letter) {
-    if (this.isJammed) return; // letters during a jam are ignored
+    if (this.blockedReason) return; // jammed or switching: letters ignored
 
     // No lock yet: the first letter picks the target.
     if (!this.lock) {
@@ -152,6 +172,9 @@ export default class TypingSystem {
     const target = this.lock;
     this.clearLock();
     this.onFire(target);
+
+    // Word chain: a surviving target gets a fresh word.
+    if (target.alive) this.assignWord(target);
   }
 
   // Wrong letter: break the lock, shake the word, jam the gun.
@@ -161,7 +184,7 @@ export default class TypingSystem {
     this.clearLock();
     if (target) target.label.shake();
 
-    this.jammedUntil = this.scene.time.now + PLAYER.typoJamMs;
+    this.block(PLAYER.typoJamMs, 'jam');
     this.typos += 1;
     this.player.jamPuff();
   }
@@ -185,7 +208,7 @@ export default class TypingSystem {
 
   reset() {
     this.clearLock();
-    this.jammedUntil = 0;
+    this.blockedUntil = 0;
     this.setTyping(false);
   }
 }
