@@ -1,11 +1,13 @@
 import { PLAYER } from '../data/player.js';
 import { MELEE_SLOT } from '../systems/WeaponSystem.js';
+import { WEAPON_CATEGORIES } from '../data/weapons.js';
 
 const BAR_WIDTH = 200;
 const BAR_HEIGHT = 12;
 const HP_COLOR = 0x06d6a0;
 const FUEL_COLOR = 0x3a86ff;
 const LOW_COLOR = 0xff4d6d;
+const LIST_NAMES = { short: 'short', medium: 'medium', long: 'long', extraLong: 'extra-long' };
 
 // On-screen UI pinned to the camera (scroll factor 0).
 export default class Hud {
@@ -84,21 +86,39 @@ export default class Hud {
       return `${marker} ${name}. ${label}`;
     });
 
-    if (current?.category === 'melee') {
-      lines.push(`dmg ${current.damage} · ${current.wordList} words`);
-      lines.push(`reach ${current.reach}px: get close`);
-    } else if (current) {
-      const range = current.falloff
-        ? `weaker past ${current.falloff.startPx}px`
-        : 'full dmg at any range';
-      lines.push(`dmg ${current.damage} · ${current.wordList} words`);
-      lines.push(range);
+    if (current) {
+      lines.push(...this.weaponInfo(current, weapons));
     } else {
       lines.push('nothing in hand');
     }
     lines.push(`${weapons.throwable.name} x${weapons.throwableCount}`);
     lines.push('Shift: switch · Space: throw');
     this.weaponText.setText(lines);
+  }
+
+  // Three lines about the weapon in hand: family and words, damage, range.
+  weaponInfo(w, weapons) {
+    const needed = w.wordsPerShot ?? 1;
+    const words = `${LIST_NAMES[w.wordList]} words${needed > 1 ? ` x${needed}` : ''}`;
+    const family = `${WEAPON_CATEGORIES[w.category].name} · ${words}`;
+
+    const hits = w.hits ?? 1;
+    let damage = `dmg ${w.damage}`;
+    if (w.projectile) {
+      const count = w.projectile.count ?? 1;
+      damage += count > 1 ? ` in ${count} bombs` : ' splash';
+    } else if (hits > 1) {
+      damage += w.hitDelayMs ? ` in ${hits} hits` : ` in ${hits} pellets`;
+    }
+
+    let range;
+    if (w.blast) range = `blast ${w.blast.blastRadius}px · can hurt you`;
+    else if (w.category === 'melee') range = `reach ${w.reach}px: get close`;
+    else if (needed > 1) range = `spin ${weapons.spinCount}/${needed} · then burst`;
+    else if (w.falloff) range = `weaker past ${w.falloff.startPx}px`;
+    else range = 'full dmg at any range';
+
+    return [family, damage, range];
   }
 
   updateTag(typing, weapons) {

@@ -50,10 +50,48 @@ export const AIRDROPS = {
 // What a crate can hold. weight = how often it shows up compared to the others.
 // type 'gun' and 'melee' use WEAPONS keys, 'throwable' uses THROWABLES keys.
 export const AIRDROP_POOL = [
-  { type: 'gun', key: 'pistol', weight: 3 },
-  { type: 'gun', key: 'assaultRifle', weight: 3 },
-  { type: 'gun', key: 'sniper', weight: 2 },
-  { type: 'throwable', key: 'grenade', count: 3, weight: 2 },
+  // Pistols and SMGs: common
+  { type: 'gun', key: 'mw11', weight: 1.5 },
+  { type: 'gun', key: 'desertEagle', weight: 1 },
+  { type: 'gun', key: 'renetti', weight: 1 },
+  { type: 'gun', key: 'rus79u', weight: 1 },
+  { type: 'gun', key: 'switchblade', weight: 1 },
+  { type: 'gun', key: 'qq9', weight: 0.8 },
+  { type: 'gun', key: 'fennec', weight: 0.8 },
+  { type: 'gun', key: 'mac10', weight: 0.8 },
+  { type: 'gun', key: 'pp19Bizon', weight: 0.8 },
+  // Shotguns
+  { type: 'gun', key: 'by15', weight: 1 },
+  { type: 'gun', key: 'krm262', weight: 0.7 },
+  { type: 'gun', key: 'striker', weight: 0.7 },
+  // Assault rifles
+  { type: 'gun', key: 'ak47', weight: 1 },
+  { type: 'gun', key: 'm4', weight: 1 },
+  { type: 'gun', key: 'ak117', weight: 0.8 },
+  { type: 'gun', key: 'type25', weight: 0.8 },
+  { type: 'gun', key: 'm13', weight: 0.8 },
+  { type: 'gun', key: 'kilo141', weight: 0.7 },
+  { type: 'gun', key: 'oden', weight: 0.5 },
+  { type: 'gun', key: 'asVal', weight: 0.7 },
+  // LMGs: rarer
+  { type: 'gun', key: 'rpd', weight: 0.5 },
+  { type: 'gun', key: 'chopper', weight: 0.4 },
+  { type: 'gun', key: 'm4lmg', weight: 0.4 },
+  { type: 'gun', key: 'holger26', weight: 0.5 },
+  { type: 'gun', key: 'pkm', weight: 0.3 },
+  // Marksman and snipers: rarer
+  { type: 'gun', key: 'kiloBoltAction', weight: 0.6 },
+  { type: 'gun', key: 'mk2', weight: 0.5 },
+  { type: 'gun', key: 'dlq33', weight: 0.5 },
+  { type: 'gun', key: 'arctic50', weight: 0.5 },
+  { type: 'gun', key: 'zrg20mm', weight: 0.2 },
+  // Launchers: rare
+  { type: 'gun', key: 'smrs', weight: 0.35 },
+  { type: 'gun', key: 'thumper', weight: 0.4 },
+  { type: 'gun', key: 'warMachine', weight: 0.25 },
+  // Throwables
+  { type: 'throwable', key: 'grenade', count: 3, weight: 2.5 },
+  // Melee
   { type: 'melee', key: 'machete', weight: 0.6 },
   { type: 'melee', key: 'bat', weight: 0.6 },
   { type: 'melee', key: 'spade', weight: 0.6 },

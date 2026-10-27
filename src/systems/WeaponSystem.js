@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import Grenade from '../entities/Grenade.js';
+import Projectile from '../entities/Projectile.js';
 import { hasLineOfSight } from './LineOfSight.js';
 import {
   WEAPONS,
@@ -14,6 +15,8 @@ const DAMAGE_COLOR = '#ff9f1c';  // full-damage hit
 const REDUCED_COLOR = '#ffe8b0'; // hit weakened by range falloff
 const EMPTY_COLOR = '#c9c9c9';   // "Pistol empty"
 const SWING_FADE_MS = 160;
+const SPIN_COLOR = '#ffd166';    // LMG "spin 1/2"
+const PELLET_SPREAD = 14;        // px: how far shotgun pellet lines scatter
 const PREVIEW_DOTS = 14;
 const PREVIEW_STEP = 0.06; // seconds between preview dots
 
@@ -44,6 +47,7 @@ export default class WeaponSystem {
     this.aimAngle = AIM.startAngle;
     this.aimStartedAt = 0;
     this.grenades = [];
+    this.projectiles = []; // launcher rounds in flight
     this.thrown = 0;
 
     this.preview = scene.add.graphics().setDepth(45);
@@ -79,6 +83,12 @@ export default class WeaponSystem {
     ];
     this.ammo = this.slots.map((w) => (w ? w.ammo : 0));
     this.active = 0;
+    this.resetSpin();
+  }
+
+  // LMG words finished toward the next burst: lost on any weapon change.
+  resetSpin() {
+    this.spin = { count: 0, until: 0, slot: -1 };
   }
 
   // 0 to 1: how charged the throw is.
@@ -101,6 +111,7 @@ export default class WeaponSystem {
       const next = (this.active + step) % this.slots.length;
       if (this.slots[next]) {
         this.active = next;
+        this.resetSpin();
         this.typing.onWeaponChanged(GUN_SWITCH_MS);
         return;
       }
@@ -128,7 +139,10 @@ export default class WeaponSystem {
 
     // Holding nothing? Take the new weapon in hand.
     if (!this.slots[this.active]) this.active = slot;
-    if (slot === this.active) this.typing.onWeaponChanged(GUN_SWITCH_MS);
+    if (slot === this.active) {
+      this.resetSpin();
+      this.typing.onWeaponChanged(GUN_SWITCH_MS);
+    }
     return old;
   }
 
@@ -152,39 +166,162 @@ export default class WeaponSystem {
 
     const next = this.slots.findIndex(Boolean);
     if (next !== -1) this.active = next;
+    this.resetSpin();
     this.typing.onWeaponChanged(GUN_SWITCH_MS); // re-roll words for the new weapon
   }
 
+  // LMG words finished toward the next burst (0 when not spinning).
+  get spinCount() {
+    const { count, until, slot } = this.spin;
+    return slot === this.active && this.scene.time.now < until ? count : 0;
+  }
+
   // Called by TypingSystem when a word is finished. Always hits;
-  // for guns, distance only changes how much damage the shot does.
+  // for guns, distance only changes how much damage the attack does.
   fire(target) {
     const weapon = this.current;
     if (!weapon) return;
+
+    // LMGs: the first word(s) only spin the gun up; the last one fires.
+    const needed = weapon.wordsPerShot ?? 1;
+    if (needed > 1) {
+      const count = this.spinCount + 1;
+      if (count < needed) {
+        this.spin = { count, until: this.scene.time.now + weapon.spinWindowMs, slot: this.active };
+        this.floatText(this.player, `spin ${count}/${needed}`, SPIN_COLOR);
+        return;
+      }
+      this.resetSpin();
+    }
+
     const p = this.player;
     const distance = Phaser.Math.Distance.Between(p.x, p.y, target.x, target.y);
     const multiplier = this.falloffMultiplier(weapon.falloff, distance);
     const damage = Math.round(weapon.damage * multiplier);
+    const color = multiplier < 1 ? REDUCED_COLOR : DAMAGE_COLOR;
 
     this.shots += 1;
     this.lastShot = { distance: Math.round(distance), multiplier };
 
-    if (weapon.category === 'melee') {
+    const hits = weapon.hits ?? 1;
+    const delay = weapon.hitDelayMs ?? 0;
+
+    if (weapon.category === 'launcher') {
+      this.launch(target, weapon); // the round does the damage when it explodes
+    } else if (weapon.category === 'melee') {
       this.drawSwing(weapon);
       if (weapon.knockback && target.applyKnockback) {
         target.applyKnockback(p.facing * weapon.knockback, -weapon.knockback * 0.4);
       }
+      this.hit(target, damage, color);
+    } else if (hits > 1 && delay === 0) {
+      // Pellets: all at once, a spread of lines, one damage number.
+      for (let i = 0; i < hits; i++) this.drawTracer(target, weapon, PELLET_SPREAD);
+      this.hit(target, damage, color);
     } else {
-      this.drawTracer(target, weapon);
+      // One hit, or a burst: hits land one after another.
+      this.burst(target, weapon, damage, hits, delay, color);
     }
 
-    target.takeDamage(damage);
-    this.showDamage(target, damage, multiplier < 1 ? REDUCED_COLOR : DAMAGE_COLOR);
-
-    // Guns use a shot; melee never runs out.
+    // Guns use one attack's ammo; melee never runs out.
     if (this.ammo[this.active] !== null) {
       this.ammo[this.active] -= 1;
       if (this.ammo[this.active] <= 0) this.emptyCurrent();
     }
+  }
+
+  // ---- Launchers ----
+
+  // Fire this weapon's round(s) at the target.
+  launch(target, weapon) {
+    const spec = weapon.projectile;
+    const count = spec.count ?? 1;
+
+    for (let i = 0; i < count; i++) {
+      const fireOne = () => {
+        if (!this.player.alive) return;
+        this.spawnRound(target, weapon, i > 0 ? spec.spread ?? 0 : 0);
+      };
+      if (i === 0) fireOne();
+      else this.scene.time.delayedCall(i * spec.delayMs, fireOne);
+    }
+  }
+
+  spawnRound(target, weapon, spread) {
+    const spec = weapon.projectile;
+    const p = this.player;
+    const x = p.x + p.facing * 18;
+    const y = p.y - 6;
+    let vx;
+    let vy;
+    let fuseMs = null;
+
+    if (spec.kind === 'rocket') {
+      // Straight at the target.
+      const angle = Phaser.Math.Angle.Between(x, y, target.x, target.y);
+      vx = Math.cos(angle) * spec.speed;
+      vy = Math.sin(angle) * spec.speed;
+    } else {
+      // Lobbed: pick the launch speed that lands on the target after flightMs.
+      // x = vx*t ; y = vy*t + g*t*t/2  ->  vx = dx/t ; vy = dy/t - g*t/2
+      const t = spec.flightMs / 1000;
+      const g = this.scene.physics.world.gravity.y;
+      const scatter = 1 + Phaser.Math.FloatBetween(-spread, spread);
+      vx = ((target.x - x) / t) * scatter;
+      vy = (target.y - y) / t - (g * t) / 2;
+      if (spec.kind === 'bomb') fuseMs = spec.flightMs + spec.fuseExtraMs;
+    }
+
+    const round = new Projectile(
+      this.scene, x, y, vx, vy, spec, p,
+      this.groundLayer, this.worldHeight, this.typing.targets, fuseMs
+    );
+    this.collisions.addGrenade(round); // bounces off crates (bombs); rockets and shells explode on them
+    round.on('explode', (ex, ey) => {
+      this.blastFx(ex, ey, weapon.blast.blastRadius);
+      this.explode(ex, ey, weapon.blast);
+    });
+    this.projectiles.push(round);
+  }
+
+  // Orange flash and a little camera shake.
+  blastFx(x, y, radius) {
+    const burst = this.scene.add
+      .circle(x, y, radius, 0xff9f1c, 0.45)
+      .setDepth(42)
+      .setScale(0.2);
+
+    this.scene.tweens.add({
+      targets: burst,
+      scale: 1,
+      alpha: 0,
+      duration: 300,
+      onComplete: () => burst.destroy(),
+    });
+    this.scene.cameras.main.shake(140, 0.005);
+  }
+
+  // Split damage over several hits, delay ms apart. Stops if the target dies.
+  burst(target, weapon, damage, hits, delay, color) {
+    const per = Math.floor(damage / hits);
+    const last = damage - per * (hits - 1); // remainder goes on the last hit
+
+    for (let i = 0; i < hits; i++) {
+      const amount = i === hits - 1 ? last : per;
+      const land = () => {
+        if (!target.alive || !this.player.alive) return;
+        this.drawTracer(target, weapon, i > 0 ? 6 : 0);
+        this.hit(target, amount, color);
+      };
+
+      if (i === 0) land();
+      else this.scene.time.delayedCall(i * delay, land);
+    }
+  }
+
+  hit(target, amount, color) {
+    target.takeDamage(amount);
+    this.showDamage(target, amount, color);
   }
 
   // Melee hit: a quick arc in front of you.
@@ -224,11 +361,14 @@ export default class WeaponSystem {
     return 1 - t * (1 - minMultiplier);
   }
 
-  drawTracer(target, gun) {
+  // Line from your gun to the target. spread: random scatter in px (pellets, bursts).
+  drawTracer(target, gun, spread = 0) {
     const p = this.player;
     const g = this.scene.add.graphics().setDepth(40);
+    const dx = spread ? Phaser.Math.Between(-spread, spread) : 0;
+    const dy = spread ? Phaser.Math.Between(-spread, spread) : 0;
     g.lineStyle(gun.tracerWidth, gun.tracerColor, 1);
-    g.lineBetween(p.x + p.facing * 16, p.y - 4, target.x, target.y);
+    g.lineBetween(p.x + p.facing * 16, p.y - 4, target.x + dx, target.y + dy);
 
     this.scene.tweens.add({
       targets: g,
@@ -245,8 +385,9 @@ export default class WeaponSystem {
 
   // Small text that floats up from something and fades.
   floatText(obj, message, color) {
+    const jitter = Phaser.Math.Between(-10, 10); // bursts: numbers don't stack exactly
     const text = this.scene.add
-      .text(obj.x, obj.y - 30, message, {
+      .text(obj.x + jitter, obj.y - 30, message, {
         fontFamily: 'monospace',
         fontSize: '18px',
         fontStyle: 'bold',
@@ -478,5 +619,8 @@ export default class WeaponSystem {
 
     this.grenades = this.grenades.filter((g) => g.active);
     for (const grenade of this.grenades) grenade.update();
+
+    this.projectiles = this.projectiles.filter((r) => r.active);
+    for (const round of this.projectiles) round.update();
   }
 }

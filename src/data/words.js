@@ -1,5 +1,10 @@
 // Clean, family-friendly word lists. Lowercase letters only.
-// Weapons will pick a list by length in Phase 3 (pistol = short, sniper = long).
+// Each weapon picks a list by length (wordList in weapons.js):
+//   short (3-4 letters): pistols, SMGs, shotguns, LMGs, most melee
+//   medium (5-6): assault rifles, heavy melee
+//   long (7-8): marksman rifles
+//   extraLong (9+): sniper
+// Lists cover many first letters, since no two words on screen share one.
 export const WORDS = {
   short: [
     'ant', 'arm', 'bag', 'bell', 'bus', 'cake', 'cat', 'cup', 'den', 'dog',
@@ -22,11 +27,24 @@ export const WORDS = {
     'window', 'wizard', 'yacht', 'yellow', 'yogurt', 'zebra', 'zipper',
   ],
   long: [
-    'adventure', 'butterfly', 'chocolate', 'dinosaur', 'elephant', 'fireworks',
-    'gladiator', 'hurricane', 'invisible', 'jellyfish', 'kangaroo', 'lightning',
-    'mountain', 'notebook', 'octopus', 'penguin', 'question', 'rainbow',
-    'sandwich', 'treasure', 'umbrella', 'volcano', 'waterfall', 'xylophone',
-    'yesterday', 'zeppelin',
+    'airplane', 'backpack', 'blizzard', 'calendar', 'campfire', 'compass',
+    'diamond', 'dinosaur', 'dolphin', 'elephant', 'emerald', 'feather',
+    'fortress', 'giraffe', 'harmony', 'hedgehog', 'iceberg', 'journey',
+    'kangaroo', 'keyboard', 'kingdom', 'lantern', 'library', 'magician',
+    'mountain', 'necklace', 'notebook', 'octopus', 'orchard', 'panther',
+    'penguin', 'pyramid', 'quantum', 'question', 'raccoon', 'rainbow',
+    'sandwich', 'sapphire', 'tornado', 'treasure', 'trumpet', 'umbrella',
+    'unicorn', 'vanilla', 'volcano', 'warrior', 'whistle', 'zeppelin',
+  ],
+  extraLong: [
+    'adventure', 'astronaut', 'binoculars', 'blueberry', 'butterfly',
+    'cathedral', 'chocolate', 'crocodile', 'dandelion', 'detective',
+    'dragonfly', 'fireplace', 'fireworks', 'gladiator', 'grasshopper',
+    'hamburger', 'hurricane', 'invisible', 'jellyfish', 'lighthouse',
+    'lightning', 'marshmallow', 'nightingale', 'orchestra', 'parachute',
+    'pineapple', 'quicksand', 'raspberry', 'saxophone', 'skateboard',
+    'telescope', 'trampoline', 'underwater', 'volleyball', 'waterfall',
+    'watermelon', 'xylophone', 'yesterday', 'zookeeper',
   ],
 };
 
