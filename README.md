@@ -1,10 +1,10 @@
 # Keys Militia
 *A VAO game. Living plan book: update it whenever the plan changes.*
 
-**Version:** 0.10
+**Version:** 0.11
 **Owner:** Victor Olatunji / VAO
 **Budget:** $0, free tools and free assets only
-**Status:** Phase 4 complete. Phase 4.5 (Arsenal I) next.
+**Status:** Phase 4.5 (Arsenal I) complete. Phase 5 (Enemies) next.
 **Live build:** https://victorolatunji.github.io/keys-militia/
 
 ---
@@ -28,9 +28,9 @@ A 2D arena shooter **influenced by Mini Militia**, but its own game: **typing is
 | Jetpack | Up (combine for diagonals: Up+Right, Down+Left, etc.) |
 | Drop / descend | Down |
 | Shoot | Type the word on an enemy (locks on by first letter) |
-| Switch gun | Shift |
+| Switch weapon | Shift (gun 1 → gun 2 → melee → gun 1, empty slots skipped) |
 | Throw | Hold Space, aim with Up/Down, release (hold longer = farther) |
-| Pick from crate or drop panel | 1 / 2 (gun slot), 3 (throwable) |
+| Pick from crate or drop panel | 1 / 2 (gun slot, or refill a gun you hold), 3 (throwable), 4 (melee) |
 | Alt movement (setting) | Hold right-click to fly toward the cursor |
 
 **Move or type rule:**
@@ -45,13 +45,18 @@ A 2D arena shooter **influenced by Mini Militia**, but its own game: **typing is
 - **Line of sight:** words only appear on enemies you can actually hit **and that are on screen**. Behind a wall or off screen, no word. Checked with a tile raycast from your eyes to the target.
 - **Leaving sight** hides the word and breaks your lock. Coming back into sight gives a different word.
 - **One word = one shot.** A new word spawns after each hit until the enemy dies.
-- **Shots are instant (hitscan) and always hit:** finishing a word hits immediately with a tracer. Guns get no travel time, so a correctly typed word is never wasted (decided in 0.9).
-- **Range falloff:** gun damage drops with distance from you to the target. Full damage up to `startPx`, then a straight line down to `minMultiplier` at `endPx` (per gun, `falloff` in `weapons.js`). Weakened hits show a paler damage number. The sniper has no falloff.
+- **Bullets fly, but always hit:** finishing a word fires real bullets (streaks with a muzzle flash) that chase the target and do their damage on arrival. A correctly typed word is never wasted. If the target dies first, the rest of the burst stops. (Changed in 0.11: shots used to be instant lines.)
+- **Bursts by gun family:** `hits` is the number of bullets per attack and the damage is split between them. SMGs fire fast, light bursts (4–7 bullets), assault rifles steady bursts (2–4), LMGs a long stream (8–14), shotguns a spread of pellets all at once, marksman rifles and snipers one very fast bullet with a thin trail. Bullet speed and length per family live in `bullets.js`.
+- **One damage number per burst:** hits on the same target add up into one number that counts up (`-6`, `-12` … `-60`).
+- **Range falloff:** gun damage drops with distance from you to the target. Full damage up to `startPx`, then a straight line down to `minMultiplier` at `endPx` (per gun, `falloff` in `weapons.js`). Weakened hits show a paler damage number. Marksman rifles and snipers have no falloff.
 - After a shot you **stay in typing mode**, so you can chain words. Press an arrow to move.
 - You **auto-face** your locked target with every correct letter.
 - **Enemy HP** decides how many shots it takes (health bar shown above the enemy).
-- **Weapon** decides word length and damage (pistol = short words, low damage; sniper = long words, high damage).
-- **No reloads.** Your typing speed is your fire rate. (Ammo counts arrive in Phase 4.5; still no reload button.)
+- **The weapon decides the words:** each gun uses one word list: short (3–4 letters: pistols, SMGs, shotguns, most LMGs, most melee), medium (5–6: assault rifles, launchers, heavy melee), long (7–8: marksman rifles, Arctic .50) or extraLong (9+: DL Q33, ZRG 20mm). Stronger weapons need longer words.
+- **LMGs need two words per burst:** the first spins the gun up (`spin 1/2: 1 more word`), the second fires a long burst at whoever you typed it on. The words can be on different enemies. Wait longer than `spinWindowMs` (2–3.5s) and the spin is lost (`spin lost`).
+- **Melee** (slot M): words only show on enemies within the weapon's `reach`, so you have to get close. Hits push the enemy back (`knockback`). Melee never runs out.
+- **Launchers** fire a round instead of hitting directly, and the blast does the damage (same falloff, wall blocking and knockback as a grenade). SMRS: a straight rocket. Thumper: a lobbed shell that explodes on impact. War Machine: 3 bouncing bombs on a short fuse. A round that touches an enemy explodes right there. They hurt you at half strength (`selfDamage 0.5`) if you're too close.
+- **Ammo, no reloads.** Every gun has a number of attacks (`ammo`, starting rule `round(600 / damage)`, kept between 3 and 40), so stronger guns get fewer. One finished word (or one LMG burst) uses one. An empty gun is thrown away and you switch to your next weapon. Your typing speed is still your fire rate.
 - **Typo** = a wrong letter on your locked word, or a first letter that matches no word. The gun jams briefly (0.5s, `typoJamMs` in `player.js`) and letters typed during the jam are ignored. The lock breaks and progress resets, but the word stays the same so you can retry it.
 - **Word refresh:** words change every ~8 to 12 seconds (shorter on Hard, longer on Easy; range in `WORD_REFRESH` in `words.js`), after every hit, and when an enemy leaves and re-enters line of sight. Each target has its own timer, so words don't all change at once.
 - **Word lock:** once you type the first letter, that word never changes until you finish it, make a typo, or the enemy dies or leaves your sight.
@@ -59,7 +64,7 @@ A 2D arena shooter **influenced by Mini Militia**, but its own game: **typing is
 - **Multiplayer:** each player sees their own words on enemies. Nobody can read what you're about to type, and players never race for the same word.
 - **Obstacles** (walls, rocks, mountains) block bullets. Ricochet only on specific weapons.
 - **Throwables** go over cover and hit enemies with no word showing. **Damage falloff:** full damage within `directHitRadius`, falling to 0 at `blastRadius`. Walls between the blast and a target block it. Your own throwables hurt you (`selfDamage`).
-- **Collisions:** characters (you, dummies, bots) are solid to each other. Landed crates are solid to everything and stack; falling crates pass through characters. A crate whose center lands over empty space tips off the edge. Grenades bounce off terrain, crates and characters, and ignore the thrower for 0.3s after the throw (`ownerIgnoreMs`).
+- **Collisions:** characters (you, dummies, bots) are solid to each other. Landed crates are solid to everything and stack; falling crates pass through characters. A crate whose center lands over empty space tips off the edge. Grenades bounce off terrain, crates and characters, and ignore the thrower for 0.3s after the throw (`ownerIgnoreMs`). Launcher rounds never hit their shooter.
 - **Blast knockback:** survivors get pushed away from the blast and up a little, stronger with more damage (full push at `knockbackFullAt`). Right after a push you have no control for a moment (`knockbackStaggerMs` in `player.js`), so a blast near the edge can throw you into the void. Stationary dummies don't move; bots will.
 - **Hit effects:** blood particles and pain sounds. **Death:** body splits into pieces (gibs).
 - **Gore toggle** in settings: Off / Cartoon (default) / Full.
@@ -67,29 +72,51 @@ A 2D arena shooter **influenced by Mini Militia**, but its own game: **typing is
 ---
 
 ## 5. Loadout and pickups
-**Slots:** 2 guns + 1 throwable.
+**Slots:** 2 guns (1, 2) + 1 melee weapon (M, always there) + 1 throwable type.
 
-**Default spawn:** melee + a basic SMG or assault rifle (usable, not the best). Players spawn by dropping in from the sky.
+**Default spawn:** AK-47 + DL Q33 + Knife, 3 grenades (`DEFAULT_LOADOUT` in `weapons.js`). Players spawn by dropping in from the sky.
 
-**Airdrops:** crates parachute down on a timer (one every ~20s, max 2 on the map), swaying as they fall. Each crate holds one item. A landed crate vanishes after ~40s (blinks first). Tuning in `src/data/airdrops.js`.
+**HUD:** top right, one line per slot with ammo (`> 1. AK-47 18/18`, `M. Knife (melee)`), then three lines about the weapon in hand (family and word list, damage and how it lands, range or reach or spin), then your throwables. A picture of the weapon in hand sits left of the panel and pops when you switch.
+
+**Airdrops:** crates parachute down on a timer (one every ~20s, max 2 on the map), swaying as they fall. Each crate holds one gun, launcher or melee weapon (weighted pool: pistols and SMGs common, LMGs, snipers and launchers rare), and shows its picture on the side. A landed crate vanishes after ~40s (blinks first). Tuning in `src/data/airdrops.js`.
+
+**Supply drops:** throwables don't come in crates. They fall loose from the sky, spinning, on their own timer (2 frag grenades every ~25s, first at 12s, max 2 on the map, gone ~40s after landing). Each new throwable joins the `rotation` list in `SUPPLY_DROPS`.
 
 **Pickup panel:**
-- Get **near** a landed crate or a dropped item (no need to touch it): it gets a yellow outline and a panel at the bottom of the screen shows what's inside.
+- Get **near** a landed crate or a dropped item (no need to touch it): it gets a yellow outline and a panel at the bottom of the screen shows its picture, name and shots.
 - The game **does not pause**, so you can get killed while choosing.
-- **1 / 2** swap that gun slot; your old gun goes into the crate so you can swap back. **3** takes throwables (same type tops you up to `maxCarry`). A gun you already hold can't be taken twice. Move away and the panel closes.
+- **1 / 2** swap that gun slot; your old gun goes into the crate with its ammo so you can swap back. **3** takes throwables (same type tops you up to `maxCarry`, 6 frags). **4** swaps your melee weapon. A gun you already hold isn't taken twice: its number **refills your ammo** from the crate instead. Move away and the panel closes.
 - Swapping the gun in your hand counts as a weapon switch (lock breaks, words re-roll).
 
-**Death drops:** when you die, your guns and throwables pop out where you fell. Anyone can grab them with the same panel. They vanish after **60 seconds** (blink first); at most 8 on the map. Nothing drops in the void. You respawn with the default loadout.
+**Death drops:** when you die, your guns (with the ammo they had), your throwables and any melee weapon other than the knife pop out where you fell, each shown as its picture. Anyone can grab them with the same panel. They vanish after **60 seconds** (blink first); at most 8 on the map. Nothing drops in the void. You respawn with the default loadout.
 
-**Arsenal (planned for phases 4.5 and 5.5):**
-- **The weapon decides the words:** each category sets word length, how many words make one attack, and reach.
-- **Categories:** melee (knife, machete, hammer, spade, bat, sword, axe: words only on enemies within reach), pistols, SMGs, shotguns, assault rifles, LMGs (two words = one burst), rifles (marksman, sniper), launchers (rocket: straight; thumper: lobbed), specials (flamethrower, EMP gun, laser, saw launcher).
-- **Throwables:** grenade, time bomb, gas, flashbang, concussion, EMP grenade, proximity mine. Thrown with Space, no words.
-- **Status effects** (shared by players and bots): shocked (EMP: no jetpack, no switching), dazed (concussion: weak jetpack, slow run), blinded (flashbang: white screen, words hidden), gassed (HP drains in the cloud), burning.
-- **Ammo for everything except melee**, scaled by damage (stronger = fewer shots). No reload button: typing speed is still fire rate. An empty gun is dropped; melee never runs out.
-- **Supply drops:** throwables, health packs and fuel tanks fall on their own (outside crates), each type on its own timer. Guns and launchers come in crates.
+**Icons:** every item has a placeholder picture (gun family, each melee weapon, grenade), drawn from rectangles in `src/data/icons.js` and turned into textures at boot. Real art replaces them in the art pass under the same names.
+
+**Arsenal I (built in 0.11):**
+| Family | Weapons | Words |
+|---|---|---|
+| Pistols | MW11, Desert Eagle, Renetti (3-round burst) | short |
+| SMGs | RUS-79U, Switchblade, QQ9, Fennec, MAC10, PP19 Bizon | short |
+| Shotguns | BY15, KRM-262, Striker | short |
+| Assault rifles | AK-47, M4, AK117, Type 25, M13, Kilo 141, Oden, AS VAL (short words) | medium |
+| LMGs (2 words per burst) | RPD, Chopper, Holger 26, M4LMG (medium words), PKM (medium words) | short |
+| Marksman | Kilo Bolt-Action, MK2 | long |
+| Snipers | DL Q33, Arctic .50 (long words), ZRG 20mm | extraLong |
+| Launchers | SMRS, Thumper, War Machine | medium |
+| Melee | Knife, Machete, Bat, Spade, Hammer, Sword (medium words), Axe (medium words) | short |
+| Throwables | Frag grenade | (Space) |
+
+Stats for every weapon live in `src/data/weapons.js`.
+
+**Arsenal II (planned for Phase 5.5):**
+- **Specials:** saw gun (ricochet blade), nail gun, laser gun (pierces a line), flamethrower (cone + burn).
+- **Lethal throwables:** sticky grenade (replaces the time bomb), molotov (fire patch), combat axe (thrown).
+- **Deployable:** trip mine.
+- **Tactical:** smoke (hides words inside the cloud), flashbang, concussion, EMP, cryo bomb. Thrown with Space, no words.
+- **Status effects** (one shared system for players and bots): shocked (EMP: no jetpack, no switching; disables mines and stickies), dazed (concussion: weak jetpack, slow run), blinded (flashbang: white screen, words hidden), gassed (HP drains in the cloud), burning, frozen (cryo: slowed, jetpack frozen).
+- **Supply drops** grow: new throwables join the rotation; health packs and fuel tanks fall on their own timers.
 - **Utility:** riot shield, health pack, fuel tank, armor vest.
-- **Our own weapon names**, not real model names or Mini Militia's. Every weapon gets an icon for crates and the panel (placeholders until the art pass).
+- **Weapon names:** guns use the real names Victor chose (AK-47, M4, Holger 26…), replacing the earlier "own names" rule (decided in 0.11). Mini Militia's names and art are never used.
 
 **Later ideas:** dual pistols; throwing a grenade drops one of your dual pistols.
 
@@ -253,30 +280,33 @@ keys-militia/
 │   └── deploy.yml               ✅ auto-deploy to GitHub Pages on push to main
 ├── src/
 │   ├── main.js                  ✅ Phaser config
-│   ├── scenes/                  # Boot ✅ (loads maps), Game ✅, Menu, Lobby, GameOver, Settings
-│   ├── entities/                # Player ✅, Dummy ✅, Grenade ✅, Crate ✅, Pickup ✅, Bot
+│   ├── scenes/                  # Boot ✅ (loads maps, builds icons), Game ✅, Menu, Lobby, GameOver, Settings
+│   ├── entities/                # Player ✅, Dummy ✅, Grenade ✅, Crate ✅, Pickup ✅, Projectile ✅ (launcher rounds), Bullet ✅, Bot
 │   ├── systems/
 │   │   ├── VoidSystem.js        ✅ void visuals, fall detection
 │   │   ├── TypingSystem.js      ✅ typing state, words, lock-on, typos, word refresh
 │   │   ├── wordPicker.js        ✅ unique-first-letter word picks
 │   │   ├── LineOfSight.js       ✅ tile raycast: which enemies get words, which blasts land
-│   │   ├── WeaponSystem.js      ✅ gun slots, damage + range falloff, throwables, blast + knockback
-│   │   ├── AirdropSystem.js     ✅ parachute crates, death drops
-│   │   ├── PickupSystem.js      ✅ nearest crate/drop, 1/2/3 swaps
+│   │   ├── WeaponSystem.js      ✅ gun + melee slots, ammo, bullets and bursts, LMG spin, launchers, damage + range falloff, throwables, blast + knockback
+│   │   ├── AirdropSystem.js     ✅ parachute crates, supply drops, death drops
+│   │   ├── PickupSystem.js      ✅ nearest crate/drop, 1/2/3/4 swaps and refills
 │   │   ├── CollisionSystem.js   ✅ object-vs-object collision rules
 │   │   ├── HazardSystem.js      # map hazards and advantages
 │   │   └── ScoreSystem.js       # kills, assists, fall credit, MVP
 │   ├── ui/
-│   │   ├── Hud.js               ✅ HP and fuel bars, weapon panel, state tag
-│   │   ├── PickupPanel.js       ✅ pickup panel at the bottom of the screen
+│   │   ├── Hud.js               ✅ HP and fuel bars, weapon panel + icon, state tag
+│   │   ├── Icons.js             ✅ builds item icon textures at boot
+│   │   ├── PickupPanel.js       ✅ pickup panel (icon, name, keys) at the bottom of the screen
 │   │   └── WordLabel.js         ✅ word plates above targets
 │   └── data/
 │       ├── player.js            ✅ movement, HP, typing and knockback tuning (shared by all characters)
 │       ├── maps.js              ✅ map configs (test map)
 │       ├── words.js             ✅ word lists by length, refresh timer
-│       ├── weapons.js           ✅ guns, throwables, aim, loadout
+│       ├── weapons.js           ✅ weapon categories, guns, launchers, melee, throwables, aim, loadout
+│       ├── bullets.js           ✅ bullet speed and look per gun family, damage-number merge
+│       ├── icons.js             ✅ placeholder icon shapes
 │       ├── enemies.js           ✅ target dummy (bots in Phase 5)
-│       ├── airdrops.js          ✅ crate timing, parachute, tipping, pickup radius, item pool, death drops
+│       ├── airdrops.js          ✅ crate timing, parachute, tipping, pickup radius, item pool, supply drops, death drops
 │       └── characters.js
 ├── public/assets/
 │   ├── maps/                    # Tiled maps (.json) — test.json ✅
@@ -295,9 +325,9 @@ keys-militia/
 | 2 | Typing combat | Line-of-sight words, lock-on, HP, word chains, typos | ✅ |
 | 3 | Weapons | 2 gun slots, throwables with aim and falloff, Shift switch | ✅ |
 | 4 | Airdrops | Crates, proximity panel, death drops with timeout | ✅ |
-| 4.5 | Arsenal I | Weapon categories and ammo in data, melee, pistols, SMG, shotgun, rifle variants, LMG, marksman, rocket launcher, thumper, placeholder icons, frag supply drops | ⏭️ next |
-| 5 | Enemies | Shooter, rusher, bomber bots | |
-| 5.5 | Arsenal II | Status effects, flashbang, concussion, EMP gun and grenade, gas, time bomb, proximity mine, flamethrower, laser, riot shield, health pack, fuel tank | |
+| 4.5 | Arsenal I | Weapon categories and ammo in data, melee, pistols, SMG, shotgun, rifle variants, LMG, marksman, rocket launcher, thumper, placeholder icons, frag supply drops | ✅ |
+| 5 | Enemies | Shooter, rusher, bomber bots | ⏭️ next |
+| 5.5 | Arsenal II | Status effects, saw gun, nail gun, laser, flamethrower, sticky grenade, molotov, combat axe, trip mine, smoke, flashbang, concussion, EMP, cryo bomb, riot shield, health pack, fuel tank, armor vest | |
 | 6 | Effects | Blood, gibs, pain sounds, gore toggle | |
 | 7 | Maps | All launch maps with hazards and advantages, open and enclosed | |
 | 8 | Offline modes | Team vs Bots, Zombies, Endless, scoring, awards | |
@@ -314,8 +344,8 @@ keys-militia/
 - [ ] Match length and kill targets
 - [ ] Exact weapon stats (damage, word length, range falloff)
 - [ ] Blast knockback strength and stagger time (starting values 520 px/s, 220 lift, 350ms)
-- [ ] Airdrop timer and death-drop timeout (starting values 20s drops, 40s crate life, 60s death drops)
-- [ ] Ammo per weapon (starting rule: shots = 600 / damage) and final weapon names and stats per category
+- [ ] Airdrop timer and death-drop timeout (starting values 20s drops, 40s crate life, 60s death drops, supply drops every 25s)
+- [ ] Ammo per weapon (starting rule: shots = 600 / damage), burst sizes and bullet speeds, launcher blast and self-damage (starting 0.5)
 - [ ] Mouse movement details
 - [ ] Slow-fall speed while typing (starting value 60 px/s in `player.js`)
 - [ ] Final movement tuning (starting values in `src/data/player.js`)
@@ -324,6 +354,7 @@ keys-militia/
 ---
 
 ## 18. Changelog
+- **0.11:** Phase 4.5 (Arsenal I) done. 29 guns in 7 families plus 3 launchers and 7 melee weapons, using the names Victor chose. Each weapon picks its word list (short, medium, long, extraLong). Ammo per gun with no reloads; an empty gun is thrown away and the same gun refills. Melee slot M with reach and knockback (key 4). LMGs need two words per burst. Launchers: SMRS rocket, Thumper shell, War Machine bombs. Bullets now fly with a muzzle flash and still always hit, with bursts by gun family and one counting damage number. Placeholder icons on crates, drops, the pickup panel and the HUD. Frag grenades fall as supply drops instead of coming in crates.
 - **0.10:** Phase 4 done. Parachute airdrop crates that sway, land, stack and tip off edges. Solid collisions between characters, crates and grenades. Pickup panel (1 / 2 swap a gun slot, 3 takes throwables). Death drops with a 60s timeout; respawn with the default loadout. Arsenal plan added (phases 4.5 and 5.5).
 - **0.9:** Plan book restored (sections 4 to 18 were accidentally cut in 0.8). Guns stay hitscan and always hit; per-gun range falloff (pistol and assault rifle weaken with distance, sniper doesn't). Grenade blasts knock survivors back with a short stagger. Status, structure and roadmap updated.
 - **0.8:** Phase 2 done: target dummies with HP bars, unique-first-letter words, lock-on, word chains, typos jam the gun, line of sight and word refresh. Phase 3 started: two gun slots with Shift switching, damage and word length per gun, player HP, grenades (hold Space to charge, Up/Down to aim) with falloff, wall blocking and self-damage.
