@@ -12,20 +12,46 @@ export const ENEMIES = {
   },
 };
 
-// Bots move with the same rules as you (speed, gravity, jetpack, fuel:
-// src/data/player.js). Their type sets looks, HP and how they like to fight.
+// Bots move with the same rules as you (gravity, jetpack, fuel:
+// src/data/player.js). Their type sets looks, HP, speed and how they fight.
+//   speedScale: run, air and rise speed compared to yours (1 = same)
 //   jetpack: false = walks and jumps only (zombies, later)
 //   range: shooters try to stay between min and max px from you
+//   gun: a WEAPONS key. Bots "type" too: the time between attacks is the
+//     time to type that gun's words at typingSpeed letters per second.
+//   reactionMs: after spotting you, extra time before the first shot.
+//   aim: how far off its shots go, in degrees (random, either way):
+//     spreadDeg always, + movingTargetDeg when you move at full run speed,
+//     + selfMovingDeg while the bot itself is moving or flying.
+//     lead: 0 = aims where you are, 1 = aims exactly where you'll be.
 export const BOTS = {
   shooter: {
     name: 'Shooter',
     color: 0xd62828,
     hp: 100,
+    speedScale: 0.75,
     jetpack: true,
     range: { min: 200, max: 480 },
+    gun: 'ak47',
+    typingSpeed: 2.5,
+    reactionMs: 600,
+    aim: { spreadDeg: 10, movingTargetDeg: 10, selfMovingDeg: 5, lead: 0.3 },
     respawnDelay: 3000,
   },
 };
+
+// Bot bullets: real shots that fly straight and can miss. Walls stop them.
+// Speed comes from the gun family (bullets.js); damage and range falloff
+// from the gun (weapons.js). A different color from yours, so you can
+// see what's coming at you.
+export const BOT_BULLETS = {
+  color: 0xff4d6d,
+  width: 3,
+  maxRangePx: 1400,
+};
+
+// Average letters per word in each list, for bot "typing" time.
+export const WORD_LETTERS = { short: 3.5, medium: 5.5, long: 7.5, extraLong: 9.7 };
 
 // How every bot thinks. Starting values, tune in playtests.
 export const BOT_AI = {
@@ -34,6 +60,7 @@ export const BOT_AI = {
   arrivePx: 16,           // close enough to its goal to stop walking
   strafeChance: 0.3,      // at a good range: chance per think to side-step
   strafePx: 80,
+  spacingPx: 90,          // steps away from another bot closer than this
 
   // Jetpack
   climbMarginPx: 48,      // flies up when its goal is this much higher

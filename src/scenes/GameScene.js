@@ -9,6 +9,7 @@ import WeaponSystem from '../systems/WeaponSystem.js';
 import AirdropSystem from '../systems/AirdropSystem.js';
 import CollisionSystem from '../systems/CollisionSystem.js';
 import PickupSystem from '../systems/PickupSystem.js';
+import BotCombat from '../systems/BotCombat.js';
 import { MAPS } from '../data/maps.js';
 import { PLAYER } from '../data/player.js';
 import { BOTS } from '../data/enemies.js';
@@ -76,6 +77,7 @@ export default class GameScene extends Phaser.Scene {
 
     // Bots listed in the map config.
     this.bots = (this.map.bots ?? []).map((type) => this.spawnBot(type));
+    this.botCombat = new BotCombat(this, this.groundLayer, this.player, this.bots);
 
     // Crates parachute in on a timer; get near a landed one to pick up its item.
     this.airdrops = new AirdropSystem(this, this.groundLayer, { width, height }, this.collisions);
@@ -184,7 +186,13 @@ export default class GameScene extends Phaser.Scene {
     this.cameras.main.shake(250, 0.01);
     this.cameras.main.flash(250, 120, 0, 40);
 
-    this.message.setText(DEATH_MESSAGES[cause] ?? 'You died').setVisible(true);
+    let message = DEATH_MESSAGES[cause] ?? 'You died';
+    const attacker = this.player.lastAttacker;
+    if (cause === 'bot' && attacker) {
+      attacker.kills += 1;
+      message = `Shot by a ${attacker.config.name}`;
+    }
+    this.message.setText(message).setVisible(true);
 
     this.time.delayedCall(PLAYER.respawnDelay, () => {
       this.message.setVisible(false);
@@ -197,6 +205,7 @@ export default class GameScene extends Phaser.Scene {
     this.player.update(delta);
     for (const dummy of this.dummies) dummy.update();
     for (const bot of this.bots) bot.update(delta);
+    this.botCombat.update(delta);
     this.typing.update();
     this.weapons.update(delta);
     this.airdrops.update(delta);
@@ -218,7 +227,7 @@ export default class GameScene extends Phaser.Scene {
       `last shot: ${shot ? `${shot.distance}px  x${shot.multiplier.toFixed(2)}` : '-'}  staggered: ${this.player.staggered}`,
       `thrown: ${this.weapons.thrown}  grenades in air: ${this.weapons.grenades.length}`,
       `words: ${this.dummies.map((d) => d.word ?? '-').join(', ')}`,
-      `bots: ${this.bots.map((bot) => `${bot.alive ? bot.brain.mode : 'dead'} hp${bot.hp} fuel${Math.round(bot.fuel)}`).join(' | ')}`,
+      `bots: ${this.bots.map((bot) => `${bot.alive ? bot.brain.mode : 'dead'} hp${bot.hp} fuel${Math.round(bot.fuel)}`).join(' | ')}  shots: ${this.botCombat.shotsFired}  hit you: ${this.botCombat.hits}`,
       `crates: ${this.airdrops.crates.map((c) => `${c.item.key} (${c.state})`).join(', ') || '-'}  next drop: ${Math.ceil(this.airdrops.timeToNextDrop / 1000)}s  drops: ${this.airdrops.drops.length}  pickups: ${this.pickups.pickups}`,
     ]);
   }

@@ -10,8 +10,10 @@ const HIT_FLASH_MS = 80;
 // its AI presses, so bots move with exactly the same rules as you.
 export default class Player extends Phaser.GameObjects.Rectangle {
   // color: body color (bots pass their own)
-  constructor(scene, x, y, color = PLAYER.color) {
+  // stats: movement and health tuning (default: player.js; bots pass a scaled copy)
+  constructor(scene, x, y, color = PLAYER.color, stats = PLAYER) {
     super(scene, x, y, PLAYER.width, PLAYER.height, color);
+    this.stats = stats;
 
     scene.add.existing(this);
     scene.physics.add.existing(this);
@@ -19,8 +21,8 @@ export default class Player extends Phaser.GameObjects.Rectangle {
     this.baseColor = color;
     this.spawnPoint = { x, y };
     this.facing = 1;          // 1 = right, -1 = left
-    this.hp = PLAYER.maxHp;
-    this.fuel = PLAYER.fuelMax;
+    this.hp = this.stats.maxHp;
+    this.fuel = this.stats.fuelMax;
     this.thrusting = false;
     this.typing = false;
     this.aiming = false;
@@ -28,15 +30,15 @@ export default class Player extends Phaser.GameObjects.Rectangle {
     this.staggerUntil = 0;    // scene time when a blast push stops overriding control
 
     this.body.setCollideWorldBounds(true);
-    this.body.setMaxVelocity(2000, PLAYER.maxFallSpeed);
+    this.body.setMaxVelocity(2000, this.stats.maxFallSpeed);
 
     // White outline shows the typing state (hidden until typing).
     this.setStrokeStyle(3, 0xffffff);
     this.isStroked = false;
 
     // Placeholder visuals
-    this.flame = scene.add.rectangle(x, y, 10, 14, PLAYER.flameColor).setVisible(false);
-    this.eye = scene.add.rectangle(x, y, 8, 8, PLAYER.eyeColor);
+    this.flame = scene.add.rectangle(x, y, 10, 14, this.stats.flameColor).setVisible(false);
+    this.eye = scene.add.rectangle(x, y, 8, 8, this.stats.eyeColor);
 
     this.cursors = this.createControls(scene);
   }
@@ -99,7 +101,7 @@ export default class Player extends Phaser.GameObjects.Rectangle {
     this.thrusting = false;
     this.body.setAcceleration(0, 0);
     this.body.setVelocity(vx, vy);
-    this.staggerUntil = this.scene.time.now + PLAYER.knockbackStaggerMs;
+    this.staggerUntil = this.scene.time.now + this.stats.knockbackStaggerMs;
   }
 
   // Any death goes through here, so the scene hears about it once.
@@ -166,8 +168,8 @@ export default class Player extends Phaser.GameObjects.Rectangle {
     this.body.setAccelerationY(0);
 
     // In the air: gravity still pulls, but the fall is capped to a slow drift.
-    if (!this.onGround && this.body.velocity.y > PLAYER.typingFallSpeed) {
-      this.body.setVelocityY(PLAYER.typingFallSpeed);
+    if (!this.onGround && this.body.velocity.y > this.stats.typingFallSpeed) {
+      this.body.setVelocityY(this.stats.typingFallSpeed);
     }
 
     this.refillFuel(dt);
@@ -188,7 +190,7 @@ export default class Player extends Phaser.GameObjects.Rectangle {
   }
 
   updateHorizontal(left, right) {
-    const speed = this.onGround ? PLAYER.runSpeed : PLAYER.airSpeed;
+    const speed = this.onGround ? this.stats.runSpeed : this.stats.airSpeed;
 
     if (left.isDown && !right.isDown) {
       this.body.setVelocityX(-speed);
@@ -205,17 +207,17 @@ export default class Player extends Phaser.GameObjects.Rectangle {
     this.thrusting = up.isDown && this.fuel > 0;
 
     if (this.thrusting) {
-      this.body.setAccelerationY(-PLAYER.jetThrust);
-      this.fuel = Math.max(0, this.fuel - PLAYER.fuelDrain * dt);
+      this.body.setAccelerationY(-this.stats.jetThrust);
+      this.fuel = Math.max(0, this.fuel - this.stats.fuelDrain * dt);
     } else if (down.isDown && !this.onGround) {
-      this.body.setAccelerationY(PLAYER.descendBoost);
+      this.body.setAccelerationY(this.stats.descendBoost);
     } else {
       this.body.setAccelerationY(0);
     }
 
     // Cap upward speed so the jetpack feels controlled.
-    if (this.body.velocity.y < -PLAYER.maxRiseSpeed) {
-      this.body.setVelocityY(-PLAYER.maxRiseSpeed);
+    if (this.body.velocity.y < -this.stats.maxRiseSpeed) {
+      this.body.setVelocityY(-this.stats.maxRiseSpeed);
     }
 
     if (!this.thrusting) this.refillFuel(dt);
@@ -224,7 +226,7 @@ export default class Player extends Phaser.GameObjects.Rectangle {
   // Fuel refills only on the ground.
   refillFuel(dt) {
     if (this.onGround) {
-      this.fuel = Math.min(PLAYER.fuelMax, this.fuel + PLAYER.fuelRefill * dt);
+      this.fuel = Math.min(this.stats.fuelMax, this.fuel + this.stats.fuelRefill * dt);
     }
   }
 
@@ -261,8 +263,8 @@ export default class Player extends Phaser.GameObjects.Rectangle {
     this.body.enable = true;
     this.body.reset(point.x, point.y); // move + zero velocity
     this.body.setAcceleration(0, 0);
-    this.hp = PLAYER.maxHp;
-    this.fuel = PLAYER.fuelMax;
+    this.hp = this.stats.maxHp;
+    this.fuel = this.stats.fuelMax;
     this.alive = true;
     this.staggerUntil = 0;
     this.setFillStyle(this.baseColor);

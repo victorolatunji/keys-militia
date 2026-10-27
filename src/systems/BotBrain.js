@@ -2,7 +2,6 @@ import Phaser from 'phaser';
 import { hasLineOfSight } from './LineOfSight.js';
 import { isSolid, groundBelow, nearestGroundX, groundAhead } from './Terrain.js';
 import { BOT_AI } from '../data/enemies.js';
-import { PLAYER } from '../data/player.js';
 
 const EYE_OFFSET_Y = -8;
 
@@ -96,13 +95,30 @@ export default class BotBrain {
       }
       this.goalY = t.y;
     }
+
+    this.keepSpacing();
+  }
+
+  // Don't bunch up with other bots: step away from one that's too close.
+  keepSpacing() {
+    const bot = this.bot;
+    for (const other of bot.scene.bots ?? []) {
+      if (other === bot || !other.alive) continue;
+      const dx = bot.x - other.x;
+      if (Math.abs(dx) < BOT_AI.spacingPx && Math.abs(bot.y - other.y) < bot.height) {
+        const away = Math.sign(dx) || (Math.random() < 0.5 ? -1 : 1);
+        this.goalX = bot.x + away * BOT_AI.spacingPx;
+        return;
+      }
+    }
   }
 
   // ---- Moving ----
 
   // Fuel to fly dx px sideways while holding altitude (with a safety factor).
   fuelFor(dx) {
-    return (Math.abs(dx) / PLAYER.airSpeed) * PLAYER.fuelDrain * BOT_AI.fuelSafety;
+    const { airSpeed, fuelDrain } = this.bot.stats;
+    return (Math.abs(dx) / airSpeed) * fuelDrain * BOT_AI.fuelSafety;
   }
 
   steer(now) {
@@ -137,7 +153,7 @@ export default class BotBrain {
     if (dir !== 0 && below !== null) {
       const aheadX = bot.x + dir * (half + 6);
       if (groundBelow(layer, aheadX, feetY) === null) {
-        const range = (bot.fuel / PLAYER.fuelDrain) * PLAYER.airSpeed;
+        const range = (bot.fuel / bot.stats.fuelDrain) * bot.stats.airSpeed;
         const landing = groundAhead(layer, aheadX, feetY - 160, dir, range);
         const fuelOk =
           bot.fuel >= BOT_AI.crossFuel &&
