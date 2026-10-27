@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { MAPS } from '../data/maps.js';
+import { createIconTextures } from '../ui/Icons.js';
 
 export default class BootScene extends Phaser.Scene {
   constructor() {
@@ -21,6 +22,7 @@ export default class BootScene extends Phaser.Scene {
   }
 
   create() {
+    createIconTextures(this); // item icons for crates, drops, the pickup panel and the HUD
     this.scene.start('Game', { mapKey: 'test' });
   }
 }

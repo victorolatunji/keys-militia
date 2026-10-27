@@ -37,6 +37,7 @@ export const AIRDROPS = {
     color: 0x8d6e3f,
     strokeColor: 0x4a3720,
     highlightColor: 0xffd166, // outline of the crate your panel is showing
+    iconScale: 0.5,      // item icon painted on the crate (icons are 50 x 26 px)
   },
   chute: {
     radius: 24,          // canopy half-width
@@ -48,7 +49,8 @@ export const AIRDROPS = {
 };
 
 // What a crate can hold. weight = how often it shows up compared to the others.
-// type 'gun' and 'melee' use WEAPONS keys, 'throwable' uses THROWABLES keys.
+// type 'gun' and 'melee' use WEAPONS keys. Throwables don't come in crates:
+// they fall on their own timer (SUPPLY_DROPS below).
 export const AIRDROP_POOL = [
   // Pistols and SMGs: common
   { type: 'gun', key: 'mw11', weight: 1.5 },
@@ -89,8 +91,6 @@ export const AIRDROP_POOL = [
   { type: 'gun', key: 'smrs', weight: 0.35 },
   { type: 'gun', key: 'thumper', weight: 0.4 },
   { type: 'gun', key: 'warMachine', weight: 0.25 },
-  // Throwables
-  { type: 'throwable', key: 'grenade', count: 3, weight: 2.5 },
   // Melee
   { type: 'melee', key: 'machete', weight: 0.6 },
   { type: 'melee', key: 'bat', weight: 0.6 },
@@ -101,7 +101,7 @@ export const AIRDROP_POOL = [
 ];
 
 // Death drops: when you die, your guns and throwables fall out as loose pickups.
-// Anyone can grab them (same 1/2/3 panel as crates). Nothing drops in the void.
+// Anyone can grab them (same 1/2/3/4 panel as crates). Nothing drops in the void.
 export const DEATH_DROPS = {
   lifetimeMs: 60000,     // vanish after this long
   blinkBeforeMs: 5000,   // blink during the last 5s
@@ -109,10 +109,29 @@ export const DEATH_DROPS = {
   popSpeedY: 220,        // upward speed when they pop out
   maxOnMap: 8,           // oldest drop disappears past this
 
-  // Look (placeholder art until icons)
+  // Look: the item's icon on a small dark tag (also used by supply drops)
   look: {
-    gun: { width: 24, height: 10, color: 0x9aa5b1, strokeColor: 0x3d4650 },
-    melee: { width: 22, height: 6, color: 0xc8a165, strokeColor: 0x5c4320 },
-    throwable: { width: 12, height: 12, color: 0x3d5a40, strokeColor: 0x1f2f22 },
+    iconScale: 0.6,      // icons are 50 x 26 px; drops show them smaller
+    width: 34,
+    height: 20,
+    color: 0x000000,
+    alpha: 0.35,
+    strokeColor: 0x6c757d,
   },
+};
+
+// Supply drops: throwables fall loose (no crate, no chute) on their own timer,
+// at a random spot with ground below. Picked up with key 3, like any throwable.
+export const SUPPLY_DROPS = {
+  firstDropMs: 12000,    // first supply drop after the match starts
+  intervalMs: 25000,     // then one every 25s
+  maxOnMap: 2,           // no new one while this many are lying around
+  lifetimeMs: 40000,     // vanishes after this long (blinks during the last 5s)
+  fallSpeed: 260,        // px per second, max
+  spin: 6,               // radians per second while falling
+  // Dropped in this order, then back to the start. Only frags for now;
+  // sticky, molotov, smoke, flashbang... join the rotation in Phase 5.5.
+  rotation: [
+    { type: 'throwable', key: 'grenade', count: 2 },
+  ],
 };

@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { AIRDROPS } from '../data/airdrops.js';
+import { iconKey } from '../ui/Icons.js';
 
 // An airdrop crate. States:
 //   falling  - under the parachute, slow and swaying
@@ -7,6 +8,7 @@ import { AIRDROPS } from '../data/airdrops.js';
 //   tumbling - falling without a chute (after tipping, or its support vanished)
 //   settled  - resting properly; solid to players, grenades and other crates
 // Falls into the void if it misses everything.
+// The item's icon is painted on the crate's side, so you can see what's inside.
 export default class Crate extends Phaser.GameObjects.Rectangle {
   constructor(scene, x, y, item, groundLayer, worldHeight) {
     const { width, height, color, strokeColor } = AIRDROPS.crate;
@@ -15,7 +17,8 @@ export default class Crate extends Phaser.GameObjects.Rectangle {
     scene.physics.add.existing(this);
 
     this.isCrate = true;
-    this.item = item;         // { type, key, count? } from AIRDROP_POOL
+    this.icon = scene.add.image(x, y, iconKey(item)).setScale(AIRDROPS.crate.iconScale);
+    this.item = item;         // { type, key, ammo? } from AIRDROP_POOL (setter: updates the icon)
     this.groundLayer = groundLayer;
     this.worldHeight = worldHeight;
     this.state = 'falling';
@@ -32,6 +35,16 @@ export default class Crate extends Phaser.GameObjects.Rectangle {
 
     this.chute = this.drawChute(scene);
     this.collider = scene.physics.add.collider(this, groundLayer);
+  }
+
+  // Swapping an item in (PickupSystem) also swaps the picture.
+  get item() {
+    return this._item;
+  }
+
+  set item(item) {
+    this._item = item;
+    this.icon.setTexture(iconKey(item));
   }
 
   get settled() {
@@ -82,6 +95,14 @@ export default class Crate extends Phaser.GameObjects.Rectangle {
     else if (this.state === 'tipping') this.updateTipping(now);
     else if (this.state === 'tumbling') this.updateTumbling(delta);
     else this.updateSettled(now);
+
+    if (this.active) this.syncIcon();
+  }
+
+  syncIcon() {
+    this.icon.setPosition(this.x, this.y);
+    this.icon.setRotation(this.rotation);
+    this.icon.setAlpha(this.alpha);
   }
 
   // ---- States ----
@@ -219,6 +240,7 @@ export default class Crate extends Phaser.GameObjects.Rectangle {
 
   remove() {
     if (this.chute) this.chute.destroy();
+    this.icon.destroy();
     this.collider.destroy();
     this.destroy();
   }

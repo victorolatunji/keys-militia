@@ -3,13 +3,14 @@ import PickupPanel from '../ui/PickupPanel.js';
 import { AIRDROPS } from '../data/airdrops.js';
 import { WEAPONS, THROWABLES } from '../data/weapons.js';
 import { GUN_SLOTS, MELEE_SLOT } from './WeaponSystem.js';
+import { iconKey } from '../ui/Icons.js';
 
 const SLOT_KEYS = { 1: 0, 2: 1 }; // number key -> gun slot index
 const THROWABLE_KEY = '3';
 const MELEE_KEY = '4';
 
 // Get near a landed crate or a loose drop: it gets a yellow outline and a
-// panel at the bottom of the screen shows what's inside.
+// panel at the bottom of the screen shows what's inside (icon and name).
 // 1 / 2 swap that gun slot with the crate's gun (your old gun goes into
 // the crate with its ammo, so you can swap back). If you already hold that
 // gun, its number refills your ammo instead. 3 takes the throwables,
@@ -69,7 +70,7 @@ export default class PickupSystem {
     }
 
     const { title, options } = this.describe(target.item);
-    this.panel.show(title, options);
+    this.panel.show(title, options, iconKey(target.item));
   }
 
   // What the panel says for this item, given your current loadout.

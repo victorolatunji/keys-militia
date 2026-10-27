@@ -1,6 +1,7 @@
 import { PLAYER } from '../data/player.js';
 import { MELEE_SLOT } from '../systems/WeaponSystem.js';
 import { WEAPON_CATEGORIES } from '../data/weapons.js';
+import { iconKey } from './Icons.js';
 
 const BAR_WIDTH = 200;
 const BAR_HEIGHT = 12;
@@ -8,6 +9,7 @@ const HP_COLOR = 0x06d6a0;
 const FUEL_COLOR = 0x3a86ff;
 const LOW_COLOR = 0xff4d6d;
 const LIST_NAMES = { short: 'short', medium: 'medium', long: 'long', extraLong: 'extra-long' };
+const ICON_BOX = { width: 62, height: 36, gap: 6 }; // weapon-in-hand icon, left of the panel
 
 // On-screen UI pinned to the camera (scroll factor 0).
 export default class Hud {
@@ -26,6 +28,14 @@ export default class Hud {
       })
       .setOrigin(1, 0);
 
+    // Picture of the weapon in your hand, just left of the panel. Pops on a switch.
+    this.iconBox = scene.add
+      .rectangle(0, 16, ICON_BOX.width, ICON_BOX.height, 0x000000, 0.67)
+      .setOrigin(1, 0);
+    this.weaponIcon = scene.add.image(0, 16 + ICON_BOX.height / 2, '__DEFAULT');
+    this.iconFor = null; // weapon key the icon shows
+    this.scene = scene;
+
     // State tag, bottom center: TYPING, JAMMED, SWITCHING or AIMING.
     this.typingTag = scene.add
       .text(640, 690, 'TYPING', {
@@ -38,7 +48,7 @@ export default class Hud {
       .setOrigin(0.5)
       .setVisible(false);
 
-    for (const obj of [this.weaponText, this.typingTag]) {
+    for (const obj of [this.weaponText, this.typingTag, this.iconBox, this.weaponIcon]) {
       obj.setScrollFactor(0).setDepth(100);
     }
   }
@@ -94,6 +104,25 @@ export default class Hud {
     lines.push(`${weapons.throwable.name} x${weapons.throwableCount}`);
     lines.push('Shift: switch · Space: throw');
     this.weaponText.setText(lines);
+
+    this.updateIcon(current);
+  }
+
+  updateIcon(current) {
+    // Keep the box glued to the panel's left edge (the panel's width changes).
+    const right = this.weaponText.x - this.weaponText.width - ICON_BOX.gap;
+    this.iconBox.setX(right);
+    this.weaponIcon.setX(right - ICON_BOX.width / 2);
+
+    const key = current?.key ?? null;
+    this.iconBox.setVisible(key !== null);
+    this.weaponIcon.setVisible(key !== null);
+    if (key === this.iconFor) return;
+
+    this.iconFor = key;
+    if (!key) return;
+    this.weaponIcon.setTexture(iconKey({ type: 'gun', key }));
+    this.scene.tweens.add({ targets: this.weaponIcon, scale: { from: 1.4, to: 1 }, duration: 180 });
   }
 
   // Three lines about the weapon in hand: family and words, damage, range.

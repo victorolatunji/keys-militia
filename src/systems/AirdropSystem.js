@@ -1,11 +1,12 @@
 import Phaser from 'phaser';
 import Crate from '../entities/Crate.js';
 import Pickup from '../entities/Pickup.js';
-import { AIRDROPS, AIRDROP_POOL, DEATH_DROPS } from '../data/airdrops.js';
+import { AIRDROPS, AIRDROP_POOL, DEATH_DROPS, SUPPLY_DROPS } from '../data/airdrops.js';
 
 // Drops a crate on a timer, above a spot that has ground under it,
+// drops loose throwables on a second timer (supply drops),
 // and spills loose pickups when someone dies (death drops).
-// PickupSystem handles the 1/2/3 panel for both.
+// PickupSystem handles the 1/2/3/4 panel for all of them.
 export default class AirdropSystem {
   constructor(scene, groundLayer, worldSize, collisions) {
     this.scene = scene;
@@ -15,14 +16,22 @@ export default class AirdropSystem {
     this.height = worldSize.height;
 
     this.crates = [];
-    this.drops = [];   // loose death-drop pickups
+    this.drops = [];    // loose death-drop pickups
+    this.supplies = []; // loose supply-drop throwables
     this.dropped = 0;
+    this.supplied = 0;
     this.nextDropAt = scene.time.now + AIRDROPS.firstDropMs;
+    this.nextSupplyAt = scene.time.now + SUPPLY_DROPS.firstDropMs;
   }
 
-  // Everything the pickup panel can open: crates and loose drops.
+  // Everything the pickup panel can open: crates, death drops and supply drops.
   get pickupables() {
-    return [...this.crates, ...this.drops];
+    return [...this.crates, ...this.drops, ...this.supplies];
+  }
+
+  // ms until the next supply drop (for testing and the debug readout).
+  get timeToNextSupply() {
+    return Math.max(0, this.nextSupplyAt - this.scene.time.now);
   }
 
   // ms until the next drop (for the debug readout).
@@ -37,11 +46,19 @@ export default class AirdropSystem {
     for (const crate of this.crates) crate.update(delta);
 
     this.drops = this.drops.filter((d) => d.active);
-    for (const drop of this.drops) drop.update();
+    for (const drop of this.drops) drop.update(delta);
+
+    this.supplies = this.supplies.filter((s) => s.active);
+    for (const supply of this.supplies) supply.update(delta);
 
     if (now >= this.nextDropAt) {
       if (this.crates.length < AIRDROPS.maxCrates) this.drop();
       this.nextDropAt = now + AIRDROPS.intervalMs;
+    }
+
+    if (now >= this.nextSupplyAt) {
+      if (this.supplies.length < SUPPLY_DROPS.maxOnMap) this.dropSupply();
+      this.nextSupplyAt = now + SUPPLY_DROPS.intervalMs;
     }
   }
 
@@ -59,6 +76,31 @@ export default class AirdropSystem {
     this.collisions.addCrate(crate);
     this.crates.push(crate);
     this.dropped += 1;
+  }
+
+  // A loose throwable falls from the top of the map, spinning.
+  // Items take turns, in the order of SUPPLY_DROPS.rotation.
+  dropSupply() {
+    const { rotation } = SUPPLY_DROPS;
+    const item = { ...rotation[this.supplied % rotation.length] };
+
+    const supply = new Pickup(
+      this.scene,
+      this.findDropX(),
+      AIRDROPS.spawnY,
+      item,
+      this.groundLayer,
+      this.height,
+      {
+        lifetimeMs: SUPPLY_DROPS.lifetimeMs,
+        velocity: { x: 0, y: 0 },
+        maxFallSpeed: SUPPLY_DROPS.fallSpeed,
+        spin: SUPPLY_DROPS.spin,
+      }
+    );
+
+    this.supplies.push(supply);
+    this.supplied += 1;
   }
 
   // Spill items at a spot (a death). items: [{ type, key, count? }]

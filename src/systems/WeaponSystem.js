@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import Grenade from '../entities/Grenade.js';
 import Projectile from '../entities/Projectile.js';
+import Bullet from '../entities/Bullet.js';
 import { hasLineOfSight } from './LineOfSight.js';
 import {
   WEAPONS,
@@ -9,14 +10,16 @@ import {
   DEFAULT_LOADOUT,
   GUN_SWITCH_MS,
 } from '../data/weapons.js';
+import { BULLETS, BULLET_DEFAULT, MUZZLE_FLASH, DAMAGE_MERGE_MS } from '../data/bullets.js';
 
-const TRACER_FADE_MS = 150;
 const DAMAGE_COLOR = '#ff9f1c';  // full-damage hit
 const REDUCED_COLOR = '#ffe8b0'; // hit weakened by range falloff
 const EMPTY_COLOR = '#c9c9c9';   // "Pistol empty"
 const SWING_FADE_MS = 160;
 const SPIN_COLOR = '#ffd166';    // LMG "spin 1/2"
-const PELLET_SPREAD = 14;        // px: how far shotgun pellet lines scatter
+const SPIN_LOST_COLOR = '#c9c9c9';
+const PELLET_SPREAD = 14;        // px: how far shotgun pellets scatter around the target
+const BURST_SCATTER = 5;         // px: later bullets of a burst wander a little
 const PREVIEW_DOTS = 14;
 const PREVIEW_STEP = 0.06; // seconds between preview dots
 
@@ -24,7 +27,7 @@ const PREVIEW_STEP = 0.06; // seconds between preview dots
 export const GUN_SLOTS = [0, 1];
 export const MELEE_SLOT = 2;
 
-// Weapon slots, Shift switching, attacks (gun tracer or melee swing, damage),
+// Weapon slots, Shift switching, attacks (gun bullets or melee swing, damage),
 // and throwables (hold Space to aim and charge, release to throw, blast with falloff).
 export default class WeaponSystem {
   constructor(scene, player, typing, groundLayer, worldHeight, collisions) {
@@ -48,6 +51,8 @@ export default class WeaponSystem {
     this.aimStartedAt = 0;
     this.grenades = [];
     this.projectiles = []; // launcher rounds in flight
+    this.bullets = [];     // gun bullets in flight
+    this.counters = new Map(); // target -> its running damage number
     this.thrown = 0;
 
     this.preview = scene.add.graphics().setDepth(45);
@@ -88,7 +93,7 @@ export default class WeaponSystem {
 
   // LMG words finished toward the next burst: lost on any weapon change.
   resetSpin() {
-    this.spin = { count: 0, until: 0, slot: -1 };
+    this.spin = { count: 0, until: 0, slot: -1, warned: false };
   }
 
   // 0 to 1: how charged the throw is.
@@ -187,8 +192,14 @@ export default class WeaponSystem {
     if (needed > 1) {
       const count = this.spinCount + 1;
       if (count < needed) {
-        this.spin = { count, until: this.scene.time.now + weapon.spinWindowMs, slot: this.active };
-        this.floatText(this.player, `spin ${count}/${needed}`, SPIN_COLOR);
+        this.spin = {
+          count,
+          until: this.scene.time.now + weapon.spinWindowMs,
+          slot: this.active,
+          warned: false,
+        };
+        const left = needed - count;
+        this.floatText(this.player, `spin ${count}/${needed}: ${left} more word${left > 1 ? 's' : ''}`, SPIN_COLOR);
         return;
       }
       this.resetSpin();
@@ -214,12 +225,8 @@ export default class WeaponSystem {
         target.applyKnockback(p.facing * weapon.knockback, -weapon.knockback * 0.4);
       }
       this.hit(target, damage, color);
-    } else if (hits > 1 && delay === 0) {
-      // Pellets: all at once, a spread of lines, one damage number.
-      for (let i = 0; i < hits; i++) this.drawTracer(target, weapon, PELLET_SPREAD);
-      this.hit(target, damage, color);
     } else {
-      // One hit, or a burst: hits land one after another.
+      // Bullets: one, a burst (one after another) or pellets (all at once).
       this.burst(target, weapon, damage, hits, delay, color);
     }
 
@@ -302,21 +309,91 @@ export default class WeaponSystem {
   }
 
   // Split damage over several hits, delay ms apart. Stops if the target dies.
+  // Fire `hits` bullets that share the damage. delay > 0: one after another;
+  // delay 0: all at once in a spread (pellets). Each does its share on arrival.
   burst(target, weapon, damage, hits, delay, color) {
     const per = Math.floor(damage / hits);
-    const last = damage - per * (hits - 1); // remainder goes on the last hit
+    const last = damage - per * (hits - 1); // remainder goes on the last bullet
+    const pellets = delay === 0 && hits > 1;
 
     for (let i = 0; i < hits; i++) {
       const amount = i === hits - 1 ? last : per;
-      const land = () => {
-        if (!target.alive || !this.player.alive) return;
-        this.drawTracer(target, weapon, i > 0 ? 6 : 0);
-        this.hit(target, amount, color);
+      const scatter = pellets ? PELLET_SPREAD : i > 0 ? BURST_SCATTER : 0;
+      const shoot = () => {
+        if (!target.alive || !this.player.alive) return; // stop the burst
+        this.fireBullet(target, weapon, scatter, (t) => this.addDamage(t, amount, color));
       };
 
-      if (i === 0) land();
-      else this.scene.time.delayedCall(i * delay, land);
+      if (i === 0 || pellets) shoot();
+      else this.scene.time.delayedCall(i * delay, shoot);
     }
+  }
+
+  fireBullet(target, weapon, scatter, onArrive) {
+    const p = this.player;
+    const x = p.x + p.facing * 16;
+    const y = p.y - 4;
+    const offset = {
+      x: scatter ? Phaser.Math.Between(-scatter, scatter) : 0,
+      y: scatter ? Phaser.Math.Between(-scatter, scatter) : 0,
+    };
+    const style = BULLETS[weapon.category] ?? BULLET_DEFAULT;
+
+    this.bullets.push(
+      new Bullet(this.scene, x, y, target, offset, style, weapon.tracerColor, weapon.tracerWidth, onArrive)
+    );
+    this.muzzleFlash(x, y);
+  }
+
+  muzzleFlash(x, y) {
+    const flash = this.scene.add
+      .circle(x, y, MUZZLE_FLASH.radius, MUZZLE_FLASH.color)
+      .setDepth(41);
+    this.scene.tweens.add({
+      targets: flash,
+      alpha: 0,
+      scale: 0.4,
+      duration: MUZZLE_FLASH.durationMs,
+      onComplete: () => flash.destroy(),
+    });
+  }
+
+  // A bullet landed: damage, and one damage number per target that counts up
+  // while a burst keeps hitting (instead of a pile of small numbers).
+  addDamage(target, amount, color) {
+    target.takeDamage(amount);
+
+    const now = this.scene.time.now;
+    let counter = this.counters.get(target);
+    if (!counter || now - counter.lastAt > DAMAGE_MERGE_MS) {
+      counter = { total: 0, lastAt: now, text: this.makeFloatText(target.x, target.y - 30, '', color), tween: null };
+      this.counters.set(target, counter);
+    }
+
+    counter.total += amount;
+    counter.lastAt = now;
+    counter.tween?.remove();
+    counter.text
+      .setText(`-${counter.total}`)
+      .setColor(color)
+      .setPosition(target.x, target.y - 30)
+      .setAlpha(1)
+      .setScale(1.25);
+
+    // Float away once the hits stop coming.
+    const text = counter.text;
+    counter.tween = this.scene.tweens.add({
+      targets: text,
+      y: text.y - 30,
+      alpha: 0,
+      scale: 1,
+      delay: DAMAGE_MERGE_MS,
+      duration: 700,
+      onComplete: () => {
+        text.destroy();
+        if (this.counters.get(target)?.text === text) this.counters.delete(target);
+      },
+    });
   }
 
   hit(target, amount, color) {
@@ -361,23 +438,6 @@ export default class WeaponSystem {
     return 1 - t * (1 - minMultiplier);
   }
 
-  // Line from your gun to the target. spread: random scatter in px (pellets, bursts).
-  drawTracer(target, gun, spread = 0) {
-    const p = this.player;
-    const g = this.scene.add.graphics().setDepth(40);
-    const dx = spread ? Phaser.Math.Between(-spread, spread) : 0;
-    const dy = spread ? Phaser.Math.Between(-spread, spread) : 0;
-    g.lineStyle(gun.tracerWidth, gun.tracerColor, 1);
-    g.lineBetween(p.x + p.facing * 16, p.y - 4, target.x + dx, target.y + dy);
-
-    this.scene.tweens.add({
-      targets: g,
-      alpha: 0,
-      duration: TRACER_FADE_MS,
-      onComplete: () => g.destroy(),
-    });
-  }
-
   // Floating "-34" above whatever got hit.
   showDamage(victim, amount, color = DAMAGE_COLOR) {
     this.floatText(victim, `-${amount}`, color);
@@ -385,9 +445,21 @@ export default class WeaponSystem {
 
   // Small text that floats up from something and fades.
   floatText(obj, message, color) {
-    const jitter = Phaser.Math.Between(-10, 10); // bursts: numbers don't stack exactly
-    const text = this.scene.add
-      .text(obj.x + jitter, obj.y - 30, message, {
+    const jitter = Phaser.Math.Between(-10, 10); // numbers don't stack exactly
+    const text = this.makeFloatText(obj.x + jitter, obj.y - 30, message, color);
+
+    this.scene.tweens.add({
+      targets: text,
+      y: text.y - 30,
+      alpha: 0,
+      duration: 700,
+      onComplete: () => text.destroy(),
+    });
+  }
+
+  makeFloatText(x, y, message, color) {
+    return this.scene.add
+      .text(x, y, message, {
         fontFamily: 'monospace',
         fontSize: '18px',
         fontStyle: 'bold',
@@ -397,14 +469,6 @@ export default class WeaponSystem {
       })
       .setOrigin(0.5)
       .setDepth(60);
-
-    this.scene.tweens.add({
-      targets: text,
-      y: text.y - 30,
-      alpha: 0,
-      duration: 700,
-      onComplete: () => text.destroy(),
-    });
   }
 
   // ---- Throwables ----
@@ -622,5 +686,19 @@ export default class WeaponSystem {
 
     this.projectiles = this.projectiles.filter((r) => r.active);
     for (const round of this.projectiles) round.update();
+
+    this.bullets = this.bullets.filter((b) => b.active);
+    for (const bullet of this.bullets) bullet.update(delta);
+
+    this.checkSpinLost();
+  }
+
+  // LMG: say so when the spin runs out before the next word.
+  checkSpinLost() {
+    const { count, until, warned } = this.spin;
+    if (count > 0 && !warned && this.scene.time.now >= until) {
+      this.spin.warned = true;
+      this.floatText(this.player, 'spin lost', SPIN_LOST_COLOR);
+    }
   }
 }
