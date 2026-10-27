@@ -2,15 +2,18 @@ import Phaser from 'phaser';
 import PickupPanel from '../ui/PickupPanel.js';
 import { AIRDROPS } from '../data/airdrops.js';
 import { WEAPONS, THROWABLES } from '../data/weapons.js';
+import { GUN_SLOTS, MELEE_SLOT } from './WeaponSystem.js';
 
 const SLOT_KEYS = { 1: 0, 2: 1 }; // number key -> gun slot index
 const THROWABLE_KEY = '3';
+const MELEE_KEY = '4';
 
 // Get near a landed crate or a loose drop: it gets a yellow outline and a
 // panel at the bottom of the screen shows what's inside.
 // 1 / 2 swap that gun slot with the crate's gun (your old gun goes into
 // the crate with its ammo, so you can swap back). If you already hold that
-// gun, its number refills your ammo instead. 3 takes the throwables.
+// gun, its number refills your ammo instead. 3 takes the throwables,
+// 4 swaps your melee weapon (your old one goes into the crate).
 // The game never pauses, and digits never clash with typing (letters only).
 export default class PickupSystem {
   constructor(scene, player, weapons, airdrops) {
@@ -86,12 +89,27 @@ export default class PickupSystem {
         return { title, options: [{ key: String(heldSlot + 1), label, enabled: !full }] };
       }
 
-      const options = w.guns.map((gun, slot) => ({
-        key: String(slot + 1),
-        label: gun ? `swap for ${gun.name} (${w.ammo[slot]})` : 'take (empty slot)',
-        enabled: true,
-      }));
+      const options = GUN_SLOTS.map((slot) => {
+        const gun = w.slots[slot];
+        return {
+          key: String(slot + 1),
+          label: gun ? `swap for ${gun.name} (${w.ammo[slot]})` : 'take (empty slot)',
+          enabled: true,
+        };
+      });
       return { title, options };
+    }
+
+    if (item.type === 'melee') {
+      const config = WEAPONS[item.key];
+      const title = `${config.name.toUpperCase()} (melee)`;
+      const mine = w.slots[MELEE_SLOT];
+
+      if (mine?.key === item.key) {
+        return { title, options: [{ label: 'already in hand', enabled: false }] };
+      }
+      const label = mine ? `swap for ${mine.name}` : 'take';
+      return { title, options: [{ key: MELEE_KEY, label, enabled: true }] };
     }
 
     // Throwable
@@ -122,7 +140,20 @@ export default class PickupSystem {
       else if (slot === heldSlot) this.refillAmmo(crate, slot);
     } else if (item.type === 'throwable' && event.key === THROWABLE_KEY) {
       this.takeThrowable(crate);
+    } else if (item.type === 'melee' && event.key === MELEE_KEY) {
+      this.takeMelee(crate);
     }
+  }
+
+  takeMelee(crate) {
+    const { key } = crate.item;
+    if (this.weapons.slots[MELEE_SLOT]?.key === key) return;
+
+    const old = this.weapons.setGun(MELEE_SLOT, key);
+    if (old) crate.item = { type: 'melee', key: old.key };
+    else crate.remove();
+
+    this.picked(WEAPONS[key].name);
   }
 
   // Shots in a gun item. Crate guns come full; dropped guns keep what was left.

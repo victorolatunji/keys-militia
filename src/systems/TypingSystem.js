@@ -13,13 +13,15 @@ const EYE_OFFSET_Y = -8;  // line of sight starts a bit above the player's cente
 
 export default class TypingSystem {
   // options.onFire(target): a word was finished
-  // options.getWordList(): key of the word list for the current gun (null = no gun)
+  // options.getWordList(): key of the word list for the current weapon (null = none)
+  // options.getReach(): max distance for words (melee), or null for any distance
   constructor(scene, player, groundLayer, options) {
     this.scene = scene;
     this.player = player;
     this.groundLayer = groundLayer;
     this.onFire = options.onFire;
     this.getWordList = options.getWordList;
+    this.getReach = options.getReach ?? (() => null);
 
     this.isTyping = false;
     this.targets = [];
@@ -63,7 +65,7 @@ export default class TypingSystem {
     );
     const listKey = this.getWordList();
     if (!listKey) {
-      this.hideWord(target); // no gun: nothing to shoot with
+      this.hideWord(target); // nothing in hand to attack with
       return;
     }
 
@@ -97,6 +99,13 @@ export default class TypingSystem {
     const view = this.scene.cameras.main.worldView;
     if (!view.contains(target.x, target.y)) return false; // off screen
 
+    // Melee: only enemies within reach get a word.
+    const reach = this.getReach();
+    if (reach !== null) {
+      const d = Phaser.Math.Distance.Between(this.player.x, this.player.y, target.x, target.y);
+      if (d > reach) return false;
+    }
+
     return hasLineOfSight(
       this.groundLayer,
       this.player.x,
@@ -110,7 +119,7 @@ export default class TypingSystem {
   update() {
     const now = this.scene.time.now;
 
-    // No gun in hand: no words anywhere.
+    // Nothing in hand: no words anywhere.
     if (!this.getWordList()) {
       for (const target of this.targets) {
         if (target.word) this.hideWord(target);

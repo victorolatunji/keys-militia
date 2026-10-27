@@ -48,12 +48,18 @@ export const AIRDROPS = {
 };
 
 // What a crate can hold. weight = how often it shows up compared to the others.
-// type 'gun' uses WEAPONS keys, 'throwable' uses THROWABLES keys.
+// type 'gun' and 'melee' use WEAPONS keys, 'throwable' uses THROWABLES keys.
 export const AIRDROP_POOL = [
   { type: 'gun', key: 'pistol', weight: 3 },
   { type: 'gun', key: 'assaultRifle', weight: 3 },
   { type: 'gun', key: 'sniper', weight: 2 },
   { type: 'throwable', key: 'grenade', count: 3, weight: 2 },
+  { type: 'melee', key: 'machete', weight: 0.6 },
+  { type: 'melee', key: 'bat', weight: 0.6 },
+  { type: 'melee', key: 'spade', weight: 0.6 },
+  { type: 'melee', key: 'hammer', weight: 0.5 },
+  { type: 'melee', key: 'sword', weight: 0.4 },
+  { type: 'melee', key: 'axe', weight: 0.4 },
 ];
 
 // Death drops: when you die, your guns and throwables fall out as loose pickups.
@@ -68,6 +74,7 @@ export const DEATH_DROPS = {
   // Look (placeholder art until icons)
   look: {
     gun: { width: 24, height: 10, color: 0x9aa5b1, strokeColor: 0x3d4650 },
+    melee: { width: 22, height: 6, color: 0xc8a165, strokeColor: 0x5c4320 },
     throwable: { width: 12, height: 12, color: 0x3d5a40, strokeColor: 0x1f2f22 },
   },
 };

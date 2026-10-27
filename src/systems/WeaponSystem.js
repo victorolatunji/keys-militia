@@ -13,11 +13,16 @@ const TRACER_FADE_MS = 150;
 const DAMAGE_COLOR = '#ff9f1c';  // full-damage hit
 const REDUCED_COLOR = '#ffe8b0'; // hit weakened by range falloff
 const EMPTY_COLOR = '#c9c9c9';   // "Pistol empty"
+const SWING_FADE_MS = 160;
 const PREVIEW_DOTS = 14;
 const PREVIEW_STEP = 0.06; // seconds between preview dots
 
-// Gun slots, Shift switching, firing (damage + tracer), and throwables
-// (hold Space to aim and charge, release to throw, blast with falloff).
+// Weapon slots: two guns, then your melee weapon (always there, never runs out).
+export const GUN_SLOTS = [0, 1];
+export const MELEE_SLOT = 2;
+
+// Weapon slots, Shift switching, attacks (gun tracer or melee swing, damage),
+// and throwables (hold Space to aim and charge, release to throw, blast with falloff).
 export default class WeaponSystem {
   constructor(scene, player, typing, groundLayer, worldHeight, collisions) {
     this.scene = scene;
@@ -27,10 +32,8 @@ export default class WeaponSystem {
     this.groundLayer = groundLayer;
     this.worldHeight = worldHeight;
 
-    // Guns
-    this.guns = DEFAULT_LOADOUT.guns.map((key) => (key ? WEAPONS[key] : null));
-    this.ammo = this.guns.map((gun) => (gun ? gun.ammo : 0)); // shots left per slot
-    this.active = 0;
+    // Weapons: slots[0..1] guns, slots[2] melee. ammo[i] = shots left (null = endless).
+    this.resetSlots();
     this.shots = 0;
     this.lastShot = null; // { distance, multiplier } for the debug readout
 
@@ -58,9 +61,24 @@ export default class WeaponSystem {
     });
   }
 
-  // Gun in your hand, or null when both slots are empty.
+  // Weapon in your hand (null only if every slot is empty).
   get current() {
-    return this.guns[this.active];
+    return this.slots[this.active];
+  }
+
+  // Melee words only show on enemies this close; guns: null (any distance).
+  get reach() {
+    return this.current?.reach ?? null;
+  }
+
+  // Default guns and melee, all full.
+  resetSlots() {
+    this.slots = [
+      ...DEFAULT_LOADOUT.guns.map((key) => (key ? WEAPONS[key] : null)),
+      WEAPONS[DEFAULT_LOADOUT.melee],
+    ];
+    this.ammo = this.slots.map((w) => (w ? w.ammo : 0));
+    this.active = 0;
   }
 
   // 0 to 1: how charged the throw is.
@@ -77,79 +95,121 @@ export default class WeaponSystem {
     this.switchGun();
   }
 
+  // Shift: next slot that holds something (gun 1 -> gun 2 -> melee -> gun 1).
   switchGun() {
-    const next = (this.active + 1) % this.guns.length;
-    if (next === this.active || !this.guns[next]) return; // empty slot
-
-    this.active = next;
-    this.typing.onWeaponChanged(GUN_SWITCH_MS);
+    for (let step = 1; step < this.slots.length; step++) {
+      const next = (this.active + step) % this.slots.length;
+      if (this.slots[next]) {
+        this.active = next;
+        this.typing.onWeaponChanged(GUN_SWITCH_MS);
+        return;
+      }
+    }
   }
 
   hasGun(key) {
-    return this.guns.some((gun) => gun?.key === key);
+    return this.slots.some((w) => w?.key === key);
   }
 
-  // Slot holding this gun, or -1.
+  // Slot holding this weapon, or -1.
   slotOf(key) {
-    return this.guns.findIndex((gun) => gun?.key === key);
+    return this.slots.findIndex((w) => w?.key === key);
   }
 
-  // Put a gun in a slot (0 or 1) with this much ammo (default: full).
-  // Returns the gun that was there as { key, ammo }, or null.
-  // Replacing the gun in your hand counts as a switch (words re-roll).
+  // Put a weapon in a slot with this much ammo (default: full).
+  // Returns what was there as { key, ammo }, or null.
+  // Replacing the weapon in your hand counts as a switch (words re-roll).
   setGun(slot, key, ammo) {
-    const old = this.guns[slot] ? { key: this.guns[slot].key, ammo: this.ammo[slot] } : null;
+    const old = this.slots[slot] ? { key: this.slots[slot].key, ammo: this.ammo[slot] } : null;
     const config = WEAPONS[key];
 
-    this.guns[slot] = config;
-    this.ammo[slot] = Math.min(ammo ?? config.ammo, config.ammo);
+    this.slots[slot] = config;
+    this.ammo[slot] = config.ammo === null ? null : Math.min(ammo ?? config.ammo, config.ammo);
 
-    // Holding nothing? Take the new gun in hand.
-    if (!this.guns[this.active]) this.active = slot;
+    // Holding nothing? Take the new weapon in hand.
+    if (!this.slots[this.active]) this.active = slot;
     if (slot === this.active) this.typing.onWeaponChanged(GUN_SWITCH_MS);
     return old;
   }
 
-  // Top up a slot's ammo, up to a full gun. Returns how many shots were added.
+  // Top up a gun's ammo, up to full. Returns how many shots were added.
   refillGun(slot, ammo) {
-    const gun = this.guns[slot];
-    if (!gun) return 0;
+    const gun = this.slots[slot];
+    if (!gun || gun.ammo === null) return 0;
 
     const taken = Math.max(0, Math.min(ammo, gun.ammo - this.ammo[slot]));
     this.ammo[slot] += taken;
     return taken;
   }
 
-  // Out of ammo: the gun is thrown away and you switch to your other gun.
+  // Out of ammo: the gun is thrown away and you switch to your next weapon
+  // (your other gun, else melee).
   emptyCurrent() {
     const gun = this.current;
-    this.guns[this.active] = null;
+    this.slots[this.active] = null;
     this.ammo[this.active] = 0;
     this.floatText(this.player, `${gun.name} empty`, EMPTY_COLOR);
 
-    const other = this.guns.findIndex(Boolean);
-    if (other !== -1) this.active = other;
-    this.typing.onWeaponChanged(GUN_SWITCH_MS); // re-roll words (or hide them: no gun)
+    const next = this.slots.findIndex(Boolean);
+    if (next !== -1) this.active = next;
+    this.typing.onWeaponChanged(GUN_SWITCH_MS); // re-roll words for the new weapon
   }
 
   // Called by TypingSystem when a word is finished. Always hits;
-  // distance only changes how much damage the shot does.
+  // for guns, distance only changes how much damage the shot does.
   fire(target) {
-    const gun = this.current;
-    if (!gun) return;
+    const weapon = this.current;
+    if (!weapon) return;
     const p = this.player;
     const distance = Phaser.Math.Distance.Between(p.x, p.y, target.x, target.y);
-    const multiplier = this.falloffMultiplier(gun.falloff, distance);
-    const damage = Math.round(gun.damage * multiplier);
+    const multiplier = this.falloffMultiplier(weapon.falloff, distance);
+    const damage = Math.round(weapon.damage * multiplier);
 
     this.shots += 1;
     this.lastShot = { distance: Math.round(distance), multiplier };
-    this.drawTracer(target, gun);
+
+    if (weapon.category === 'melee') {
+      this.drawSwing(weapon);
+      if (weapon.knockback && target.applyKnockback) {
+        target.applyKnockback(p.facing * weapon.knockback, -weapon.knockback * 0.4);
+      }
+    } else {
+      this.drawTracer(target, weapon);
+    }
+
     target.takeDamage(damage);
     this.showDamage(target, damage, multiplier < 1 ? REDUCED_COLOR : DAMAGE_COLOR);
 
-    this.ammo[this.active] -= 1;
-    if (this.ammo[this.active] <= 0) this.emptyCurrent();
+    // Guns use a shot; melee never runs out.
+    if (this.ammo[this.active] !== null) {
+      this.ammo[this.active] -= 1;
+      if (this.ammo[this.active] <= 0) this.emptyCurrent();
+    }
+  }
+
+  // Melee hit: a quick arc in front of you.
+  drawSwing(weapon) {
+    const p = this.player;
+    const g = this.scene.add.graphics().setDepth(40);
+    const radius = weapon.reach * 0.6;
+    const cx = p.x + p.facing * 6;
+    const cy = p.y - 6;
+
+    // Facing right: sweep from up-forward to down-forward (mirrored for left).
+    const start = p.facing > 0 ? -70 : 250;
+    const end = p.facing > 0 ? 50 : 130;
+
+    g.lineStyle(5, weapon.swingColor, 0.9);
+    g.beginPath();
+    g.arc(cx, cy, radius, Phaser.Math.DegToRad(start), Phaser.Math.DegToRad(end), p.facing < 0);
+    g.strokePath();
+
+    this.scene.tweens.add({
+      targets: g,
+      alpha: 0,
+      duration: SWING_FADE_MS,
+      onComplete: () => g.destroy(),
+    });
   }
 
   // 1 up close, sliding down to minMultiplier between startPx and endPx.
@@ -238,21 +298,27 @@ export default class WeaponSystem {
     if (this.aiming) this.stopAim();
   }
 
-  // Called on respawn: back to the default guns and throwables.
+  // Called on respawn: back to the default weapons and throwables.
   resetLoadout() {
-    this.guns = DEFAULT_LOADOUT.guns.map((key) => (key ? WEAPONS[key] : null));
-    this.ammo = this.guns.map((gun) => (gun ? gun.ammo : 0));
-    this.active = 0;
+    this.resetSlots();
     this.throwable = THROWABLES[DEFAULT_LOADOUT.throwable.key];
     this.throwableCount = DEFAULT_LOADOUT.throwable.count;
   }
 
   // What you're carrying, as pickup items (dropped when you die).
+  // Your default melee stays with you (everyone respawns with one).
   loadoutItems() {
     const items = [];
-    this.guns.forEach((gun, slot) => {
+    for (const slot of GUN_SLOTS) {
+      const gun = this.slots[slot];
       if (gun) items.push({ type: 'gun', key: gun.key, ammo: this.ammo[slot] });
-    });
+    }
+
+    const melee = this.slots[MELEE_SLOT];
+    if (melee && melee.key !== DEFAULT_LOADOUT.melee) {
+      items.push({ type: 'melee', key: melee.key });
+    }
+
     if (this.throwableCount > 0) {
       items.push({ type: 'throwable', key: this.throwable.key, count: this.throwableCount });
     }

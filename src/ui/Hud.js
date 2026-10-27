@@ -1,4 +1,5 @@
 import { PLAYER } from '../data/player.js';
+import { MELEE_SLOT } from '../systems/WeaponSystem.js';
 
 const BAR_WIDTH = 200;
 const BAR_HEIGHT = 12;
@@ -72,23 +73,28 @@ export default class Hud {
   }
 
   updateWeapons(weapons) {
-    const gun = weapons.current;
+    const current = weapons.current;
 
-    // One line per slot: name and shots left, e.g. "> 1. Sniper 4/6".
-    const lines = weapons.guns.map((g, i) => {
+    // One line per slot, e.g. "> 1. Sniper 4/6" or "  M. Knife (melee)".
+    const lines = weapons.slots.map((w, i) => {
       const marker = i === weapons.active ? '>' : ' ';
-      const label = g ? `${g.name} ${weapons.ammo[i]}/${g.ammo}` : '(empty)';
-      return `${marker} ${i + 1}. ${label}`;
+      const name = i === MELEE_SLOT ? 'M' : String(i + 1);
+      let label = '(empty)';
+      if (w) label = w.ammo === null ? `${w.name} (melee)` : `${w.name} ${weapons.ammo[i]}/${w.ammo}`;
+      return `${marker} ${name}. ${label}`;
     });
 
-    if (gun) {
-      const range = gun.falloff
-        ? `weaker past ${gun.falloff.startPx}px`
+    if (current?.category === 'melee') {
+      lines.push(`dmg ${current.damage} · ${current.wordList} words`);
+      lines.push(`reach ${current.reach}px: get close`);
+    } else if (current) {
+      const range = current.falloff
+        ? `weaker past ${current.falloff.startPx}px`
         : 'full dmg at any range';
-      lines.push(`dmg ${gun.damage} · ${gun.wordList} words`);
+      lines.push(`dmg ${current.damage} · ${current.wordList} words`);
       lines.push(range);
     } else {
-      lines.push('no gun: find a crate');
+      lines.push('nothing in hand');
     }
     lines.push(`${weapons.throwable.name} x${weapons.throwableCount}`);
     lines.push('Shift: switch · Space: throw');
