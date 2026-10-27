@@ -117,7 +117,8 @@ export default class BotCombat {
   }
 
   hit(bot, victim, gun, amount, distance) {
-    const damage = Math.max(1, Math.round(amount * this.falloff(gun.falloff, distance)));
+    const scale = bot.config.damageScale ?? 1;
+    const damage = Math.max(1, Math.round(amount * scale * this.falloff(gun.falloff, distance)));
     victim.lastAttacker = bot;
     victim.takeDamage(damage, 'bot');
     this.hits += 1;

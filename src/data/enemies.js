@@ -14,12 +14,15 @@ export const ENEMIES = {
 
 // Bots move with the same rules as you (gravity, jetpack, fuel:
 // src/data/player.js). Their type sets looks, HP, speed and how they fight.
-//   speedScale: run, air and rise speed compared to yours (1 = same)
+//   speedScale: run and air speed compared to yours (1 = same)
+//   jetScale: jetpack climb speed and thrust compared to yours
 //   jetpack: false = walks and jumps only (zombies, later)
 //   range: shooters try to stay between min and max px from you
 //   gun: a WEAPONS key. Bots "type" too: the time between attacks is the
 //     time to type that gun's words at typingSpeed letters per second.
 //   reactionMs: after spotting you, extra time before the first shot.
+//   damageScale: bot bullets do this share of the gun's damage. You stop
+//     to type and can't dodge much, so bots hit softer than you do.
 //   aim: how far off its shots go, in degrees (random, either way):
 //     spreadDeg always, + movingTargetDeg when you move at full run speed,
 //     + selfMovingDeg while the bot itself is moving or flying.
@@ -29,12 +32,14 @@ export const BOTS = {
     name: 'Shooter',
     color: 0xd62828,
     hp: 100,
-    speedScale: 0.75,
+    speedScale: 0.45,
+    jetScale: 1,
     jetpack: true,
     range: { min: 200, max: 480 },
     gun: 'ak47',
-    typingSpeed: 2.5,
+    typingSpeed: 1.5,
     reactionMs: 600,
+    damageScale: 0.5,
     aim: { spreadDeg: 10, movingTargetDeg: 10, selfMovingDeg: 5, lead: 0.3 },
     respawnDelay: 3000,
   },

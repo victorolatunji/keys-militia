@@ -39,15 +39,18 @@ export default class Bot extends Player {
     this.layout();
   }
 
-  // Your movement stats, scaled by the bot type's speed, with its own HP.
+  // Your movement stats, scaled by the bot type's speeds, with its own HP.
+  // Thrust never drops below what it takes to beat gravity (800).
   static statsFor(config) {
     const scale = config.speedScale ?? 1;
+    const jet = config.jetScale ?? 1;
     return {
       ...PLAYER,
       maxHp: config.hp,
       runSpeed: PLAYER.runSpeed * scale,
       airSpeed: PLAYER.airSpeed * scale,
-      maxRiseSpeed: PLAYER.maxRiseSpeed * scale,
+      maxRiseSpeed: PLAYER.maxRiseSpeed * jet,
+      jetThrust: Math.max(1000, PLAYER.jetThrust * jet),
     };
   }
 
