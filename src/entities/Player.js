@@ -5,13 +5,18 @@ const SMOKE_COLOR = 0x9a9a9a;
 const HIT_FLASH_MS = 80;
 
 // Emits 'died' (cause) — 'void', 'self', and later enemy kills.
+// Movement reads this.cursors (left, right, up, down with isDown). For you
+// that's the keyboard; Bot extends Player and swaps in a "virtual controller"
+// its AI presses, so bots move with exactly the same rules as you.
 export default class Player extends Phaser.GameObjects.Rectangle {
-  constructor(scene, x, y) {
-    super(scene, x, y, PLAYER.width, PLAYER.height, PLAYER.color);
+  // color: body color (bots pass their own)
+  constructor(scene, x, y, color = PLAYER.color) {
+    super(scene, x, y, PLAYER.width, PLAYER.height, color);
 
     scene.add.existing(this);
     scene.physics.add.existing(this);
 
+    this.baseColor = color;
     this.spawnPoint = { x, y };
     this.facing = 1;          // 1 = right, -1 = left
     this.hp = PLAYER.maxHp;
@@ -33,7 +38,12 @@ export default class Player extends Phaser.GameObjects.Rectangle {
     this.flame = scene.add.rectangle(x, y, 10, 14, PLAYER.flameColor).setVisible(false);
     this.eye = scene.add.rectangle(x, y, 8, 8, PLAYER.eyeColor);
 
-    this.cursors = scene.input.keyboard.createCursorKeys();
+    this.cursors = this.createControls(scene);
+  }
+
+  // Arrow keys. Bot overrides this with buttons its AI presses.
+  createControls(scene) {
+    return scene.input.keyboard.createCursorKeys();
   }
 
   get onGround() {
@@ -79,7 +89,7 @@ export default class Player extends Phaser.GameObjects.Rectangle {
 
   flash() {
     this.setFillStyle(0xffffff);
-    this.scene.time.delayedCall(HIT_FLASH_MS, () => this.setFillStyle(PLAYER.color));
+    this.scene.time.delayedCall(HIT_FLASH_MS, () => this.setFillStyle(this.baseColor));
   }
 
   // Blast push (WeaponSystem decides direction and strength).
@@ -246,15 +256,16 @@ export default class Player extends Phaser.GameObjects.Rectangle {
     this.flame.setVisible(false);
   }
 
-  respawn() {
+  // point: where to drop in (default: your spawn point)
+  respawn(point = this.spawnPoint) {
     this.body.enable = true;
-    this.body.reset(this.spawnPoint.x, this.spawnPoint.y); // move + zero velocity
+    this.body.reset(point.x, point.y); // move + zero velocity
     this.body.setAcceleration(0, 0);
     this.hp = PLAYER.maxHp;
     this.fuel = PLAYER.fuelMax;
     this.alive = true;
     this.staggerUntil = 0;
-    this.setFillStyle(PLAYER.color);
+    this.setFillStyle(this.baseColor);
     this.setVisible(true);
     this.eye.setVisible(true);
   }

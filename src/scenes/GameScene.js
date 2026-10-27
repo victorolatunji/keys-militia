@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import Player from '../entities/Player.js';
 import Dummy from '../entities/Dummy.js';
+import Bot from '../entities/Bot.js';
 import Hud from '../ui/Hud.js';
 import VoidSystem from '../systems/VoidSystem.js';
 import TypingSystem from '../systems/TypingSystem.js';
@@ -10,6 +11,9 @@ import CollisionSystem from '../systems/CollisionSystem.js';
 import PickupSystem from '../systems/PickupSystem.js';
 import { MAPS } from '../data/maps.js';
 import { PLAYER } from '../data/player.js';
+import { BOTS } from '../data/enemies.js';
+
+const BOT_DROP_Y = 40; // bots drop in from just under the top of the map
 
 // What the death message says for each cause.
 const DEATH_MESSAGES = {
@@ -33,6 +37,7 @@ export default class GameScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor(this.map.background);
 
     const { width, height, spawn, dummySpawns } = this.buildTilemap();
+    this.spawnPoints = [spawn, ...dummySpawns]; // bots drop in above one of these
 
     // World bounds: walls left, right and top. No floor: below is the void.
     this.physics.world.setBounds(0, 0, width, height, true, true, true, false);
@@ -69,6 +74,9 @@ export default class GameScene extends Phaser.Scene {
       dummy.on('died', () => (this.kills += 1));
     }
 
+    // Bots listed in the map config.
+    this.bots = (this.map.bots ?? []).map((type) => this.spawnBot(type));
+
     // Crates parachute in on a timer; get near a landed one to pick up its item.
     this.airdrops = new AirdropSystem(this, this.groundLayer, { width, height }, this.collisions);
     this.pickups = new PickupSystem(this, this.player, this.weapons, this.airdrops);
@@ -102,6 +110,33 @@ export default class GameScene extends Phaser.Scene {
       .text(16, 60, '', { fontFamily: 'monospace', fontSize: '14px', color: '#aaaacc' })
       .setScrollFactor(0)
       .setDepth(100);
+  }
+
+  spawnBot(type) {
+    const point = this.botSpawnPoint();
+    const bot = new Bot(this, point.x, point.y, BOTS[type], this.groundLayer, () => this.player);
+
+    this.physics.add.collider(bot, this.groundLayer);
+    this.collisions.addCharacter(bot);
+    this.typing.addTarget(bot);
+    bot.on('died', (cause) => this.handleBotDeath(bot, cause));
+    return bot;
+  }
+
+  // Drop in above the spawn point farthest from you.
+  botSpawnPoint() {
+    let best = this.spawnPoints[0];
+    for (const p of this.spawnPoints) {
+      if (Math.abs(p.x - this.player.x) > Math.abs(best.x - this.player.x)) best = p;
+    }
+    return { x: best.x, y: BOT_DROP_Y };
+  }
+
+  handleBotDeath(bot, cause) {
+    // Your kill, unless it fell into the void on its own.
+    if (cause !== 'void' || bot.fallCredited) this.kills += 1;
+
+    this.time.delayedCall(bot.config.respawnDelay, () => bot.respawn(this.botSpawnPoint()));
   }
 
   // Builds the level from the Tiled file. Needs a tile layer "ground"
@@ -161,11 +196,13 @@ export default class GameScene extends Phaser.Scene {
   update(time, delta) {
     this.player.update(delta);
     for (const dummy of this.dummies) dummy.update();
+    for (const bot of this.bots) bot.update(delta);
     this.typing.update();
     this.weapons.update(delta);
     this.airdrops.update(delta);
     this.pickups.update();
     this.voidSystem.update(this.player);
+    for (const bot of this.bots) this.voidSystem.update(bot);
     this.hud.update(this.player, this.typing, this.weapons);
 
     const b = this.player.body;
@@ -181,6 +218,7 @@ export default class GameScene extends Phaser.Scene {
       `last shot: ${shot ? `${shot.distance}px  x${shot.multiplier.toFixed(2)}` : '-'}  staggered: ${this.player.staggered}`,
       `thrown: ${this.weapons.thrown}  grenades in air: ${this.weapons.grenades.length}`,
       `words: ${this.dummies.map((d) => d.word ?? '-').join(', ')}`,
+      `bots: ${this.bots.map((bot) => `${bot.alive ? bot.brain.mode : 'dead'} hp${bot.hp} fuel${Math.round(bot.fuel)}`).join(' | ')}`,
       `crates: ${this.airdrops.crates.map((c) => `${c.item.key} (${c.state})`).join(', ') || '-'}  next drop: ${Math.ceil(this.airdrops.timeToNextDrop / 1000)}s  drops: ${this.airdrops.drops.length}  pickups: ${this.pickups.pickups}`,
     ]);
   }

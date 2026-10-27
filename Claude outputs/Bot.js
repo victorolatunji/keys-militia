@@ -1,0 +1,115 @@
+import Player from './Player.js';
+import WordLabel from '../ui/WordLabel.js';
+import BotBrain from '../systems/BotBrain.js';
+import { BOT_AI } from '../data/enemies.js';
+
+const HP_WIDTH = 40;
+const HP_HEIGHT = 6;
+const HP_COLOR = 0xff4d6d;
+
+// An enemy bot. It extends Player, so it runs, flies, burns fuel, falls,
+// takes damage and gets knocked back exactly like you. Instead of the
+// keyboard, its BotBrain presses a "virtual controller" every frame.
+// It is also a typing target: word label and HP bar above its head.
+// Emits 'died' (cause): 'player' (you killed it) or 'void'.
+export default class Bot extends Player {
+  // config: a BOTS entry. getTarget(): who it fights (you, for now).
+  constructor(scene, x, y, config, groundLayer, getTarget) {
+    super(scene, x, y, config.color);
+    this.config = config;
+    this.maxHp = config.hp;
+    this.hp = config.hp;
+    this.hurtLog = [];        // recent damage from you: { at, amount }
+
+    // Typing target fields (same as a dummy).
+    this.word = null;
+    this.lastWord = null;
+    this.wordExpiresAt = 0;
+
+    this.hpBg = scene.add.rectangle(0, 0, HP_WIDTH + 2, HP_HEIGHT + 2, 0x000000, 0.6);
+    this.hpFill = scene.add.rectangle(0, 0, HP_WIDTH, HP_HEIGHT, HP_COLOR).setOrigin(0, 0.5);
+    this.label = new WordLabel(scene);
+    this.label.setVisible(false);
+
+    this.brain = new BotBrain(this, groundLayer, getTarget);
+    this.layout();
+  }
+
+  // Buttons the brain presses (same shape as the arrow keys).
+  createControls() {
+    return {
+      left: { isDown: false },
+      right: { isDown: false },
+      up: { isDown: false },
+      down: { isDown: false },
+    };
+  }
+
+  get controls() {
+    return this.cursors;
+  }
+
+  update(delta) {
+    if (this.alive) {
+      this.brain.update(delta);
+      super.update(delta);
+      // Keep facing you while it can see you (even when backing off).
+      if (this.brain.sees && this.brain.target) this.faceToward(this.brain.target.x);
+    }
+    this.layout();
+  }
+
+  setWord(word) {
+    this.word = word;
+    if (word) this.lastWord = word;
+
+    this.label.setWord(word ?? '');
+    this.label.setVisible(Boolean(word) && this.alive);
+    this.layout();
+  }
+
+  // Your bullets, blasts and melee land here (no cause = it was you).
+  takeDamage(amount, cause = 'player') {
+    if (!this.alive) return;
+    this.hurtLog.push({ at: this.scene.time.now, amount });
+    super.takeDamage(amount, cause);
+    this.layout();
+  }
+
+  // Fell into the void soon after you hurt it badly: still your kill.
+  get fallCredited() {
+    const { windowMs, share } = BOT_AI.fallCredit;
+    const since = this.scene.time.now - windowMs;
+    const recent = this.hurtLog
+      .filter((h) => h.at >= since)
+      .reduce((sum, h) => sum + h.amount, 0);
+    return recent >= this.maxHp * share;
+  }
+
+  die() {
+    super.die();
+    this.setWord(null);
+    this.hpBg.setVisible(false);
+    this.hpFill.setVisible(false);
+  }
+
+  respawn(point) {
+    super.respawn(point);
+    this.hp = this.maxHp;
+    this.hurtLog = [];
+    this.brain.reset();
+    this.hpBg.setVisible(true);
+    this.hpFill.setVisible(true);
+    this.layout();
+  }
+
+  layout() {
+    const top = this.y - this.height / 2;
+
+    this.hpBg.setPosition(this.x, top - 10);
+    this.hpFill.setPosition(this.x - HP_WIDTH / 2, top - 10);
+    this.hpFill.scaleX = this.hp / this.maxHp;
+
+    this.label.setPosition(this.x, top - 32);
+  }
+}
