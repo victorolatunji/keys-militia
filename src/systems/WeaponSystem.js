@@ -12,6 +12,7 @@ import {
 const TRACER_FADE_MS = 150;
 const DAMAGE_COLOR = '#ff9f1c';  // full-damage hit
 const REDUCED_COLOR = '#ffe8b0'; // hit weakened by range falloff
+const EMPTY_COLOR = '#c9c9c9';   // "Pistol empty"
 const PREVIEW_DOTS = 14;
 const PREVIEW_STEP = 0.06; // seconds between preview dots
 
@@ -28,6 +29,7 @@ export default class WeaponSystem {
 
     // Guns
     this.guns = DEFAULT_LOADOUT.guns.map((key) => (key ? WEAPONS[key] : null));
+    this.ammo = this.guns.map((gun) => (gun ? gun.ammo : 0)); // shots left per slot
     this.active = 0;
     this.shots = 0;
     this.lastShot = null; // { distance, multiplier } for the debug readout
@@ -56,6 +58,7 @@ export default class WeaponSystem {
     });
   }
 
+  // Gun in your hand, or null when both slots are empty.
   get current() {
     return this.guns[this.active];
   }
@@ -86,20 +89,54 @@ export default class WeaponSystem {
     return this.guns.some((gun) => gun?.key === key);
   }
 
-  // Put a gun in a slot (0 or 1). Returns the key of the gun that was there.
-  // Replacing the gun in your hand counts as a switch (words re-roll).
-  setGun(slot, key) {
-    const oldKey = this.guns[slot]?.key ?? null;
-    this.guns[slot] = WEAPONS[key];
+  // Slot holding this gun, or -1.
+  slotOf(key) {
+    return this.guns.findIndex((gun) => gun?.key === key);
+  }
 
+  // Put a gun in a slot (0 or 1) with this much ammo (default: full).
+  // Returns the gun that was there as { key, ammo }, or null.
+  // Replacing the gun in your hand counts as a switch (words re-roll).
+  setGun(slot, key, ammo) {
+    const old = this.guns[slot] ? { key: this.guns[slot].key, ammo: this.ammo[slot] } : null;
+    const config = WEAPONS[key];
+
+    this.guns[slot] = config;
+    this.ammo[slot] = Math.min(ammo ?? config.ammo, config.ammo);
+
+    // Holding nothing? Take the new gun in hand.
+    if (!this.guns[this.active]) this.active = slot;
     if (slot === this.active) this.typing.onWeaponChanged(GUN_SWITCH_MS);
-    return oldKey;
+    return old;
+  }
+
+  // Top up a slot's ammo, up to a full gun. Returns how many shots were added.
+  refillGun(slot, ammo) {
+    const gun = this.guns[slot];
+    if (!gun) return 0;
+
+    const taken = Math.max(0, Math.min(ammo, gun.ammo - this.ammo[slot]));
+    this.ammo[slot] += taken;
+    return taken;
+  }
+
+  // Out of ammo: the gun is thrown away and you switch to your other gun.
+  emptyCurrent() {
+    const gun = this.current;
+    this.guns[this.active] = null;
+    this.ammo[this.active] = 0;
+    this.floatText(this.player, `${gun.name} empty`, EMPTY_COLOR);
+
+    const other = this.guns.findIndex(Boolean);
+    if (other !== -1) this.active = other;
+    this.typing.onWeaponChanged(GUN_SWITCH_MS); // re-roll words (or hide them: no gun)
   }
 
   // Called by TypingSystem when a word is finished. Always hits;
   // distance only changes how much damage the shot does.
   fire(target) {
     const gun = this.current;
+    if (!gun) return;
     const p = this.player;
     const distance = Phaser.Math.Distance.Between(p.x, p.y, target.x, target.y);
     const multiplier = this.falloffMultiplier(gun.falloff, distance);
@@ -110,6 +147,9 @@ export default class WeaponSystem {
     this.drawTracer(target, gun);
     target.takeDamage(damage);
     this.showDamage(target, damage, multiplier < 1 ? REDUCED_COLOR : DAMAGE_COLOR);
+
+    this.ammo[this.active] -= 1;
+    if (this.ammo[this.active] <= 0) this.emptyCurrent();
   }
 
   // 1 up close, sliding down to minMultiplier between startPx and endPx.
@@ -140,8 +180,13 @@ export default class WeaponSystem {
 
   // Floating "-34" above whatever got hit.
   showDamage(victim, amount, color = DAMAGE_COLOR) {
+    this.floatText(victim, `-${amount}`, color);
+  }
+
+  // Small text that floats up from something and fades.
+  floatText(obj, message, color) {
     const text = this.scene.add
-      .text(victim.x, victim.y - 30, `-${amount}`, {
+      .text(obj.x, obj.y - 30, message, {
         fontFamily: 'monospace',
         fontSize: '18px',
         fontStyle: 'bold',
@@ -196,6 +241,7 @@ export default class WeaponSystem {
   // Called on respawn: back to the default guns and throwables.
   resetLoadout() {
     this.guns = DEFAULT_LOADOUT.guns.map((key) => (key ? WEAPONS[key] : null));
+    this.ammo = this.guns.map((gun) => (gun ? gun.ammo : 0));
     this.active = 0;
     this.throwable = THROWABLES[DEFAULT_LOADOUT.throwable.key];
     this.throwableCount = DEFAULT_LOADOUT.throwable.count;
@@ -203,7 +249,10 @@ export default class WeaponSystem {
 
   // What you're carrying, as pickup items (dropped when you die).
   loadoutItems() {
-    const items = this.guns.filter(Boolean).map((gun) => ({ type: 'gun', key: gun.key }));
+    const items = [];
+    this.guns.forEach((gun, slot) => {
+      if (gun) items.push({ type: 'gun', key: gun.key, ammo: this.ammo[slot] });
+    });
     if (this.throwableCount > 0) {
       items.push({ type: 'throwable', key: this.throwable.key, count: this.throwableCount });
     }

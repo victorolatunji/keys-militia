@@ -13,7 +13,7 @@ const EYE_OFFSET_Y = -8;  // line of sight starts a bit above the player's cente
 
 export default class TypingSystem {
   // options.onFire(target): a word was finished
-  // options.getWordList(): key of the word list for the current gun
+  // options.getWordList(): key of the word list for the current gun (null = no gun)
   constructor(scene, player, groundLayer, options) {
     this.scene = scene;
     this.player = player;
@@ -61,7 +61,13 @@ export default class TypingSystem {
         .filter((t) => t !== target && t.word)
         .map((t) => t.word[0])
     );
-    const list = WORDS[this.getWordList()];
+    const listKey = this.getWordList();
+    if (!listKey) {
+      this.hideWord(target); // no gun: nothing to shoot with
+      return;
+    }
+
+    const list = WORDS[listKey];
     target.setWord(pickWord(list, used, target.word ?? target.lastWord));
     target.wordExpiresAt =
       this.scene.time.now + Phaser.Math.Between(WORD_REFRESH.minMs, WORD_REFRESH.maxMs);
@@ -103,6 +109,14 @@ export default class TypingSystem {
   // Runs every frame: show, hide and refresh words.
   update() {
     const now = this.scene.time.now;
+
+    // No gun in hand: no words anywhere.
+    if (!this.getWordList()) {
+      for (const target of this.targets) {
+        if (target.word) this.hideWord(target);
+      }
+      return;
+    }
 
     for (const target of this.targets) {
       if (!target.alive) continue;

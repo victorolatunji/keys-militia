@@ -9,7 +9,8 @@ const THROWABLE_KEY = '3';
 // Get near a landed crate or a loose drop: it gets a yellow outline and a
 // panel at the bottom of the screen shows what's inside.
 // 1 / 2 swap that gun slot with the crate's gun (your old gun goes into
-// the crate, so you can swap back). 3 takes the throwables.
+// the crate with its ammo, so you can swap back). If you already hold that
+// gun, its number refills your ammo instead. 3 takes the throwables.
 // The game never pauses, and digits never clash with typing (letters only).
 export default class PickupSystem {
   constructor(scene, player, weapons, airdrops) {
@@ -73,17 +74,24 @@ export default class PickupSystem {
     const w = this.weapons;
 
     if (item.type === 'gun') {
-      const name = WEAPONS[item.key].name.toUpperCase();
-      if (w.hasGun(item.key)) {
-        return { title: name, options: [{ label: 'already in your loadout', enabled: false }] };
+      const config = WEAPONS[item.key];
+      const title = `${config.name.toUpperCase()} (${this.ammoOf(item)} shots)`;
+
+      // Already holding this gun: its slot number refills your ammo.
+      const heldSlot = w.slotOf(item.key);
+      if (heldSlot !== -1) {
+        const have = w.ammo[heldSlot];
+        const full = have >= config.ammo;
+        const label = full ? 'ammo full' : `refill ammo (${have}/${config.ammo})`;
+        return { title, options: [{ key: String(heldSlot + 1), label, enabled: !full }] };
       }
 
       const options = w.guns.map((gun, slot) => ({
         key: String(slot + 1),
-        label: gun ? `swap for ${gun.name}` : 'take (empty slot)',
+        label: gun ? `swap for ${gun.name} (${w.ammo[slot]})` : 'take (empty slot)',
         enabled: true,
       }));
-      return { title: name, options };
+      return { title, options };
     }
 
     // Throwable
@@ -107,23 +115,45 @@ export default class PickupSystem {
     const item = crate.item;
 
     if (item.type === 'gun' && event.key in SLOT_KEYS) {
-      this.takeGun(crate, SLOT_KEYS[event.key]);
+      const slot = SLOT_KEYS[event.key];
+      const heldSlot = this.weapons.slotOf(item.key);
+
+      if (heldSlot === -1) this.takeGun(crate, slot);
+      else if (slot === heldSlot) this.refillAmmo(crate, slot);
     } else if (item.type === 'throwable' && event.key === THROWABLE_KEY) {
       this.takeThrowable(crate);
     }
   }
 
+  // Shots in a gun item. Crate guns come full; dropped guns keep what was left.
+  ammoOf(item) {
+    return item.ammo ?? WEAPONS[item.key].ammo;
+  }
+
   takeGun(crate, slot) {
-    if (this.weapons.hasGun(crate.item.key)) return;
+    const { key } = crate.item;
+    const old = this.weapons.setGun(slot, key, this.ammoOf(crate.item));
 
-    const name = WEAPONS[crate.item.key].name;
-    const oldKey = this.weapons.setGun(slot, crate.item.key);
-
-    // Your old gun goes into the crate (or drop); an empty slot leaves it empty.
-    if (oldKey) crate.item = { type: 'gun', key: oldKey };
+    // Your old gun goes into the crate (or drop) with its ammo;
+    // an empty slot leaves it empty.
+    if (old) crate.item = { type: 'gun', key: old.key, ammo: old.ammo };
     else crate.remove();
 
-    this.picked(name);
+    this.picked(WEAPONS[key].name);
+  }
+
+  // Same gun as one you hold: move its shots into yours.
+  refillAmmo(crate, slot) {
+    const { key } = crate.item;
+    const available = this.ammoOf(crate.item);
+    const taken = this.weapons.refillGun(slot, available);
+    if (taken === 0) return;
+
+    const left = available - taken;
+    if (left > 0) crate.item = { type: 'gun', key, ammo: left };
+    else crate.remove();
+
+    this.picked(`${WEAPONS[key].name} ammo +${taken}`);
   }
 
   takeThrowable(crate) {

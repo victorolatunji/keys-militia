@@ -49,7 +49,7 @@ export default class GameScene extends Phaser.Scene {
     // once both exist.
     this.typing = new TypingSystem(this, this.player, this.groundLayer, {
       onFire: (target) => this.weapons.fire(target),
-      getWordList: () => this.weapons.current.wordList,
+      getWordList: () => this.weapons.current?.wordList ?? null,
     });
     this.weapons = new WeaponSystem(
       this,

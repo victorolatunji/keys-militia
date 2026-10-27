@@ -73,14 +73,23 @@ export default class Hud {
 
   updateWeapons(weapons) {
     const gun = weapons.current;
-    const lines = weapons.guns.map(
-      (g, i) => `${i === weapons.active ? '>' : ' '} ${i + 1}. ${g ? g.name : '(empty)'}`
-    );
-    const range = gun.falloff
-      ? `weaker past ${gun.falloff.startPx}px`
-      : 'full dmg at any range';
-    lines.push(`dmg ${gun.damage} · ${gun.wordList} words`);
-    lines.push(range);
+
+    // One line per slot: name and shots left, e.g. "> 1. Sniper 4/6".
+    const lines = weapons.guns.map((g, i) => {
+      const marker = i === weapons.active ? '>' : ' ';
+      const label = g ? `${g.name} ${weapons.ammo[i]}/${g.ammo}` : '(empty)';
+      return `${marker} ${i + 1}. ${label}`;
+    });
+
+    if (gun) {
+      const range = gun.falloff
+        ? `weaker past ${gun.falloff.startPx}px`
+        : 'full dmg at any range';
+      lines.push(`dmg ${gun.damage} · ${gun.wordList} words`);
+      lines.push(range);
+    } else {
+      lines.push('no gun: find a crate');
+    }
     lines.push(`${weapons.throwable.name} x${weapons.throwableCount}`);
     lines.push('Shift: switch · Space: throw');
     this.weaponText.setText(lines);

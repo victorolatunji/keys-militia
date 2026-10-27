@@ -2,6 +2,12 @@
 // wordList picks from words.js: short / medium / long.
 // Starting values, tune in playtests (README open decision).
 //
+// category: the weapon family (see WEAPON_CATEGORIES). Later steps give each
+//   category its own typing rules (melee reach, LMG bursts, launchers).
+// ammo: shots in a full gun. Starting rule: round(600 / damage), kept
+//   between 3 and 40, so stronger guns get fewer shots. No reload button:
+//   an empty gun is thrown away and you switch to your other slot.
+//
 // falloff: damage drops with distance from you to the target.
 //   Full damage up to startPx, then a straight line down to
 //   minMultiplier at endPx (and beyond). null = full damage at any range.
@@ -10,8 +16,10 @@ export const WEAPONS = {
   pistol: {
     key: 'pistol',
     name: 'Pistol',
+    category: 'pistol',
     wordList: 'short',
     damage: 25,
+    ammo: 24,
     falloff: { startPx: 250, endPx: 600, minMultiplier: 0.5 },
     tracerColor: 0xfff3b0,
     tracerWidth: 2,
@@ -19,8 +27,10 @@ export const WEAPONS = {
   assaultRifle: {
     key: 'assaultRifle',
     name: 'Assault Rifle',
+    category: 'assault',
     wordList: 'medium',
     damage: 34,
+    ammo: 18,
     falloff: { startPx: 350, endPx: 700, minMultiplier: 0.6 },
     tracerColor: 0xffd166,
     tracerWidth: 3,
@@ -28,12 +38,22 @@ export const WEAPONS = {
   sniper: {
     key: 'sniper',
     name: 'Sniper',
+    category: 'rifle',
     wordList: 'long',
     damage: 100,
+    ammo: 6,
     falloff: null,        // long words buy full damage at any range
     tracerColor: 0xffffff,
     tracerWidth: 5,
   },
+};
+
+// Weapon families. More arrive in Phase 4.5 (melee, SMG, shotgun, LMG,
+// launchers) and 5.5 (specials).
+export const WEAPON_CATEGORIES = {
+  pistol: { name: 'Pistol' },
+  assault: { name: 'Assault rifle' },
+  rifle: { name: 'Rifle' },
 };
 
 // Throwables: thrown with Space, no word needed.
