@@ -2,12 +2,15 @@ import Phaser from 'phaser';
 import { hasLineOfSight } from './LineOfSight.js';
 import { isSolid, groundBelow, nearestGroundX, groundAhead } from './Terrain.js';
 import { BOT_AI } from '../data/enemies.js';
+import { AIRDROPS } from '../data/airdrops.js';
+import { GUN_SWITCH_MS } from '../data/weapons.js';
 
 const EYE_OFFSET_Y = -8;
 
 // A bot's AI. Two layers, like a person:
 //   think() - a few times a second (its reaction time): can I see you?
-//             where do I want to be? (approach, back off, hold, hunt)
+//             which gun suits the distance? anything worth looting?
+//             where do I want to be? (approach, back off, hold, hunt, loot)
 //   steer() - every frame: press left/right/up to get there safely
 //             (stop at the void, fly over gaps and walls, keep fuel to get back).
 // It only presses buttons; Player's movement code does the rest.
@@ -31,6 +34,11 @@ export default class BotBrain {
     this.stuckSince = 0;
     this.unstickUntil = 0;
     this.refueling = false;   // landed to refuel: stays down until refuelTo
+    this.detourDir = 0;       // going around a platform overhead
+    this.loot = null;         // crate or drop it's heading for
+    this.lootSince = 0;
+    this.lootBest = Infinity; // closest it got to that loot
+    this.ignoredLoot = new Map(); // loot it gave up on -> until when
   }
 
   update() {
@@ -56,21 +64,44 @@ export default class BotBrain {
     const bot = this.bot;
     const t = this.getTarget();
     this.target = t && t.alive ? t : null;
+    this.sees = false;
+
+    if (this.target) {
+      this.sees = hasLineOfSight(this.layer, bot.x, bot.y + EYE_OFFSET_Y, t.x, t.y + EYE_OFFSET_Y);
+      if (this.sees) this.lastSeen = { x: t.x, y: t.y, at: now };
+    }
+    const dist = this.target ? Phaser.Math.Distance.Between(bot.x, bot.y, t.x, t.y) : Infinity;
+
+    // Weapon for the distance (only while it can see you).
+    if (this.sees) bot.gear.chooseFor(dist, now, GUN_SWITCH_MS);
+
+    // Crates and drops: worth a detour when it has no gun, can't see you,
+    // or the item is right next to it.
+    const loot = this.findLoot(now);
+    this.trackLoot(loot, now);
+    if (loot) {
+      const lootDist = Phaser.Math.Distance.Between(bot.x, bot.y, loot.x, loot.y);
+      if (lootDist <= AIRDROPS.pickupRadius) {
+        this.grab(loot, now);
+      } else if (!bot.gear.hasGun || !this.sees || lootDist < 150) {
+        this.mode = 'loot';
+        this.goalX = loot.x;
+        this.goalY = loot.y;
+        this.keepSpacing();
+        return;
+      }
+    }
 
     if (!this.target) {
-      this.sees = false;
       this.mode = 'idle';
       this.goalX = bot.x;
       this.goalY = bot.y;
       return;
     }
 
-    this.sees = hasLineOfSight(this.layer, bot.x, bot.y + EYE_OFFSET_Y, t.x, t.y + EYE_OFFSET_Y);
-    if (this.sees) this.lastSeen = { x: t.x, y: t.y, at: now };
-
-    const { min, max } = this.bot.config.range;
-    const dist = Phaser.Math.Distance.Between(bot.x, bot.y, t.x, t.y);
+    const { min, max } = bot.gear.range;
     const side = Math.sign(t.x - bot.x) || 1;
+    const melee = bot.gear.current.category === 'melee';
 
     if (!this.sees) {
       // Go where it last saw you (or straight for you once that memory fades).
@@ -90,13 +121,60 @@ export default class BotBrain {
       // Good range: hold, with the odd side-step so it isn't a sitting duck.
       if (this.mode !== 'hold') this.goalX = bot.x;
       this.mode = 'hold';
-      if (Math.random() < BOT_AI.strafeChance) {
+      if (!melee && Math.random() < BOT_AI.strafeChance) {
         this.goalX = bot.x + Phaser.Math.FloatBetween(-1, 1) * BOT_AI.strafePx;
       }
       this.goalY = t.y;
     }
 
     this.keepSpacing();
+  }
+
+  // Closest landed crate or drop it wants, within its search distance.
+  findLoot(now) {
+    const bot = this.bot;
+    const sources = bot.scene.airdrops?.pickupables ?? [];
+    let best = null;
+    let bestDist = BOT_AI.loot.searchPx;
+
+    for (const source of sources) {
+      if (!source.active || !source.settled || !bot.gear.wants(source.item)) continue;
+      if ((this.ignoredLoot.get(source) ?? 0) > now) continue;
+      const d = Phaser.Math.Distance.Between(bot.x, bot.y, source.x, source.y);
+      if (d < bestDist) {
+        best = source;
+        bestDist = d;
+      }
+    }
+    return best;
+  }
+
+  // Can't reach it (no progress for a while)? Give up on it for a bit.
+  trackLoot(loot, now) {
+    if (loot !== this.loot) {
+      this.loot = loot;
+      this.lootSince = now;
+      this.lootBest = Infinity;
+      return;
+    }
+    if (!loot) return;
+
+    const d = Phaser.Math.Distance.Between(this.bot.x, this.bot.y, loot.x, loot.y);
+    if (d < this.lootBest - 16) {
+      this.lootBest = d;
+      this.lootSince = now; // still getting closer
+    } else if (now - this.lootSince > BOT_AI.loot.giveUpMs) {
+      this.ignoredLoot.set(loot, now + BOT_AI.loot.ignoreMs);
+      this.loot = null;
+    }
+  }
+
+  // Same swap rules as yours: its old gun goes into the crate with its ammo.
+  grab(source, now) {
+    const back = this.bot.gear.take(source.item, now, GUN_SWITCH_MS);
+    if (back) source.item = back;
+    else source.remove();
+    this.bot.emit('picked', source);
   }
 
   // Don't bunch up with other bots: step away from one that's too close.
@@ -114,6 +192,21 @@ export default class BotBrain {
   }
 
   // ---- Moving ----
+
+  // Which way (-1 / 1) is the closest spot with nothing overhead? 0 = none near.
+  openSide(ceilY) {
+    const bot = this.bot;
+    const half = bot.width / 2 + 4;
+    const toward = Math.sign(this.goalX - bot.x) || 1;
+    for (let off = 16; off <= 480; off += 16) {
+      const leftOpen = !isSolid(this.layer, bot.x - off - half, ceilY);
+      const rightOpen = !isSolid(this.layer, bot.x + off + half, ceilY);
+      if (leftOpen && rightOpen) return toward;
+      if (leftOpen) return -1;
+      if (rightOpen) return 1;
+    }
+    return 0;
+  }
 
   // Fuel to fly dx px sideways while holding altitude (with a safety factor).
   fuelFor(dx) {
@@ -133,6 +226,18 @@ export default class BotBrain {
     let up = false;
 
     const below = groundBelow(layer, bot.x, feetY); // null = the void is under me
+
+    // 0. Wants to go up but a platform is overhead: go around it, out the
+    //    nearer open side (keeps that side until it's clear).
+    const ceilY = body.top - 6;
+    const ceilingOver =
+      isSolid(layer, body.left + 2, ceilY) || isSolid(layer, bot.x, ceilY) || isSolid(layer, body.right - 2, ceilY);
+    if (canFly && ceilingOver && this.goalY < bot.y - BOT_AI.climbMarginPx) {
+      if (!this.detourDir) this.detourDir = this.openSide(ceilY);
+      if (this.detourDir) dir = this.detourDir;
+    } else if (!ceilingOver) {
+      this.detourDir = 0;
+    }
 
     // 1. Over the void: head back to ground while there's still enough
     //    fuel to make it (a little inside the edge, not on it).

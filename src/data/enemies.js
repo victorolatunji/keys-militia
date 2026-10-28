@@ -17,9 +17,13 @@ export const ENEMIES = {
 //   speedScale: run and air speed compared to yours (1 = same)
 //   jetScale: jetpack climb speed and thrust compared to yours
 //   jetpack: false = walks and jumps only (zombies, later)
-//   range: shooters try to stay between min and max px from you
-//   gun: a WEAPONS key. Bots "type" too: the time between attacks is the
-//     time to type that gun's words at typingSpeed letters per second.
+//   loadout: what it spawns with, like yours: two gun slots (WEAPONS keys,
+//     null = empty), a melee weapon and throwables. Bots use the same
+//     arsenal as you: ammo runs out, empty guns get thrown away, they
+//     switch to the gun that suits the distance, throw grenades, grab
+//     crates and drops, and drop their gear when they die.
+//   Bots "type" too: the time between attacks is the time to type that
+//     weapon's words at typingSpeed letters per second.
 //   reactionMs: after spotting you, extra time before the first shot.
 //   damageScale: bot bullets do this share of the gun's damage. You stop
 //     to type and can't dodge much, so bots hit softer than you do.
@@ -35,8 +39,11 @@ export const BOTS = {
     speedScale: 0.45,
     jetScale: 1,
     jetpack: true,
-    range: { min: 200, max: 480 },
-    gun: 'ak47',
+    loadout: {
+      guns: ['ak47', 'mw11'],
+      melee: 'knife',
+      throwable: { key: 'grenade', count: 2 },
+    },
     typingSpeed: 1.5,
     reactionMs: 600,
     damageScale: 0.5,
@@ -53,6 +60,21 @@ export const BOT_BULLETS = {
   color: 0xff4d6d,
   width: 3,
   maxRangePx: 1400,
+};
+
+// Distance (px) a bot likes to keep from you with each kind of weapon.
+// It picks the gun in its hands whose range fits best, and moves to stay
+// inside that range: close with a shotgun, far with a sniper.
+export const BOT_RANGES = {
+  melee: { min: 0, max: 40 },
+  pistol: { min: 150, max: 380 },
+  smg: { min: 100, max: 320 },
+  shotgun: { min: 60, max: 200 },
+  assault: { min: 200, max: 480 },
+  lmg: { min: 250, max: 520 },
+  marksman: { min: 350, max: 650 },
+  rifle: { min: 400, max: 750 },
+  launcher: { min: 250, max: 550 },
 };
 
 // Average letters per word in each list, for bot "typing" time.
@@ -78,6 +100,30 @@ export const BOT_AI = {
   returnMarginFuel: 15,   // and this much left over on arrival
   landInsetPx: 24,        // lands this far in from an edge, not right on it
   stuckMs: 600,           // not moving while trying to: hop up to get unstuck
+
+  // Weapons
+  switchEveryMs: 2000,    // at most one gun switch this often (switching takes GUN_SWITCH_MS)
+  switchMargin: 0.25,     // only switches when the other gun fits clearly better
+
+  // Grenades: lobbed at you when you're in range, most often when you hide.
+  grenade: {
+    minRangePx: 140,      // never this close (it would hurt itself)
+    maxRangePx: 520,
+    checkMs: 1000,        // how often it considers a throw
+    chanceSeen: 0.08,     // per check while it can see you
+    chanceHidden: 0.35,   // per check while you hide near where it last saw you
+    hiddenMemoryMs: 3000, // "you were just there" counts this long
+    cooldownMs: 5000,     // between its own throws
+    errorShare: 0.12,     // throw strength is off by up to this share
+  },
+
+  // Loot: crates and drops it will walk or fly to.
+  loot: {
+    searchPx: 500,        // how far it looks
+    lowAmmoShare: 0.3,    // a gun this low on ammo is worth replacing
+    giveUpMs: 5000,       // no closer for this long: gives up on that item...
+    ignoreMs: 15000,      // ...for this long
+  },
 
   // Fall credit: a bot that falls into the void counts as your kill if you
   // did at least this share of its HP in the last windowMs.

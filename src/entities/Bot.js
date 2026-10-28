@@ -1,6 +1,8 @@
 import Player from './Player.js';
 import WordLabel from '../ui/WordLabel.js';
 import BotBrain from '../systems/BotBrain.js';
+import BotGear from '../systems/BotGear.js';
+import { iconKey } from '../ui/Icons.js';
 import { BOT_AI } from '../data/enemies.js';
 import { PLAYER } from '../data/player.js';
 
@@ -12,7 +14,9 @@ const HP_COLOR = 0xff4d6d;
 // takes damage and gets knocked back exactly like you. Instead of the
 // keyboard, its BotBrain presses a "virtual controller" every frame.
 // It is also a typing target: word label and HP bar above its head.
-// Emits 'died' (cause): 'player' (you killed it) or 'void'.
+// It carries gear like yours (BotGear); the weapon in its hand is shown
+// at its side, so you can see what it's holding.
+// Emits 'died' (cause): 'player' (you killed it), 'self' (its own blast) or 'void'.
 export default class Bot extends Player {
   // config: a BOTS entry. getTarget(): who it fights (you, for now).
   constructor(scene, x, y, config, groundLayer, getTarget) {
@@ -24,6 +28,10 @@ export default class Bot extends Player {
     this.maxHp = config.hp;
     this.hp = config.hp;
     this.hurtLog = [];        // recent damage from you: { at, amount }
+    this.gear = new BotGear(config.loadout);
+    this.heldIcon = scene.add.image(x, y, iconKey({ type: 'gun', key: this.gear.current.key }))
+      .setScale(0.5)
+      .setDepth(1);
 
     // Typing target fields (same as a dummy).
     this.word = null;
@@ -90,7 +98,7 @@ export default class Bot extends Player {
   // Your bullets, blasts and melee land here (no cause = it was you).
   takeDamage(amount, cause = 'player') {
     if (!this.alive) return;
-    this.hurtLog.push({ at: this.scene.time.now, amount });
+    if (cause === 'player') this.hurtLog.push({ at: this.scene.time.now, amount });
     super.takeDamage(amount, cause);
     this.layout();
   }
@@ -110,6 +118,7 @@ export default class Bot extends Player {
     this.setWord(null);
     this.hpBg.setVisible(false);
     this.hpFill.setVisible(false);
+    this.heldIcon.setVisible(false);
   }
 
   respawn(point) {
@@ -117,7 +126,10 @@ export default class Bot extends Player {
     this.hurtLog = [];
     this.spottedAt = 0;
     this.nextShotAt = 0;
+    this.nextThrowAt = 0;
+    this.gear.reset();
     this.brain.reset();
+    this.heldIcon.setVisible(true);
     this.hpBg.setVisible(true);
     this.hpFill.setVisible(true);
     this.layout();
@@ -131,5 +143,10 @@ export default class Bot extends Player {
     this.hpFill.scaleX = this.hp / this.maxHp;
 
     this.label.setPosition(this.x, top - 32);
+
+    // Weapon in hand, at its side, facing the way it faces.
+    const key = iconKey({ type: 'gun', key: this.gear.current.key });
+    if (this.heldIcon.texture.key !== key) this.heldIcon.setTexture(key);
+    this.heldIcon.setPosition(this.x + this.facing * 14, this.y + 4).setFlipX(this.facing < 0);
   }
 }

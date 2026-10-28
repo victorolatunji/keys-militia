@@ -77,7 +77,9 @@ export default class GameScene extends Phaser.Scene {
 
     // Bots listed in the map config.
     this.bots = (this.map.bots ?? []).map((type) => this.spawnBot(type));
-    this.botCombat = new BotCombat(this, this.groundLayer, this.player, this.bots);
+    this.botCombat = new BotCombat(
+      this, this.groundLayer, this.player, this.bots, this.weapons, this.collisions, height
+    );
 
     // Crates parachute in on a timer; get near a landed one to pick up its item.
     this.airdrops = new AirdropSystem(this, this.groundLayer, { width, height }, this.collisions);
@@ -135,8 +137,11 @@ export default class GameScene extends Phaser.Scene {
   }
 
   handleBotDeath(bot, cause) {
-    // Your kill, unless it fell into the void on its own.
-    if (cause !== 'void' || bot.fallCredited) this.kills += 1;
+    // Your kill: you finished it, or it fell into the void soon after you hurt it.
+    if (cause === 'player' || (cause === 'void' && bot.fallCredited)) this.kills += 1;
+
+    // Its gear spills out like yours (not in the void).
+    if (cause !== 'void') this.airdrops.dropItems(bot.x, bot.y, bot.gear.items());
 
     this.time.delayedCall(bot.config.respawnDelay, () => bot.respawn(this.botSpawnPoint()));
   }
@@ -190,7 +195,7 @@ export default class GameScene extends Phaser.Scene {
     const attacker = this.player.lastAttacker;
     if (cause === 'bot' && attacker) {
       attacker.kills += 1;
-      message = `Shot by a ${attacker.config.name}`;
+      message = `Killed by a ${attacker.config.name}`;
     }
     this.message.setText(message).setVisible(true);
 
@@ -227,7 +232,7 @@ export default class GameScene extends Phaser.Scene {
       `last shot: ${shot ? `${shot.distance}px  x${shot.multiplier.toFixed(2)}` : '-'}  staggered: ${this.player.staggered}`,
       `thrown: ${this.weapons.thrown}  grenades in air: ${this.weapons.grenades.length}`,
       `words: ${this.dummies.map((d) => d.word ?? '-').join(', ')}`,
-      `bots: ${this.bots.map((bot) => `${bot.alive ? bot.brain.mode : 'dead'} hp${bot.hp} fuel${Math.round(bot.fuel)}`).join(' | ')}  shots: ${this.botCombat.shotsFired}  hit you: ${this.botCombat.hits}`,
+      `bots: ${this.bots.map((bot) => `${bot.alive ? bot.brain.mode : 'dead'} hp${bot.hp} ${bot.gear.current.name}${bot.gear.active === 'melee' ? '' : ` ${bot.gear.guns[bot.gear.active]?.ammo}`} g${bot.gear.throwableCount}`).join(' | ')}  shots: ${this.botCombat.shotsFired}  hit you: ${this.botCombat.hits}`,
       `crates: ${this.airdrops.crates.map((c) => `${c.item.key} (${c.state})`).join(', ') || '-'}  next drop: ${Math.ceil(this.airdrops.timeToNextDrop / 1000)}s  drops: ${this.airdrops.drops.length}  pickups: ${this.pickups.pickups}`,
     ]);
   }
