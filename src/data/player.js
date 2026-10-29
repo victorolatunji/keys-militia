@@ -8,6 +8,8 @@ export const PLAYER = {
 
   // Health
   maxHp: 100,
+  regenDelayMs: 4000,   // after this long without taking damage...
+  regenPerSec: 8,       // ...HP comes back this fast (0 = no regen; bots: 0)
 
   // Running and air control
   runSpeed: 260,        // px per second on the ground

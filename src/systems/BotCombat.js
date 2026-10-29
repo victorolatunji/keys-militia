@@ -15,6 +15,8 @@ const SWING_COLOR = 0xff4d6d;
 // Bots fighting you with whatever is in their hands (BotGear).
 // A bot attacks only while it can see you, after a reaction delay, then once
 // per "typed" attack (same words as yours, at its typing speed).
+// Attack turns: only a couple of bots shoot at you at the same time.
+// A bot you just hit flinches (worse aim, next shot delayed).
 // Guns fire real bullets that can miss; launchers fire real rounds;
 // melee needs you within reach; grenades get lobbed at you, often when you hide.
 // Explosions reuse your WeaponSystem's blast rules (falloff, walls, knockback).
@@ -53,12 +55,18 @@ export default class BotCombat {
   updateAttack(bot, now) {
     const { brain, gear } = bot;
     const weapon = gear.current;
-    const ready = bot.alive && !bot.staggered && brain.sees && brain.target && !gear.switching(now);
+    const ready = bot.alive && !bot.staggered && brain.sees && brain.target && !gear.busy(now);
 
     if (!ready) {
-      if (!brain.sees) bot.spottedAt = 0; // lost sight: it has to react again next time
+      if (!brain.sees || !bot.alive) {
+        bot.spottedAt = 0; // lost sight: it has to react again next time
+        this.endTurn(bot, now);
+      }
       return;
     }
+
+    // Wait for an attack turn (only a couple of bots shoot at you at once).
+    if (!this.hasTurn(bot, now)) return;
 
     // Melee: only once you're within reach.
     if (weapon.category === 'melee') {
@@ -77,15 +85,53 @@ export default class BotCombat {
     else if (weapon.category === 'launcher') this.launch(bot, brain.target, weapon);
     else this.attack(bot, brain.target, weapon);
 
-    const emptied = gear.useAmmo(now, GUN_SWITCH_MS);
-    if (emptied) this.note(bot, `${emptied.name} empty`);
+    const used = gear.useAmmo(now, GUN_SWITCH_MS);
+    if (used === 'reload') this.note(bot, 'reloading');
+    else if (used) this.note(bot, `${used.name} empty`);
     bot.nextShotAt = now + this.typeTime(bot, gear.current);
   }
 
+  // ---- Attack turns ----
+
+  // Does this bot get to attack now? It keeps a turn for holdMs, then rests
+  // for restMs. New turns are only handed out while fewer than `max` are taken.
+  hasTurn(bot, now) {
+    const { max, holdMs, restMs } = BOT_AI.turns;
+    if (bot.turnUntil > now) return true;
+    if (now < (bot.turnRestUntil ?? 0)) return false;
+
+    const taken = this.bots.filter((b) => b !== bot && b.alive && b.turnUntil > now).length;
+    if (taken >= max) return false;
+
+    bot.turnUntil = now + holdMs;
+    bot.turnRestUntil = bot.turnUntil + restMs;
+    // It was waiting with you in sight: a short moment to aim, not a full reaction.
+    bot.nextShotAt = Math.max(bot.nextShotAt, now + bot.config.reactionMs * 0.5);
+    return true;
+  }
+
+  endTurn(bot, now) {
+    if (bot.turnUntil > now) {
+      bot.turnUntil = now;
+      bot.turnRestUntil = now + BOT_AI.turns.restMs;
+    }
+  }
+
+  // How many bots are attacking you right now (for the debug readout).
+  get turnsTaken() {
+    const now = this.scene.time.now;
+    return this.bots.filter((b) => b.alive && b.turnUntil > now).length;
+  }
+
   // ms to type one attack's words with this weapon (±20%, people aren't metronomes).
+  // Heavy hitters (LMGs, snipers, launchers) wait longer between attacks, so
+  // no bot deals more than maxDps damage per second (before misses).
   typeTime(bot, weapon) {
     const letters = WORD_LETTERS[weapon.wordList] * (weapon.wordsPerShot ?? 1);
-    return (letters / bot.config.typingSpeed) * 1000 * Phaser.Math.FloatBetween(0.8, 1.2);
+    const typing = (letters / bot.config.typingSpeed) * 1000;
+    const damage = weapon.damage * this.scale(bot);
+    const capped = (damage / BOT_AI.maxDps) * 1000;
+    return Math.max(typing, capped) * Phaser.Math.FloatBetween(0.8, 1.2);
   }
 
   // Guns: the bullets as a burst (one after another) or pellets (all at once),
@@ -141,7 +187,10 @@ export default class BotCombat {
 
     const targetSpeed = Math.hypot(tv.x, tv.y) / target.stats.runSpeed;
     const errorDeg =
-      aim.spreadDeg + aim.movingTargetDeg * Math.min(1.5, targetSpeed) + (this.moving(bot) ? aim.selfMovingDeg : 0);
+      aim.spreadDeg +
+      aim.movingTargetDeg * Math.min(1.5, targetSpeed) +
+      (this.moving(bot) ? aim.selfMovingDeg : 0) +
+      (bot.flinching ? BOT_AI.flinch.aimDeg : 0);
 
     // Two randoms averaged: small misses are common, big ones rare.
     const roll = (Math.random() + Math.random() - 1) * errorDeg;

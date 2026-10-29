@@ -10,9 +10,9 @@ import AirdropSystem from '../systems/AirdropSystem.js';
 import CollisionSystem from '../systems/CollisionSystem.js';
 import PickupSystem from '../systems/PickupSystem.js';
 import BotCombat from '../systems/BotCombat.js';
+import EnemySpawner from '../systems/EnemySpawner.js';
 import { MAPS } from '../data/maps.js';
 import { PLAYER } from '../data/player.js';
-import { BOTS } from '../data/enemies.js';
 
 const BOT_DROP_Y = 40; // bots drop in from just under the top of the map
 
@@ -75,8 +75,9 @@ export default class GameScene extends Phaser.Scene {
       dummy.on('died', () => (this.kills += 1));
     }
 
-    // Bots listed in the map config.
-    this.bots = (this.map.bots ?? []).map((type) => this.spawnBot(type));
+    // Enemies: one bot per spawn slot in the map config; types picked at random.
+    this.spawner = new EnemySpawner(this, this.map.enemies);
+    this.bots = this.spawner.startingSlots().map((slot) => this.spawnBot(slot));
     this.botCombat = new BotCombat(
       this, this.groundLayer, this.player, this.bots, this.weapons, this.collisions, height
     );
@@ -116,9 +117,10 @@ export default class GameScene extends Phaser.Scene {
       .setDepth(100);
   }
 
-  spawnBot(type) {
+  spawnBot(slot) {
     const point = this.botSpawnPoint();
-    const bot = new Bot(this, point.x, point.y, BOTS[type], this.groundLayer, () => this.player);
+    const config = this.spawner.pick(slot);
+    const bot = new Bot(this, point.x, point.y, config, this.groundLayer, () => this.player, slot);
 
     this.physics.add.collider(bot, this.groundLayer);
     this.collisions.addCharacter(bot);
@@ -140,10 +142,15 @@ export default class GameScene extends Phaser.Scene {
     // Your kill: you finished it, or it fell into the void soon after you hurt it.
     if (cause === 'player' || (cause === 'void' && bot.fallCredited)) this.kills += 1;
 
-    // Its gear spills out like yours (not in the void).
-    if (cause !== 'void') this.airdrops.dropItems(bot.x, bot.y, bot.gear.items());
+    // Its gear spills out like yours (not in the void, not built-in machine guns).
+    if (cause !== 'void' && bot.config.dropsGear !== false) {
+      this.airdrops.dropItems(bot.x, bot.y, bot.gear.items());
+    }
 
-    this.time.delayedCall(bot.config.respawnDelay, () => bot.respawn(this.botSpawnPoint()));
+    // A new random enemy takes its slot after a moment.
+    this.time.delayedCall(bot.config.respawnDelay, () =>
+      bot.respawn(this.botSpawnPoint(), this.spawner.pick(bot.slot))
+    );
   }
 
   // Builds the level from the Tiled file. Needs a tile layer "ground"
@@ -209,6 +216,7 @@ export default class GameScene extends Phaser.Scene {
   update(time, delta) {
     this.player.update(delta);
     for (const dummy of this.dummies) dummy.update();
+    this.spawner.update();
     for (const bot of this.bots) bot.update(delta);
     this.botCombat.update(delta);
     this.typing.update();
@@ -225,14 +233,15 @@ export default class GameScene extends Phaser.Scene {
     this.debugText.setText([
       `x: ${Math.round(this.player.x)}  y: ${Math.round(this.player.y)}`,
       `vx: ${Math.round(b.velocity.x)}  vy: ${Math.round(b.velocity.y)}`,
-      `onGround: ${this.player.onGround}  fuel: ${Math.round(this.player.fuel)}  hp: ${this.player.hp}`,
+      `onGround: ${this.player.onGround}  fuel: ${Math.round(this.player.fuel)}  hp: ${Math.round(this.player.hp)}`,
       `alive: ${this.player.alive}  deaths: ${this.deaths}  suicides: ${this.suicides}`,
       `lock: ${lock ? `${lock.word} (${this.typing.progress}/${lock.word.length})` : '-'}`,
       `shots: ${this.weapons.shots}  kills: ${this.kills}  typos: ${this.typing.typos}`,
       `last shot: ${shot ? `${shot.distance}px  x${shot.multiplier.toFixed(2)}` : '-'}  staggered: ${this.player.staggered}`,
       `thrown: ${this.weapons.thrown}  grenades in air: ${this.weapons.grenades.length}`,
       `words: ${this.dummies.map((d) => d.word ?? '-').join(', ')}`,
-      `bots: ${this.bots.map((bot) => `${bot.alive ? bot.brain.mode : 'dead'} hp${bot.hp} ${bot.gear.current.name}${bot.gear.active === 'melee' ? '' : ` ${bot.gear.guns[bot.gear.active]?.ammo}`} g${bot.gear.throwableCount}`).join(' | ')}  shots: ${this.botCombat.shotsFired}  hit you: ${this.botCombat.hits}`,
+      `family: ${this.spawner.family}  attacking you: ${this.botCombat.turnsTaken}  shots: ${this.botCombat.shotsFired}  hit you: ${this.botCombat.hits}`,
+      ...this.bots.map((bot) => `  ${bot.config.name}: ${bot.alive ? bot.brain.mode : 'dead'} hp${bot.hp} ${bot.gear.current.name}${bot.gear.smart && bot.gear.active !== 'melee' ? ` ${bot.gear.guns[bot.gear.active]?.ammo}` : ''}${bot.gear.smart ? ` g${bot.gear.throwableCount}` : ''}`),
       `crates: ${this.airdrops.crates.map((c) => `${c.item.key} (${c.state})`).join(', ') || '-'}  next drop: ${Math.ceil(this.airdrops.timeToNextDrop / 1000)}s  drops: ${this.airdrops.drops.length}  pickups: ${this.pickups.pickups}`,
     ]);
   }

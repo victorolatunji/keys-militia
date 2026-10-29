@@ -1,28 +1,37 @@
+import Phaser from 'phaser';
 import { WEAPONS, THROWABLES } from '../data/weapons.js';
 import { BOT_RANGES, BOT_AI, WORD_LETTERS } from '../data/enemies.js';
 
 export const BOT_MELEE = 'melee'; // value of `active` when the melee weapon is in hand
 
-// What a bot carries, and its weapon choices. Same rules as yours:
-// two gun slots with ammo, a melee weapon that never runs out, and throwables.
+// What a bot carries, and its weapon choices.
+// Smart bots (Military) follow your rules: two gun slots with ammo, switching
+// for the distance, looting, grenades. Other bots keep the gun they spawn
+// with: endless ammo, a reload pause every few attacks, nothing else.
 // Pure data and decisions: BotCombat does the shooting, BotBrain the moving.
 export default class BotGear {
-  constructor(loadout) {
-    this.loadout = loadout;
+  // config: a BOTS entry (uses loadout and smart)
+  constructor(config) {
+    this.loadout = config.loadout;
+    this.smart = config.smart ?? false;
     this.reset();
   }
 
-  // Back to the spawn loadout (on respawn).
+  // A fresh spawn loadout: one random gun from each slot's list.
   reset() {
-    this.guns = this.loadout.guns.map((key) =>
-      key ? { weapon: WEAPONS[key], ammo: WEAPONS[key].ammo } : null
-    );
+    this.guns = this.loadout.guns.map((options) => {
+      if (!options) return null;
+      const key = Array.isArray(options) ? Phaser.Utils.Array.GetRandom(options) : options;
+      return { weapon: WEAPONS[key], ammo: WEAPONS[key].ammo };
+    });
     this.melee = WEAPONS[this.loadout.melee];
     this.throwable = THROWABLES[this.loadout.throwable.key];
     this.throwableCount = this.loadout.throwable.count;
     this.active = this.firstGun();
     this.switchingUntil = 0;
     this.lastSwitchAt = 0;
+    this.reloadingUntil = 0;
+    this.attacksSinceReload = 0;
   }
 
   firstGun() {
@@ -47,6 +56,11 @@ export default class BotGear {
     return now < this.switchingUntil;
   }
 
+  // Can't attack right now: switching guns or reloading.
+  busy(now) {
+    return now < this.switchingUntil || now < this.reloadingUntil;
+  }
+
   // ---- Choosing a weapon ----
 
   // How well a weapon suits this distance: 1 inside its range, less outside.
@@ -60,6 +74,7 @@ export default class BotGear {
   // Switch to the gun that suits the distance best, if it's clearly better.
   // Melee only when it has no gun left.
   chooseFor(distance, now, switchMs) {
+    if (!this.smart) return; // sticks with what it spawned with
     if (!this.hasGun) {
       if (this.active !== BOT_MELEE) this.switchTo(BOT_MELEE, now, switchMs);
       return;
@@ -87,8 +102,17 @@ export default class BotGear {
   }
 
   // One attack used. Returns the gun if that emptied it (it's thrown away).
+  // Non-smart bots never run out; they pause to reload now and then
+  // (returns 'reload' when that starts).
   useAmmo(now, switchMs) {
     if (this.active === BOT_MELEE) return null;
+    if (!this.smart) {
+      this.attacksSinceReload += 1;
+      if (this.attacksSinceReload < BOT_AI.reload.every) return null;
+      this.attacksSinceReload = 0;
+      this.reloadingUntil = now + BOT_AI.reload.ms;
+      return 'reload';
+    }
     const slot = this.guns[this.active];
     slot.ammo -= 1;
     if (slot.ammo > 0) return null;
@@ -108,6 +132,7 @@ export default class BotGear {
 
   // Would it bother walking over for this crate or drop item?
   wants(item) {
+    if (!this.smart) return false; // only Military bots loot
     if (item.type === 'throwable') {
       return item.key === this.throwable.key && this.throwableCount < this.throwable.maxCarry;
     }
@@ -167,7 +192,13 @@ export default class BotGear {
   }
 
   // Dropped when it dies (the melee weapon stays, like your knife).
+  // Non-smart bots drop their gun half loaded.
   items() {
+    if (!this.smart) {
+      return this.guns
+        .filter(Boolean)
+        .map((s) => ({ type: 'gun', key: s.weapon.key, ammo: Math.max(1, Math.ceil(s.weapon.ammo / 2)) }));
+    }
     const items = this.guns
       .filter(Boolean)
       .map((s) => ({ type: 'gun', key: s.weapon.key, ammo: s.ammo }));

@@ -16,19 +16,21 @@ const HP_COLOR = 0xff4d6d;
 // It is also a typing target: word label and HP bar above its head.
 // It carries gear like yours (BotGear); the weapon in its hand is shown
 // at its side, so you can see what it's holding.
+// One Bot object is reused for every enemy that spawns in its slot:
+// setType() turns it into another character (looks, HP, speed, gear).
 // Emits 'died' (cause): 'player' (you killed it), 'self' (its own blast) or 'void'.
 export default class Bot extends Player {
   // config: a BOTS entry. getTarget(): who it fights (you, for now).
-  constructor(scene, x, y, config, groundLayer, getTarget) {
+  // slot: which spawn slot it fills ('main', 'machine', 'animal').
+  constructor(scene, x, y, config, groundLayer, getTarget, slot = 'main') {
     super(scene, x, y, config.color, Bot.statsFor(config));
-    this.config = config;
+    this.slot = slot;
     this.kills = 0;           // times it killed you
     this.spottedAt = 0;       // when it last started seeing you (BotCombat)
     this.nextShotAt = 0;
-    this.maxHp = config.hp;
-    this.hp = config.hp;
     this.hurtLog = [];        // recent damage from you: { at, amount }
-    this.gear = new BotGear(config.loadout);
+    this.flinchUntil = 0;     // hit by you: aim thrown off until then
+    this.setType(config);
     this.heldIcon = scene.add.image(x, y, iconKey({ type: 'gun', key: this.gear.current.key }))
       .setScale(0.5)
       .setDepth(1);
@@ -47,14 +49,26 @@ export default class Bot extends Player {
     this.layout();
   }
 
+  // Become this character: looks, HP, speeds and a fresh loadout.
+  setType(config) {
+    this.config = config;
+    this.stats = Bot.statsFor(config);
+    this.baseColor = config.color;
+    this.setFillStyle(config.color);
+    this.maxHp = config.hp;
+    this.hp = config.hp;
+    this.gear = new BotGear(config);
+  }
+
   // Your movement stats, scaled by the bot type's speeds, with its own HP.
-  // Thrust never drops below what it takes to beat gravity (800).
+  // Thrust never drops below what it takes to beat gravity (800). No regen.
   static statsFor(config) {
     const scale = config.speedScale ?? 1;
     const jet = config.jetScale ?? 1;
     return {
       ...PLAYER,
       maxHp: config.hp,
+      regenPerSec: 0,
       runSpeed: PLAYER.runSpeed * scale,
       airSpeed: PLAYER.airSpeed * scale,
       maxRiseSpeed: PLAYER.maxRiseSpeed * jet,
@@ -96,11 +110,27 @@ export default class Bot extends Player {
   }
 
   // Your bullets, blasts and melee land here (no cause = it was you).
+  // Your hits make it flinch: its aim is thrown off and its next shot waits.
   takeDamage(amount, cause = 'player') {
     if (!this.alive) return;
-    if (cause === 'player') this.hurtLog.push({ at: this.scene.time.now, amount });
+    if (cause === 'player') {
+      const now = this.scene.time.now;
+      this.hurtLog.push({ at: now, amount });
+      this.flinchUntil = now + BOT_AI.flinch.ms;
+      this.nextShotAt = Math.max(this.nextShotAt, now) + BOT_AI.flinch.delayMs;
+    }
     super.takeDamage(amount, cause);
     this.layout();
+  }
+
+  // Heavy characters barely move when hit.
+  applyKnockback(vx, vy) {
+    const k = this.config.knockbackScale ?? 1;
+    super.applyKnockback(vx * k, vy * k);
+  }
+
+  get flinching() {
+    return this.scene.time.now < this.flinchUntil;
   }
 
   // Fell into the void soon after you hurt it badly: still your kill.
@@ -121,12 +151,15 @@ export default class Bot extends Player {
     this.heldIcon.setVisible(false);
   }
 
-  respawn(point) {
+  // Drop back in, optionally as a different character (config).
+  respawn(point, config) {
+    if (config) this.setType(config);
     super.respawn(point);
     this.hurtLog = [];
     this.spottedAt = 0;
     this.nextShotAt = 0;
     this.nextThrowAt = 0;
+    this.flinchUntil = 0;
     this.gear.reset();
     this.brain.reset();
     this.heldIcon.setVisible(true);

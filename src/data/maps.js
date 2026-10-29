@@ -13,9 +13,13 @@ export const MAPS = {
     tilesetKey: 'tiles-placeholder',
     tilesetFile: 'assets/tilesets/placeholder-tiles.png',
 
-    // Bots in this map (types from BOTS in enemies.js). They drop in from
-    // the sky above a spawn point far from you, and again after dying.
-    bots: ['shooter', 'shooter'],
+    // Enemies in this map: how many of each spawn slot (see SPAWNER in
+    // enemies.js) and which families the main slots rotate through.
+    // They drop in from the sky above a spawn point far from you.
+    enemies: {
+      slots: { main: 2, machine: 1, animal: 1 },
+      families: ['military', 'undead', 'scifi'],
+    },
 
     // The void under every map.
     void: {

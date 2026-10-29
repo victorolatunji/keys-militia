@@ -28,6 +28,7 @@ export default class Player extends Phaser.GameObjects.Rectangle {
     this.aiming = false;
     this.alive = true;
     this.staggerUntil = 0;    // scene time when a blast push stops overriding control
+    this.lastHurtAt = 0;      // for health regen
 
     this.body.setCollideWorldBounds(true);
     this.body.setMaxVelocity(2000, this.stats.maxFallSpeed);
@@ -63,6 +64,8 @@ export default class Player extends Phaser.GameObjects.Rectangle {
     const dt = delta / 1000;
     const { left, right, up, down } = this.cursors;
 
+    this.regenerate(dt);
+
     if (this.staggered) {
       this.updateStaggered(dt);        // flying from a blast, no control
     } else if (this.typing) {
@@ -80,9 +83,18 @@ export default class Player extends Phaser.GameObjects.Rectangle {
 
   // ---- Health ----
 
+  // HP slowly comes back after a while without taking damage.
+  regenerate(dt) {
+    const { regenPerSec, regenDelayMs, maxHp } = this.stats;
+    if (!regenPerSec || this.hp >= maxHp) return;
+    if (this.scene.time.now - this.lastHurtAt < regenDelayMs) return;
+    this.hp = Math.min(maxHp, this.hp + regenPerSec * dt);
+  }
+
   takeDamage(amount, cause) {
     if (!this.alive) return;
 
+    this.lastHurtAt = this.scene.time.now;
     this.hp = Math.max(0, this.hp - amount);
     this.flash();
 
