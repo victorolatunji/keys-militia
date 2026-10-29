@@ -1,5 +1,5 @@
 // Airdrops: crates that parachute down on a timer.
-// Each crate holds one item (picked from the pool by weight).
+// Each crate holds a choice of guns (CRATE_CONTENTS): you take 2.
 // Starting values, tune in playtests (README open decision).
 export const AIRDROPS = {
   // Timing
@@ -28,85 +28,38 @@ export const AIRDROPS = {
   supportCheckMs: 150,   // how often a landed crate checks it still has ground
 
   // Pickups
-  pickupRadius: 64,      // px from you to a landed crate to open its panel
+  pickupRadius: 80,      // px from you to a landed crate to open its panel
 
   // Look (placeholder art)
   crate: {
-    width: 28,
-    height: 24,
+    width: 44,
+    height: 36,
     color: 0x8d6e3f,
     strokeColor: 0x4a3720,
     highlightColor: 0xffd166, // outline of the crate your panel is showing
-    iconScale: 0.5,      // item icon painted on the crate (icons are 50 x 26 px)
+    iconScale: 0.7,      // gun icons cycle on the crate's side (icons are 50 x 26 px)
+    iconCycleMs: 700,
   },
   chute: {
-    radius: 24,          // canopy half-width
-    height: 36,          // canopy top sits this far above the crate's center
+    radius: 34,          // canopy half-width
+    height: 50,          // canopy top sits this far above the crate's center
     color: 0xe63946,
     stripeColor: 0xf1faee,
     lineColor: 0xf1faee,
   },
 };
 
-// What a crate can hold. weight = how often it shows up compared to the others.
-// type 'gun' and 'melee' use WEAPONS keys. Throwables don't come in crates:
-// they fall on their own timer (SUPPLY_DROPS below).
-export const AIRDROP_POOL = [
-  // Pistols and SMGs: common
-  { type: 'gun', key: 'mw11', weight: 1.5 },
-  { type: 'gun', key: 'desertEagle', weight: 1 },
-  { type: 'gun', key: 'renetti', weight: 1 },
-  { type: 'gun', key: 'rus79u', weight: 1 },
-  { type: 'gun', key: 'switchblade', weight: 1 },
-  { type: 'gun', key: 'qq9', weight: 0.8 },
-  { type: 'gun', key: 'fennec', weight: 0.8 },
-  { type: 'gun', key: 'mac10', weight: 0.8 },
-  { type: 'gun', key: 'pp19Bizon', weight: 0.8 },
-  // Shotguns
-  { type: 'gun', key: 'by15', weight: 1 },
-  { type: 'gun', key: 'krm262', weight: 0.7 },
-  { type: 'gun', key: 'striker', weight: 0.7 },
-  // Assault rifles
-  { type: 'gun', key: 'ak47', weight: 1 },
-  { type: 'gun', key: 'm4', weight: 1 },
-  { type: 'gun', key: 'ak117', weight: 0.8 },
-  { type: 'gun', key: 'type25', weight: 0.8 },
-  { type: 'gun', key: 'm13', weight: 0.8 },
-  { type: 'gun', key: 'kilo141', weight: 0.7 },
-  { type: 'gun', key: 'oden', weight: 0.5 },
-  { type: 'gun', key: 'asVal', weight: 0.7 },
-  // LMGs: rarer
-  { type: 'gun', key: 'rpd', weight: 0.5 },
-  { type: 'gun', key: 'chopper', weight: 0.4 },
-  { type: 'gun', key: 'm4lmg', weight: 0.4 },
-  { type: 'gun', key: 'holger26', weight: 0.5 },
-  { type: 'gun', key: 'pkm', weight: 0.3 },
-  // Marksman and snipers: rarer
-  { type: 'gun', key: 'kiloBoltAction', weight: 0.6 },
-  { type: 'gun', key: 'mk2', weight: 0.5 },
-  { type: 'gun', key: 'dlq33', weight: 0.5 },
-  { type: 'gun', key: 'arctic50', weight: 0.5 },
-  { type: 'gun', key: 'zrg20mm', weight: 0.2 },
-  // Launchers: rare
-  { type: 'gun', key: 'smrs', weight: 0.35 },
-  { type: 'gun', key: 'thumper', weight: 0.4 },
-  { type: 'gun', key: 'warMachine', weight: 0.25 },
-  // Specials: rare (player-only; bots never pick them up)
-  { type: 'gun', key: 'sawGun', weight: 0.3 },
-  { type: 'gun', key: 'nailGun', weight: 0.35 },
-  { type: 'gun', key: 'laser', weight: 0.25 },
-  { type: 'gun', key: 'flamethrower', weight: 0.3 },
-  // Melee
-  { type: 'melee', key: 'machete', weight: 0.6 },
-  { type: 'melee', key: 'bat', weight: 0.6 },
-  { type: 'melee', key: 'spade', weight: 0.6 },
-  { type: 'melee', key: 'hammer', weight: 0.5 },
-  { type: 'melee', key: 'sword', weight: 0.4 },
-  { type: 'melee', key: 'axe', weight: 0.4 },
-];
+// What's in a crate: one random gun from each of these families (in this
+// order, keys 1-6 on the pickup panel). Take any 2; then the crate is empty.
+// Specials, launchers, pistols, throwables and utility fall loose instead
+// (SUPPLY_DROPS). Melee weapons never drop.
+export const CRATE_CONTENTS = {
+  families: ['smg', 'assault', 'shotgun', 'lmg', 'rifle', 'marksman'],
+  picks: 2,
+};
 
-// Death drops: when you die, your guns and throwables fall out as loose pickups.
-// Anyone can grab them (same 1/2/3/4 panel as crates). Nothing drops in the void.
+// Death drops: when you die, your guns and throwables fall out as loose pickups
+// (melee never drops). Anyone can grab them. Nothing drops in the void.
 export const DEATH_DROPS = {
   lifetimeMs: 60000,     // vanish after this long
   blinkBeforeMs: 5000,   // blink during the last 5s
@@ -125,18 +78,24 @@ export const DEATH_DROPS = {
   },
 };
 
-// Supply drops: throwables fall loose (no crate, no chute) on their own timer,
-// at a random spot with ground below. Picked up with key 3, like any throwable.
+// Supply drops: loose items fall (no crate, no chute) on their own timer, at
+// a random spot with ground below. Each drop is picked at random by weight:
+// pistols often, specials and launchers rarely. Guns: keys 1/2; throwables,
+// Jet Boost and Riot Shield: key 3. A gun entry with `category` falls as a
+// random gun of that family.
 export const SUPPLY_DROPS = {
-  firstDropMs: 12000,    // first supply drop after the match starts
-  intervalMs: 25000,     // then one every 25s
-  maxOnMap: 2,           // no new one while this many are lying around
+  firstDropMs: 8000,     // first supply drop after the match starts
+  intervalMs: 15000,     // then one every 15s
+  maxOnMap: 4,           // no new one while this many are lying around
   lifetimeMs: 40000,     // vanishes after this long (blinks during the last 5s)
   fallSpeed: 260,        // px per second, max
   spin: 6,               // radians per second while falling
-  // Dropped in this order, then back to the start. Only frags for now;
-  // sticky, molotov, smoke, flashbang... join the rotation in Phase 5.5.
-  rotation: [
-    { type: 'throwable', key: 'grenade', count: 2 },
+  pool: [
+    { type: 'gun', category: 'pistol', weight: 3 },
+    { type: 'throwable', key: 'grenade', count: 2, weight: 3 },
+    { type: 'boost', key: 'jetBoost', weight: 2.5 },
+    { type: 'shield', key: 'riotShield', weight: 1.5 },
+    { type: 'gun', category: 'special', weight: 0.5 },
+    { type: 'gun', category: 'launcher', weight: 0.5 },
   ],
 };

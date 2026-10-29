@@ -29,6 +29,9 @@ export default class Player extends Phaser.GameObjects.Rectangle {
     this.alive = true;
     this.staggerUntil = 0;    // scene time when a blast push stops overriding control
     this.lastHurtAt = 0;      // for health regen
+    this.boostUntil = 0;      // Jet Boost: fuel stays full until then
+    this.boostRise = 1;
+    this.shield = null;       // Riot Shield: { config, hp, sprite }
 
     this.body.setCollideWorldBounds(true);
     this.body.setMaxVelocity(2000, this.stats.maxFallSpeed);
@@ -85,7 +88,44 @@ export default class Player extends Phaser.GameObjects.Rectangle {
       this.updateJetpack(up, down, dt);
     }
 
+    this.updateFloat(left, right, up, down, delta);
     this.updateVisuals();
+  }
+
+  // Jet Boost: floating. Gravity is off and you sink slowly instead. The
+  // arrows glide you in any direction (Up rises, Down dives), easing into
+  // each new speed so it feels smooth but stays quick enough to dodge.
+  // Let go and you drift to a stop sideways and keep sinking slowly.
+  // While typing or aiming you just sink slowly. A nail pin or a blast wins.
+  updateFloat(left, right, up, down, delta) {
+    const floating = this.boosted && !this.pinned && !this.staggered;
+    this.body.setAllowGravity(!floating);
+    if (!floating) {
+      this.floatVel = null;
+      return;
+    }
+
+    const cfg = this.boostConfig;
+    const steering = !this.typing && !this.aiming;
+    let tx = 0;
+    let ty = cfg.sinkSpeed;
+    if (steering) {
+      if (left.isDown && !right.isDown) tx = -cfg.glideSpeed;
+      else if (right.isDown && !left.isDown) tx = cfg.glideSpeed;
+      if (up.isDown) ty = -cfg.riseSpeed;
+      else if (down.isDown) ty = cfg.diveSpeed;
+    }
+
+    // Ease from the current float speed toward the target (same feel at any frame rate).
+    this.floatVel ??= { x: this.body.velocity.x, y: this.body.velocity.y };
+    const k = 1 - Math.exp(-delta / cfg.easeMs * 3);
+    this.floatVel.x += (tx - this.floatVel.x) * k;
+    this.floatVel.y += (ty - this.floatVel.y) * k;
+
+    this.body.setAccelerationY(0);
+    this.body.setVelocity(this.floatVel.x, this.floatVel.y);
+    if (tx !== 0) this.facing = Math.sign(tx);
+    this.thrusting = true; // the jet stays lit while you float
   }
 
   // ---- Health ----
@@ -233,20 +273,22 @@ export default class Player extends Phaser.GameObjects.Rectangle {
   }
 
   updateJetpack(up, down, dt) {
+    if (this.boosted) this.fuel = this.stats.fuelMax; // Jet Boost: tank stays full
     this.thrusting = up.isDown && this.fuel > 0;
 
     if (this.thrusting) {
       this.body.setAccelerationY(-this.stats.jetThrust);
-      this.fuel = Math.max(0, this.fuel - this.stats.fuelDrain * dt);
+      if (!this.boosted) this.fuel = Math.max(0, this.fuel - this.stats.fuelDrain * dt);
     } else if (down.isDown && !this.onGround) {
       this.body.setAccelerationY(this.stats.descendBoost);
     } else {
       this.body.setAccelerationY(0);
     }
 
-    // Cap upward speed so the jetpack feels controlled.
-    if (this.body.velocity.y < -this.stats.maxRiseSpeed) {
-      this.body.setVelocityY(-this.stats.maxRiseSpeed);
+    // Cap upward speed so the jetpack feels controlled (a bit higher when boosted).
+    const maxRise = this.stats.maxRiseSpeed * (this.boosted ? this.boostRise : 1);
+    if (this.body.velocity.y < -maxRise) {
+      this.body.setVelocityY(-maxRise);
     }
 
     if (!this.thrusting) this.refillFuel(dt);
@@ -262,12 +304,67 @@ export default class Player extends Phaser.GameObjects.Rectangle {
   updateVisuals() {
     this.eye.setPosition(this.x + this.facing * 8, this.y - 12);
 
+    // Riot Shield: held on the side you face.
+    if (this.shield) {
+      this.shield.sprite.setPosition(this.x + this.facing * this.shield.config.offsetX, this.y);
+    }
+
     // Flame comes out of the back, flickers while thrusting.
+    // Jet Boost: a longer blue flame.
+    const boosted = this.boosted && this.boostConfig;
     this.flame.setVisible(this.thrusting);
     if (this.thrusting) {
-      this.flame.setPosition(this.x - this.facing * 10, this.y + 30);
-      this.flame.height = Phaser.Math.Between(10, 18);
+      const length = boosted ? Phaser.Math.Between(22, 36) : Phaser.Math.Between(10, 18);
+      this.flame.setFillStyle(boosted ? this.boostConfig.flameColor : this.stats.flameColor);
+      this.flame.height = length;
+      this.flame.setPosition(this.x - this.facing * 10, this.y + 24 + length / 2);
     }
+  }
+
+  // ---- Jet Boost and Riot Shield ----
+
+  get boosted() {
+    return this.scene.time.now < this.boostUntil;
+  }
+
+  // Fuel stays full (and you climb faster) for config.durationMs.
+  startBoost(config) {
+    this.boostUntil = this.scene.time.now + config.durationMs;
+    this.boostRise = config.riseScale;
+    this.boostConfig = config;
+    this.fuel = this.stats.fuelMax;
+  }
+
+  equipShield(config) {
+    this.dropShield();
+    const sprite = this.scene.add
+      .rectangle(this.x, this.y, config.width, config.height, config.color)
+      .setStrokeStyle(2, config.rimColor)
+      .setDepth(5);
+    this.shield = { config, hp: config.hp, sprite };
+  }
+
+  // Does a hit coming from x land on the shield (it's on the side you face)?
+  shieldCovers(fromX) {
+    return Boolean(this.shield) && Math.sign(fromX - this.x) === this.facing;
+  }
+
+  // The shield takes the hit. It turns red as it wears and breaks at 0.
+  absorb(amount) {
+    const s = this.shield;
+    s.hp -= amount;
+    const worn = 1 - Math.max(0, s.hp) / s.config.hp;
+    s.sprite.setStrokeStyle(2, worn > 0.6 ? s.config.damagedColor : s.config.rimColor);
+    if (s.hp <= 0) {
+      this.dropShield();
+      this.emit('shieldBroke');
+    }
+  }
+
+  dropShield() {
+    if (!this.shield) return;
+    this.shield.sprite.destroy();
+    this.shield = null;
   }
 
   // ---- Death and respawn ----
@@ -285,6 +382,8 @@ export default class Player extends Phaser.GameObjects.Rectangle {
     this.setVisible(false);
     this.eye.setVisible(false);
     this.flame.setVisible(false);
+    this.dropShield();
+    this.boostUntil = 0;
   }
 
   // point: where to drop in (default: your spawn point)
@@ -296,6 +395,7 @@ export default class Player extends Phaser.GameObjects.Rectangle {
     this.fuel = this.stats.fuelMax;
     this.alive = true;
     this.staggerUntil = 0;
+    this.body.setAllowGravity(true);
     this.setFillStyle(this.baseColor);
     this.setVisible(true);
     this.eye.setVisible(true);

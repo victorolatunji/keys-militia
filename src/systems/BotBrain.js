@@ -202,11 +202,26 @@ export default class BotBrain {
     }
   }
 
-  // Same swap rules as yours: its old gun goes into the crate with its ammo.
+  // Same swap rules as yours: its old gun goes back with its ammo.
+  // From a crate it takes the best gun on offer (one of the crate's picks)
+  // and its old gun drops beside the crate.
   grab(source, now) {
-    const back = this.bot.gear.take(source.item, now, GUN_SWITCH_MS);
-    if (back) source.item = back;
-    else source.remove();
+    const gear = this.bot.gear;
+    const item = source.item;
+
+    if (item.type === 'crate') {
+      const i = gear.crateChoice(item);
+      if (i === -1) return;
+      const back = gear.take({ type: 'gun', key: item.options[i] }, now, GUN_SWITCH_MS);
+      item.options[i] = null;
+      item.picksLeft -= 1;
+      if (back) this.bot.scene.airdrops.dropItems(source.x, source.y - 10, [back]);
+      if (item.picksLeft <= 0 || !item.options.some(Boolean)) source.remove();
+    } else {
+      const back = gear.take(item, now, GUN_SWITCH_MS);
+      if (back) source.item = back;
+      else source.remove();
+    }
     this.bot.emit('picked', source);
   }
 

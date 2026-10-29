@@ -7,14 +7,15 @@
 // gassed, frozen (cryo).
 export const STATUS = {
   burning: {
-    durationMs: 3000,   // a new hit restarts the timer
+    durationMs: 5000,   // a new hit restarts the timer
     dps: 6,             // damage per second while burning
     tickMs: 500,        // damage lands in small ticks
-    flameColor: 0xff7b00,
-    textColor: '#ff9f1c',
+    flameColor: 0xe5383b,    // red flames...
+    flameCoreColor: 0xff9f1c, // ...with an orange core
+    textColor: '#e5383b',
   },
   pinned: {
-    durationMs: 2500,
+    durationMs: 4000,
     textColor: '#c9c9c9',
     nailColor: 0xadb5bd,
     nails: 3,           // nails drawn sticking out of a pinned character

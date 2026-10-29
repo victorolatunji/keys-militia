@@ -1,10 +1,13 @@
 import Phaser from 'phaser';
 import Crate from '../entities/Crate.js';
 import Pickup from '../entities/Pickup.js';
-import { AIRDROPS, AIRDROP_POOL, DEATH_DROPS, SUPPLY_DROPS } from '../data/airdrops.js';
+import { AIRDROPS, CRATE_CONTENTS, DEATH_DROPS, SUPPLY_DROPS } from '../data/airdrops.js';
+import { WEAPONS } from '../data/weapons.js';
 
-// Drops a crate on a timer, above a spot that has ground under it,
-// drops loose throwables on a second timer (supply drops),
+// Drops a crate on a timer, above a spot that has ground under it (it holds
+// a choice of guns, one per family, and 2 can be taken),
+// drops loose items on a second timer (supply drops: pistols, throwables,
+// Jet Boost, Riot Shield, and rarely specials and launchers),
 // and spills loose pickups when someone dies (death drops).
 // PickupSystem handles the 1/2/3/4 panel for all of them.
 export default class AirdropSystem {
@@ -68,7 +71,7 @@ export default class AirdropSystem {
       this.scene,
       x,
       AIRDROPS.spawnY,
-      this.pickItem(),
+      this.crateItem(),
       this.groundLayer,
       this.height
     );
@@ -78,11 +81,9 @@ export default class AirdropSystem {
     this.dropped += 1;
   }
 
-  // A loose throwable falls from the top of the map, spinning.
-  // Items take turns, in the order of SUPPLY_DROPS.rotation.
+  // A loose item falls from the top of the map, spinning (random by weight).
   dropSupply() {
-    const { rotation } = SUPPLY_DROPS;
-    const item = { ...rotation[this.supplied % rotation.length] };
+    const item = this.supplyItem();
 
     const supply = new Pickup(
       this.scene,
@@ -138,15 +139,39 @@ export default class AirdropSystem {
     return false;
   }
 
-  // Weighted random pick from the pool.
-  pickItem() {
-    const total = AIRDROP_POOL.reduce((sum, entry) => sum + entry.weight, 0);
-    let roll = Math.random() * total;
+  // A crate: one random gun from each family, keys 1-6 in this order.
+  crateItem() {
+    return {
+      type: 'crate',
+      options: CRATE_CONTENTS.families.map((family) => this.randomGun(family)),
+      picksLeft: CRATE_CONTENTS.picks,
+    };
+  }
 
-    for (const entry of AIRDROP_POOL) {
-      roll -= entry.weight;
-      if (roll < 0) return { ...entry };
+  // A supply drop: weighted random entry; guns pick a random model.
+  supplyItem() {
+    const pool = SUPPLY_DROPS.pool;
+    const total = pool.reduce((sum, entry) => sum + entry.weight, 0);
+    let roll = Math.random() * total;
+    let entry = pool[0];
+    for (const e of pool) {
+      roll -= e.weight;
+      if (roll < 0) {
+        entry = e;
+        break;
+      }
     }
-    return { ...AIRDROP_POOL[0] };
+
+    if (entry.type === 'gun') return { type: 'gun', key: this.randomGun(entry.category) };
+    const { weight, ...item } = entry;
+    return { ...item };
+  }
+
+  // Random WEAPONS key of one family.
+  randomGun(category) {
+    const keys = Object.values(WEAPONS)
+      .filter((w) => w.category === category)
+      .map((w) => w.key);
+    return Phaser.Utils.Array.GetRandom(keys);
   }
 }

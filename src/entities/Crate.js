@@ -8,7 +8,7 @@ import { iconKey } from '../ui/Icons.js';
 //   tumbling - falling without a chute (after tipping, or its support vanished)
 //   settled  - resting properly; solid to players, grenades and other crates
 // Falls into the void if it misses everything.
-// The item's icon is painted on the crate's side, so you can see what's inside.
+// The icons of the guns inside take turns on the crate's side.
 export default class Crate extends Phaser.GameObjects.Rectangle {
   constructor(scene, x, y, item, groundLayer, worldHeight) {
     const { width, height, color, strokeColor } = AIRDROPS.crate;
@@ -18,7 +18,7 @@ export default class Crate extends Phaser.GameObjects.Rectangle {
 
     this.isCrate = true;
     this.icon = scene.add.image(x, y, iconKey(item)).setScale(AIRDROPS.crate.iconScale);
-    this.item = item;         // { type, key, ammo? } from AIRDROP_POOL (setter: updates the icon)
+    this.item = item;         // { type: 'crate', options: [keys], picksLeft } (setter: updates the icon)
     this.groundLayer = groundLayer;
     this.worldHeight = worldHeight;
     this.state = 'falling';
@@ -44,7 +44,24 @@ export default class Crate extends Phaser.GameObjects.Rectangle {
 
   set item(item) {
     this._item = item;
+    this.iconIndex = 0;
+    this.nextIconAt = 0;
     this.icon.setTexture(iconKey(item));
+  }
+
+  // Show the next gun that's still in the crate.
+  cycleIcon(now) {
+    const options = this._item.options;
+    if (!options || now < this.nextIconAt) return;
+    this.nextIconAt = now + AIRDROPS.crate.iconCycleMs;
+    for (let i = 1; i <= options.length; i++) {
+      const next = (this.iconIndex + i) % options.length;
+      if (options[next]) {
+        this.iconIndex = next;
+        this.icon.setTexture(iconKey({ type: 'gun', key: options[next] }));
+        return;
+      }
+    }
   }
 
   get settled() {
@@ -96,7 +113,10 @@ export default class Crate extends Phaser.GameObjects.Rectangle {
     else if (this.state === 'tumbling') this.updateTumbling(delta);
     else this.updateSettled(now);
 
-    if (this.active) this.syncIcon();
+    if (this.active) {
+      this.cycleIcon(now);
+      this.syncIcon();
+    }
   }
 
   syncIcon() {

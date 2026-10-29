@@ -12,11 +12,12 @@ import {
   DEFAULT_LOADOUT,
   GUN_SWITCH_MS,
 } from '../data/weapons.js';
+import { ITEMS } from '../data/items.js';
 import { BULLETS, BULLET_DEFAULT, MUZZLE_FLASH, DAMAGE_MERGE_MS } from '../data/bullets.js';
 
 const DAMAGE_COLOR = '#ff9f1c';  // full-damage hit
 const REDUCED_COLOR = '#ffe8b0'; // hit weakened by range falloff
-const BURN_COLOR = '#ff7b00';    // burning damage ticks
+const BURN_COLOR = '#e5383b';    // burning damage ticks
 const EMPTY_COLOR = '#c9c9c9';   // "Pistol empty"
 const SWING_FADE_MS = 160;
 const RELOAD_COLOR = '#ffd166';  // LMG "reloading"
@@ -70,6 +71,8 @@ export default class WeaponSystem {
     this.preview = scene.add.graphics().setDepth(45);
     this.reloadRing = scene.add.graphics().setDepth(46);
 
+    player.on('shieldBroke', () => this.floatText(player, 'shield broke', EMPTY_COLOR));
+
     const kb = scene.input.keyboard;
     kb.addCapture('SPACE'); // stop the browser from scrolling on Space
     kb.on('keydown-SHIFT', this.handleShift, this);
@@ -95,9 +98,11 @@ export default class WeaponSystem {
 
   // Default guns and melee, all full.
   resetSlots() {
+    // A random melee weapon every time you spawn.
+    const melee = Phaser.Utils.Array.GetRandom(DEFAULT_LOADOUT.melee);
     this.slots = [
       ...DEFAULT_LOADOUT.guns.map((key) => (key ? WEAPONS[key] : null)),
-      WEAPONS[DEFAULT_LOADOUT.melee],
+      WEAPONS[melee],
     ];
     this.ammo = this.slots.map((w) => (w ? w.ammo : 0));
     this.active = 0;
@@ -137,11 +142,19 @@ export default class WeaponSystem {
     this.switchGun();
   }
 
-  // Shift: next slot that holds something (gun 1 -> gun 2 -> melee -> gun 1).
+  // Can this weapon be used right now? With a Riot Shield, only one-handed
+  // weapons (pistol, SMG, melee).
+  usable(weapon) {
+    if (!weapon) return false;
+    const shield = this.player.shield;
+    return !shield || shield.config.allowedWith.includes(weapon.category);
+  }
+
+  // Shift: next slot that holds something you can use (gun 1 -> gun 2 -> melee -> gun 1).
   switchGun() {
     for (let step = 1; step < this.slots.length; step++) {
       const next = (this.active + step) % this.slots.length;
-      if (this.slots[next]) {
+      if (this.usable(this.slots[next])) {
         this.active = next;
         this.typing.onWeaponChanged(GUN_SWITCH_MS);
         this.blockIfReloading();
@@ -171,8 +184,10 @@ export default class WeaponSystem {
     this.belt[slot] = 0;
     this.reloadUntil[slot] = 0;
 
-    // Holding nothing? Take the new weapon in hand.
-    if (!this.slots[this.active]) this.active = slot;
+    // Holding nothing, or only your melee weapon? Take the new gun in hand
+    // (unless your Riot Shield doesn't allow it).
+    const fromMelee = this.active === MELEE_SLOT && slot !== MELEE_SLOT;
+    if ((!this.slots[this.active] || fromMelee) && this.usable(config)) this.active = slot;
     if (slot === this.active) {
       this.typing.onWeaponChanged(GUN_SWITCH_MS);
     }
@@ -199,7 +214,7 @@ export default class WeaponSystem {
     this.reloadUntil[this.active] = 0;
     this.floatText(this.player, `${gun.name} empty`, EMPTY_COLOR);
 
-    const next = this.slots.findIndex(Boolean);
+    const next = this.slots.findIndex((w) => this.usable(w));
     if (next !== -1) this.active = next;
     this.typing.onWeaponChanged(GUN_SWITCH_MS); // re-roll words for the new weapon
     this.blockIfReloading();
@@ -646,15 +661,36 @@ export default class WeaponSystem {
       if (gun) items.push({ type: 'gun', key: gun.key, ammo: this.ammo[slot] });
     }
 
-    const melee = this.slots[MELEE_SLOT];
-    if (melee && melee.key !== DEFAULT_LOADOUT.melee) {
-      items.push({ type: 'melee', key: melee.key });
-    }
-
+    // Melee weapons never drop.
     if (this.throwableCount > 0) {
       items.push({ type: 'throwable', key: this.throwable.key, count: this.throwableCount });
     }
     return items;
+  }
+
+  // Put this slot in your hand (if you can use it right now).
+  selectSlot(slot) {
+    if (slot === this.active || !this.usable(this.slots[slot])) return;
+    this.active = slot;
+    this.typing.onWeaponChanged(GUN_SWITCH_MS);
+    this.blockIfReloading();
+  }
+
+  // ---- Jet Boost and Riot Shield ----
+
+  pickBoost() {
+    this.player.startBoost(ITEMS.jetBoost);
+  }
+
+  // The shield takes your second hand: switch to a one-handed weapon
+  // (a pistol or SMG you carry, else your melee weapon).
+  pickShield() {
+    this.player.equipShield(ITEMS.riotShield);
+    if (this.usable(this.current)) return;
+    const slot = this.slots.findIndex((w) => this.usable(w));
+    this.active = slot === -1 ? MELEE_SLOT : slot;
+    this.typing.onWeaponChanged(GUN_SWITCH_MS);
+    this.blockIfReloading();
   }
 
   // Pick up throwables. Same type: top up to maxCarry. Different type: swap,
@@ -736,6 +772,12 @@ export default class WeaponSystem {
 
     const damage = Math.round(this.blastDamage(dist, config) * multiplier);
     if (damage <= 0) return;
+
+    // Explosions knock a Riot Shield out of your hands.
+    if (victim.shield) {
+      victim.dropShield();
+      this.floatText(victim, 'shield knocked off', EMPTY_COLOR);
+    }
 
     victim.takeDamage(damage, cause);
     this.showDamage(victim, damage);

@@ -178,8 +178,9 @@ export default class GameScene extends Phaser.Scene {
     // Your kill: you finished it, or it fell into the void soon after you hurt it.
     if (cause === 'player' || (cause === 'void' && bot.fallCredited)) this.kills += 1;
 
-    // Its gear spills out like yours (not in the void, not built-in machine guns).
-    if (cause !== 'void' && bot.config.dropsGear !== false) {
+    // Only Military enemies (the ones that swap weapons) drop their gear,
+    // like you. Everyone else vanishes with theirs: a cleaner battlefield.
+    if (cause !== 'void' && bot.gear.smart && bot.config.dropsGear !== false) {
       this.airdrops.dropItems(bot.x, bot.y, bot.gear.items());
     }
 
@@ -279,7 +280,7 @@ export default class GameScene extends Phaser.Scene {
       `words: ${this.dummies.map((d) => d.word ?? '-').join(', ')}`,
       `family: ${this.spawner.family}  attacking you: ${this.botCombat.turnsTaken}  shots: ${this.botCombat.shotsFired}  hit you: ${this.botCombat.hits}`,
       ...this.bots.map((bot) => `  ${bot.config.name}: ${bot.alive ? bot.brain.mode : 'dead'} hp${bot.hp} ${bot.gear.current.name}${bot.gear.smart && bot.gear.active !== 'melee' ? ` ${bot.gear.guns[bot.gear.active]?.ammo}` : ''}${bot.gear.smart ? ` g${bot.gear.throwableCount}` : ''}`),
-      `crates: ${this.airdrops.crates.map((c) => `${c.item.key} (${c.state})`).join(', ') || '-'}  next drop: ${Math.ceil(this.airdrops.timeToNextDrop / 1000)}s  drops: ${this.airdrops.drops.length}  pickups: ${this.pickups.pickups}`,
+      `crates: ${this.airdrops.crates.map((c) => `${c.item.picksLeft} picks (${c.state})`).join(', ') || '-'}  next drop: ${Math.ceil(this.airdrops.timeToNextDrop / 1000)}s  drops: ${this.airdrops.drops.length}  pickups: ${this.pickups.pickups}`,
     ]);
   }
 }

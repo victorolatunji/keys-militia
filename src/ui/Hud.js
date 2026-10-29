@@ -2,6 +2,7 @@ import { PLAYER } from '../data/player.js';
 import { MELEE_SLOT } from '../systems/WeaponSystem.js';
 import { WEAPON_CATEGORIES } from '../data/weapons.js';
 import { iconKey } from './Icons.js';
+import { ITEMS } from '../data/items.js';
 
 const BAR_WIDTH = 200;
 const BAR_HEIGHT = 12;
@@ -79,6 +80,7 @@ export default class Hud {
   update(player, typing, weapons) {
     this.setBar(this.hpBar, player.hp / PLAYER.maxHp);
     this.setBar(this.fuelBar, player.fuel / PLAYER.fuelMax);
+    if (player.boosted) this.fuelBar.fill.setFillStyle(ITEMS.jetBoost.fuelColor); // Jet Boost: gold bar
 
     this.updateWeapons(weapons);
     this.updateTag(typing, weapons);
@@ -102,6 +104,8 @@ export default class Hud {
       lines.push('nothing in hand');
     }
     lines.push(`${weapons.throwable.name} x${weapons.throwableCount}`);
+    const shield = weapons.player.shield;
+    if (shield) lines.push(`Riot Shield ${Math.max(0, Math.ceil(shield.hp))}/${shield.config.hp}`);
     lines.push('Shift: switch · Space: throw');
     this.weaponText.setText(lines);
 

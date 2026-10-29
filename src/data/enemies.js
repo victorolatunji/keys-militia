@@ -23,7 +23,8 @@ export const ENEMIES = {
 //     few attacks, no looting, no grenades.
 //   loadout.guns: up to two gun slots. Each entry is a list of WEAPONS keys;
 //     one is picked at random when it spawns. null = empty slot.
-//   dropsGear: false = nothing drops when it dies (built-in guns: machines)
+//   Only smart (Military) enemies drop their gear when they die; the rest
+//     vanish with their weapons. dropsGear: false turns it off entirely.
 //   knockbackScale: how hard blasts and hits push it (heavy = less)
 //   speedScale: run and air speed compared to yours (1 = same)
 //   jetScale: jetpack climb speed and thrust compared to yours

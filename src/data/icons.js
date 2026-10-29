@@ -78,6 +78,10 @@ export const ICONS = {
   axe: [[1, 5, 18, 2, 'wood'], [17, 2, 4, 6, 'steel'], [21, 1, 1, 8, 'steel']],
   melee: [[3, 5, 6, 2, 'wood'], [9, 5, 13, 2, 'steel']], // fallback
 
+  // Utility
+  jetBoost: [[7, 1, 10, 9, 'red'], [9, 0, 6, 1, 'metal'], [8, 10, 3, 2, 'gold'], [13, 10, 3, 2, 'gold'], [10, 3, 4, 3, 'steel']],
+  riotShield: [[8, 0, 9, 12, 'metal'], [9, 1, 7, 10, 'glass'], [11, 3, 3, 1, 'steel'], [17, 4, 3, 3, 'wood']],
+
   // Throwables
   grenade: [[8, 3, 8, 8, 'olive'], [10, 1, 4, 2, 'metal'], [14, 1, 4, 1, 'metal'], [9, 6, 6, 1, 'metal']],
 };

@@ -134,6 +134,21 @@ export default class BotGear {
 
   // ---- Loot ----
 
+  // Which crate option (index) it would take, or -1.
+  crateChoice(item) {
+    let best = -1;
+    let bestValue = 0;
+    item.options.forEach((key, i) => {
+      if (!key || !this.wants({ type: 'gun', key })) return;
+      const v = this.value(WEAPONS[key]);
+      if (v > bestValue) {
+        best = i;
+        bestValue = v;
+      }
+    });
+    return best;
+  }
+
   // Rough strength of a gun: damage per letter typed.
   value(weapon) {
     const letters = WORD_LETTERS[weapon.wordList] * (weapon.wordsPerShot ?? 1);
@@ -143,6 +158,7 @@ export default class BotGear {
   // Would it bother walking over for this crate or drop item?
   wants(item) {
     if (!this.smart) return false; // only Military bots loot
+    if (item.type === 'crate') return this.crateChoice(item) !== -1;
     if (item.type === 'throwable') {
       return item.key === this.throwable.key && this.throwableCount < this.throwable.maxCarry;
     }

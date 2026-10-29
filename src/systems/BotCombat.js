@@ -237,8 +237,15 @@ export default class BotCombat {
     return Math.hypot(bot.body.velocity.x, bot.body.velocity.y) > 20 || !bot.onGround;
   }
 
+  // A gun bullet landed. A Riot Shield on that side takes it instead
+  // (shields only stop bullets: melee, blasts and specials get through).
   hit(bot, victim, gun, amount, distance) {
     const damage = Math.max(1, Math.round(amount * this.scale(bot, gun) * this.falloff(gun.falloff, distance)));
+    if (victim.shieldCovers?.(bot.x)) {
+      victim.absorb(damage);
+      this.floatText(victim, 'blocked', NOTE_COLOR);
+      return;
+    }
     this.damage(bot, victim, damage);
   }
 

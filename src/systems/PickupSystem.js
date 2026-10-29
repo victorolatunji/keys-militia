@@ -1,20 +1,22 @@
 import Phaser from 'phaser';
 import PickupPanel from '../ui/PickupPanel.js';
 import { AIRDROPS } from '../data/airdrops.js';
-import { WEAPONS, THROWABLES } from '../data/weapons.js';
+import { WEAPONS, THROWABLES, WEAPON_CATEGORIES } from '../data/weapons.js';
+import { ITEMS } from '../data/items.js';
 import { GUN_SLOTS, MELEE_SLOT } from './WeaponSystem.js';
 import { iconKey } from '../ui/Icons.js';
 
 const SLOT_KEYS = { 1: 0, 2: 1 }; // number key -> gun slot index
-const THROWABLE_KEY = '3';
-const MELEE_KEY = '4';
+const ITEM_KEY = '3';             // throwables, Jet Boost, Riot Shield
 
-// Get near a landed crate or a loose drop: it gets a yellow outline and a
+// Get near a landed crate or a loose item: it gets a yellow outline and a
 // panel at the bottom of the screen shows what's inside (icon and name).
-// 1 / 2 swap that gun slot with the crate's gun (your old gun goes into
-// the crate with its ammo, so you can swap back). If you already hold that
-// gun, its number refills your ammo instead. 3 takes the throwables,
-// 4 swaps your melee weapon (your old one goes into the crate).
+// Crates: a choice of guns, one per family. Keys 1-6 take that gun (into an
+// empty gun slot, else the gun in your hand; your old gun drops beside the
+// crate). 2 picks, then the crate is empty.
+// Loose guns: 1 / 2 swap that gun slot (your old gun is left in its place,
+// with its ammo). Holding the same gun: its number refills your ammo.
+// Throwables, Jet Boost and Riot Shield: key 3.
 // The game never pauses, and digits never clash with typing (letters only).
 export default class PickupSystem {
   constructor(scene, player, weapons, airdrops) {
@@ -34,18 +36,23 @@ export default class PickupSystem {
     });
   }
 
-  // Closest settled crate or drop within reach, or null.
+  // Closest settled crate within reach, else the closest loose item, or null.
+  // (Crates come first, so the old guns you drop beside one don't hide it.)
   findTarget() {
     if (!this.player.alive) return null;
 
     let best = null;
     let bestDist = AIRDROPS.pickupRadius;
+    let bestIsCrate = false;
     for (const source of this.airdrops.pickupables) {
       if (!source.active || !source.settled) continue;
+      const isCrate = source.item.type === 'crate';
+      if (bestIsCrate && !isCrate) continue;
       const d = Phaser.Math.Distance.Between(this.player.x, this.player.y, source.x, source.y);
-      if (d <= bestDist) {
+      if (d <= AIRDROPS.pickupRadius && ((isCrate && !bestIsCrate) || d <= bestDist)) {
         best = source;
         bestDist = d;
+        bestIsCrate = isCrate;
       }
     }
     return best;
@@ -77,6 +84,36 @@ export default class PickupSystem {
   describe(item) {
     const w = this.weapons;
 
+    if (item.type === 'crate') {
+      const slot = this.crateSlot();
+      const replacing = w.slots[slot] ? `next pick replaces ${w.slots[slot].name}` : 'next pick fills an empty slot';
+      const title = `SUPPLY CRATE · take ${item.picksLeft} more\n${replacing}`;
+      const options = [];
+      item.options.forEach((key, i) => {
+        if (!key) return;
+        const gun = WEAPONS[key];
+        const held = w.slotOf(key) !== -1;
+        options.push({
+          key: String(i + 1),
+          label: `${gun.name} (${WEAPON_CATEGORIES[gun.category].name})${held ? ' · refill' : ''}`,
+          enabled: true,
+        });
+      });
+      return { title, options };
+    }
+
+    if (item.type === 'boost') {
+      return { title: ITEMS.jetBoost.name.toUpperCase(), options: [{ key: ITEM_KEY, label: 'use (fuel stays full)', enabled: true }] };
+    }
+
+    if (item.type === 'shield') {
+      const has = Boolean(this.player.shield);
+      return {
+        title: ITEMS.riotShield.name.toUpperCase(),
+        options: [{ key: ITEM_KEY, label: has ? 'replace your shield' : 'equip (pistol, SMG or melee only)', enabled: true }],
+      };
+    }
+
     if (item.type === 'gun') {
       const config = WEAPONS[item.key];
       const title = `${config.name.toUpperCase()} (${this.ammoOf(item)} shots)`;
@@ -101,18 +138,6 @@ export default class PickupSystem {
       return { title, options };
     }
 
-    if (item.type === 'melee') {
-      const config = WEAPONS[item.key];
-      const title = `${config.name.toUpperCase()} (melee)`;
-      const mine = w.slots[MELEE_SLOT];
-
-      if (mine?.key === item.key) {
-        return { title, options: [{ label: 'already in hand', enabled: false }] };
-      }
-      const label = mine ? `swap for ${mine.name}` : 'take';
-      return { title, options: [{ key: MELEE_KEY, label, enabled: true }] };
-    }
-
     // Throwable
     const config = THROWABLES[item.key];
     const title = `${config.name.toUpperCase()} x${item.count}`;
@@ -125,7 +150,7 @@ export default class PickupSystem {
         ? `take (you have ${w.throwableCount}/${config.maxCarry})`
         : `swap for ${w.throwable.name} x${w.throwableCount}`;
 
-    return { title, options: [{ key: THROWABLE_KEY, label, enabled: !full }] };
+    return { title, options: [{ key: ITEM_KEY, label, enabled: !full }] };
   }
 
   handleKey(event) {
@@ -133,28 +158,66 @@ export default class PickupSystem {
     const crate = this.target;
     const item = crate.item;
 
-    if (item.type === 'gun' && event.key in SLOT_KEYS) {
+    if (item.type === 'crate') {
+      const index = Number(event.key) - 1;
+      if (index >= 0 && index < item.options.length) this.pickFromCrate(crate, index);
+    } else if (item.type === 'boost' && event.key === ITEM_KEY) {
+      this.weapons.pickBoost();
+      crate.remove();
+      this.picked(ITEMS.jetBoost.name);
+    } else if (item.type === 'shield' && event.key === ITEM_KEY) {
+      this.weapons.pickShield();
+      crate.remove();
+      this.picked(ITEMS.riotShield.name);
+    } else if (item.type === 'gun' && event.key in SLOT_KEYS) {
       const slot = SLOT_KEYS[event.key];
       const heldSlot = this.weapons.slotOf(item.key);
 
       if (heldSlot === -1) this.takeGun(crate, slot);
       else if (slot === heldSlot) this.refillAmmo(crate, slot);
-    } else if (item.type === 'throwable' && event.key === THROWABLE_KEY) {
+    } else if (item.type === 'throwable' && event.key === ITEM_KEY) {
       this.takeThrowable(crate);
-    } else if (item.type === 'melee' && event.key === MELEE_KEY) {
-      this.takeMelee(crate);
     }
   }
 
-  takeMelee(crate) {
-    const { key } = crate.item;
-    if (this.weapons.slots[MELEE_SLOT]?.key === key) return;
+  // Which gun slot the next crate pick goes into: an empty one, else the gun
+  // in your hand (gun 1 if you're holding your melee weapon).
+  crateSlot() {
+    const w = this.weapons;
+    const empty = GUN_SLOTS.find((i) => !w.slots[i]);
+    if (empty !== undefined) return empty;
+    return GUN_SLOTS.includes(w.active) ? w.active : GUN_SLOTS[0];
+  }
 
-    const old = this.weapons.setGun(MELEE_SLOT, key);
-    if (old) crate.item = { type: 'melee', key: old.key };
-    else crate.remove();
+  // Take gun `index` out of a crate. Same gun as one you hold: refill it.
+  // Otherwise it goes into crateSlot(); the old gun drops beside the crate
+  // with its ammo. If you can take another, your other old gun is put in
+  // your hand as the suggested next swap: press another number to replace
+  // it too, or walk away to keep it.
+  pickFromCrate(crate, index) {
+    const item = crate.item;
+    const key = item.options[index];
+    if (!key) return;
+    const w = this.weapons;
 
-    this.picked(WEAPONS[key].name);
+    const held = w.slotOf(key);
+    if (held !== -1) {
+      w.refillGun(held, WEAPONS[key].ammo);
+      this.picked(`${WEAPONS[key].name} ammo`);
+    } else {
+      const slot = this.crateSlot();
+      const old = w.setGun(slot, key);
+      if (old) this.airdrops.dropItems(crate.x, crate.y - 10, [{ type: 'gun', key: old.key, ammo: old.ammo }]);
+      this.picked(WEAPONS[key].name);
+
+      // Suggest swapping your other old gun next.
+      const other = GUN_SLOTS.find((i) => i !== slot && w.slots[i]);
+      if (item.picksLeft > 1 && other !== undefined) w.selectSlot(other);
+    }
+
+    item.options[index] = null;
+    item.picksLeft -= 1;
+    if (item.picksLeft <= 0 || !item.options.some(Boolean)) crate.remove();
   }
 
   // Shots in a gun item. Crate guns come full; dropped guns keep what was left.

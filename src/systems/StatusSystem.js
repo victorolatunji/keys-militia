@@ -71,8 +71,8 @@ export default class StatusSystem {
       this.damage(target, amount, s.source);
     }
     if (now >= s.nextFxAt) {
-      s.nextFxAt = now + 90;
-      this.flame(target, config.flameColor);
+      s.nextFxAt = now + 70;
+      this.flame(target, Math.random() < 0.7 ? config.flameColor : config.flameCoreColor);
     }
   }
 

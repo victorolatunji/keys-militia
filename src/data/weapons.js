@@ -33,6 +33,9 @@
 //   projectile.flightMs: time a lobbed round takes to reach the target
 //   blast: same settings as a grenade's blast (falloff, walls block it,
 //     knockback). selfDamage 0.5: it hurts you at half strength if you're too close.
+// Every melee weapon does the same damage (they differ in reach and push).
+const MELEE_DAMAGE = 40;
+
 export const WEAPONS = {
   // ---- Pistols: short words, light damage ----
   mw11: {
@@ -616,8 +619,8 @@ export const WEAPONS = {
     reach: 200,
     flame: {
       coneDeg: 50,          // total width of the cone
-      color: 0xff7b00,
-      coreColor: 0xffd166,
+      color: 0xe5383b,      // red fire...
+      coreColor: 0xff9f1c,  // ...with orange in it
     },
   },
 
@@ -627,7 +630,7 @@ export const WEAPONS = {
     name: 'Knife',
     category: 'melee',
     wordList: 'short',
-    damage: 35,
+    damage: MELEE_DAMAGE,
     ammo: null,
     reach: 64,
     knockback: 0,
@@ -638,7 +641,7 @@ export const WEAPONS = {
     name: 'Machete',
     category: 'melee',
     wordList: 'short',
-    damage: 45,
+    damage: MELEE_DAMAGE,
     ammo: null,
     reach: 72,
     knockback: 0,
@@ -649,7 +652,7 @@ export const WEAPONS = {
     name: 'Bat',
     category: 'melee',
     wordList: 'short',
-    damage: 35,
+    damage: MELEE_DAMAGE,
     ammo: null,
     reach: 76,
     knockback: 340,
@@ -660,7 +663,7 @@ export const WEAPONS = {
     name: 'Spade',
     category: 'melee',
     wordList: 'short',
-    damage: 40,
+    damage: MELEE_DAMAGE,
     ammo: null,
     reach: 78,
     knockback: 240,
@@ -671,7 +674,7 @@ export const WEAPONS = {
     name: 'Hammer',
     category: 'melee',
     wordList: 'short',
-    damage: 55,
+    damage: MELEE_DAMAGE,
     ammo: null,
     reach: 68,
     knockback: 280,
@@ -681,8 +684,8 @@ export const WEAPONS = {
     key: 'sword',
     name: 'Sword',
     category: 'melee',
-    wordList: 'medium',
-    damage: 60,
+    wordList: 'short',
+    damage: MELEE_DAMAGE,
     ammo: null,
     reach: 86,
     knockback: 0,
@@ -692,8 +695,8 @@ export const WEAPONS = {
     key: 'axe',
     name: 'Axe',
     category: 'melee',
-    wordList: 'medium',
-    damage: 70,
+    wordList: 'short',
+    damage: MELEE_DAMAGE,
     ammo: null,
     reach: 74,
     knockback: 120,
@@ -758,6 +761,8 @@ export const GUN_SWITCH_MS = 300;
 // two guns for now so there's plenty to test.
 export const DEFAULT_LOADOUT = {
   guns: ['ak47', 'dlq33'],
-  melee: 'knife',
+  // A random melee weapon from this list, new every time you spawn.
+  // Melee weapons never drop and can't be picked up.
+  melee: ['knife', 'machete', 'bat', 'spade', 'hammer', 'sword', 'axe'],
   throwable: { key: 'grenade', count: 3 },
 };
