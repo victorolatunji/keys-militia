@@ -1,10 +1,10 @@
 # Keys Militia
 *A VAO game. Living plan book: update it whenever the plan changes.*
 
-**Version:** 0.11
+**Version:** 0.12
 **Owner:** Victor Olatunji / VAO
 **Budget:** $0, free tools and free assets only
-**Status:** Phase 4.5 (Arsenal I) complete. Phase 5 (Enemies) next.
+**Status:** Phase 5 (Enemies) complete. Phase 5.5 (Arsenal II) next.
 **Live build:** https://victorolatunji.github.io/keys-militia/
 
 ---
@@ -51,7 +51,9 @@ A 2D arena shooter **influenced by Mini Militia**, but its own game: **typing is
 - **Range falloff:** gun damage drops with distance from you to the target. Full damage up to `startPx`, then a straight line down to `minMultiplier` at `endPx` (per gun, `falloff` in `weapons.js`). Weakened hits show a paler damage number. Marksman rifles and snipers have no falloff.
 - After a shot you **stay in typing mode**, so you can chain words. Press an arrow to move.
 - You **auto-face** your locked target with every correct letter.
-- **Enemy HP** decides how many shots it takes (health bar shown above the enemy).
+- **Enemy HP** decides how many shots it takes (health bar shown above the enemy). HP is realistic: a soldier goes down to about 2 assault rifle words.
+- **Enemies shoot back** with real bullets (red) that can miss: see section 7.
+- **Health regen:** after 4s without taking damage, your HP refills at 8 per second (`regenDelayMs`, `regenPerSec` in `player.js`). Break line of sight to recover. Bots don't regenerate.
 - **The weapon decides the words:** each gun uses one word list: short (3–4 letters: pistols, SMGs, shotguns, most LMGs, most melee), medium (5–6: assault rifles, launchers, heavy melee), long (7–8: marksman rifles, Arctic .50) or extraLong (9+: DL Q33, ZRG 20mm). Stronger weapons need longer words.
 - **LMGs need two words per burst:** the first spins the gun up (`spin 1/2: 1 more word`), the second fires a long burst at whoever you typed it on. The words can be on different enemies. Wait longer than `spinWindowMs` (2–3.5s) and the spin is lost (`spin lost`).
 - **Melee** (slot M): words only show on enemies within the weapon's `reach`, so you have to get close. Hits push the enemy back (`knockback`). Melee never runs out.
@@ -65,7 +67,7 @@ A 2D arena shooter **influenced by Mini Militia**, but its own game: **typing is
 - **Obstacles** (walls, rocks, mountains) block bullets. Ricochet only on specific weapons.
 - **Throwables** go over cover and hit enemies with no word showing. **Damage falloff:** full damage within `directHitRadius`, falling to 0 at `blastRadius`. Walls between the blast and a target block it. Your own throwables hurt you (`selfDamage`).
 - **Collisions:** characters (you, dummies, bots) are solid to each other. Landed crates are solid to everything and stack; falling crates pass through characters. A crate whose center lands over empty space tips off the edge. Grenades bounce off terrain, crates and characters, and ignore the thrower for 0.3s after the throw (`ownerIgnoreMs`). Launcher rounds never hit their shooter.
-- **Blast knockback:** survivors get pushed away from the blast and up a little, stronger with more damage (full push at `knockbackFullAt`). Right after a push you have no control for a moment (`knockbackStaggerMs` in `player.js`), so a blast near the edge can throw you into the void. Stationary dummies don't move; bots will.
+- **Blast knockback:** survivors get pushed away from the blast and up a little, stronger with more damage (full push at `knockbackFullAt`). Right after a push you have no control for a moment (`knockbackStaggerMs` in `player.js`), so a blast near the edge can throw you into the void. Stationary dummies don't move; bots do (heavy enemies less: `knockbackScale`).
 - **Hit effects:** blood particles and pain sounds. **Death:** body splits into pieces (gibs).
 - **Gore toggle** in settings: Off / Cartoon (default) / Full.
 
@@ -136,16 +138,55 @@ Stats for every weapon live in `src/data/weapons.js`.
 ---
 
 ## 7. Characters and enemies
-**Characters (cosmetic only, same size and stats):** soldier, zombie, bot, wizard, archer, ninja, and more over time.
+**Your character is cosmetic** (same size and stats): soldier, zombie, bot, wizard, archer, ninja, and more over time.
 
-**Enemy behaviors (one Bot class with a behavior setting):**
-| Type | Behavior | Jetpack |
-|---|---|---|
-| Shooter | Keeps distance and fires | Yes |
-| Rusher | Runs in for melee | Some (zombies are ground-only) |
-| Bomber | Runs in and explodes (TNT) | Yes |
+**Enemy characters are not just looks:** an enemy's type sets its looks, behavior, speed and HP, matched realistically (decided in 0.12). More HP means more words to type. Each character is one entry in `BOTS` (`src/data/enemies.js`); placeholder colors until the art pass.
 
-**Enemy tiers:** grunt (1 word), soldier (2 to 3 words), heavy or boss (many words).
+**Roster (starting values, tune in playtests):**
+| Family | Character | Moves | Fights with | HP |
+|---|---|---|---|---|
+| Military | Soldier | jetpack | assault rifle + pistol + grenades | 65 |
+| Military | Mercenary | jetpack | sniper or marksman + pistol, sharp aim | 65 |
+| Military | Commando | jetpack, fast | shotgun or SMG + machete | 65 |
+| Military | Armoured Trooper | jetpack, slow, hard to push | LMG + pistol | 130 |
+| Undead | Zombie | walks slowly | claws | 70 |
+| Undead | Skeleton | walks fast | bone club | 30 |
+| Undead | Infected Soldier | jetpack | SMG, sloppy aim | 60 |
+| Machines | Drone | always flying | pistol or SMG | 30 |
+| Machines | Android | jetpack | assault rifle, sharp aim | 70 |
+| Machines | Robot | jetpack, slow, hard to push | LMG | 120 |
+| Machines | Scrap Bot | walks | runs up and explodes | 40 |
+| Sci-fi | Alien | jetpack, fast | SMG | 50 |
+| Sci-fi | Cyborg | jetpack | assault rifle or SMRS launcher | 90 |
+| Sci-fi | Mutant | walks, big | fists that throw you back | 110 |
+| Animals | Zombie K9 | runs and leaps | bite, then backs off (hit and run) | 40 |
+
+**Movement types** (`movement`):
+- **Jetpack:** your physics (gravity, fuel, knockback). Its AI presses a "virtual controller" instead of arrow keys, so it can't cheat.
+- **Walker:** no jetpack. Jumps walls it can clear and gaps one leap can cross, never walks into the void. Walkers drop in on the ground you stand on, at its far end, so they can reach you.
+- **Leaper (animals):** a walker that jumps high and far and pounces from close range.
+- **Flyer (drones):** always airborne, no gravity or fuel; hangs above you and keeps darting about.
+
+**Gear:**
+- **Military characters are the smart ones:** they loot crates and drops, swap and switch guns for the distance (close with a shotgun, far with a sniper), throw grenades (more when you hide), and run out of ammo like you.
+- **Everyone else keeps what it spawns with** (an SMG enemy always has an SMG), so you know what to expect from its looks: endless ammo with a reload pause every 5 attacks, no looting, no grenades.
+- Enemies drop their gear when they die: Military drop everything, others drop their gun half loaded, machines drop nothing (built-in guns). Claws, fists and teeth never drop.
+
+**How enemies fight:**
+- **Think at reaction speed:** a few times a second they decide to approach, back off, hold range (with side-steps), hunt (go where they last saw you, for ~4s) or loot. They keep space from each other and fly around platforms overhead.
+- **Void-safe:** they cross gaps only with enough fuel (or one leap) and somewhere to land, turn back before their fuel runs out, and land to refuel. A blast can still knock them in.
+- **Shoot like a typist:** only with line of sight, after a reaction delay (`reactionMs`), then once per "typed" attack: the weapon's words at `typingSpeed` letters per second.
+- **Real bullets that can miss:** red, fly straight, walls stop them. Aim error grows when you move, when they move, and with distance; they only partly lead a moving target. Standing still to type makes you easier to hit.
+- **Softer than you:** bot bullets do `damageScale` (0.5) of the gun's damage, and no enemy deals more than `maxDps` (7) per second: heavy weapons wait longer between attacks.
+
+**Playable under pressure** (you stop to type, so you can't dodge much):
+- **Attack turns:** at most 2 enemies shoot at you at the same time; each keeps its turn for 6s, then rests so another can go.
+- **Hit flinch:** every hit you land throws that enemy's aim off and delays its next shot. Typing is also your defense.
+- **Health regen** (section 4) and soft bot damage. With four enemies out, you take about 3–4 damage per second when fully exposed.
+
+**Spawning:** up to 4 enemies at once: **2 main characters** (humanoids), **1 machine** and **1 animal** (`enemies` in `maps.js`). The main pair comes from one family that rotates every 2 minutes (Military → Undead → Sci-fi); machines and animals are picked at random. A dead enemy is replaced 3s later by a new random type for its slot. A bot that falls into the void after you did half its HP in the last 10s counts as your kill; one that blows itself up doesn't. Dying to an enemy shows "Killed by a …".
+
+**Tuning** lives in `src/data/enemies.js`: `BOTS` per character, `BOT_AI` for everyone (reaction, turns, flinch, reload, grenades, loot, drones), `BOT_RANGES` per weapon family, `BOT_BULLETS`, `NATURAL_WEAPONS`, `SPAWNER`.
 
 ---
 
@@ -189,15 +230,26 @@ Stats for every weapon live in `src/data/weapons.js`.
 ---
 
 ## 10. Game modes
-| Mode | Online? | Notes |
-|---|---|---|
-| Team vs Bots | No | Your team plus bots against bots |
-| Zombies | No | Waves of rushers |
-| Endless vs Bots | No | Survive until you die |
-| Free for All | Yes | Timer, respawns, scoring above |
-| Team Deathmatch | Yes | Timer, respawns, scoring above |
+**Offline** (Phase 8, free to run):
+| Mode | Notes |
+|---|---|
+| You vs Military | You (optionally with AI Soldier teammates) against Military characters. Pick a kill target before the match; first side to it wins, else most kills when time runs out. Time limits from a ~20s kill pace plus slack: 20 kills / 8 min, 30 kills / 12 min, 50 kills / 20 min (check against real play) |
+| Zombies | Waves of rushers |
+| Endless vs Enemies | Survive until you die, in waves where all enemy types come, getting harder |
 
-Offline modes cost nothing to run. Online modes come after launch (see roadmap).
+**Online** (Phase 11, after launch):
+| Mode | Notes |
+|---|---|
+| Free for All | Timer, respawns, scoring |
+| Team Deathmatch | Timer, respawns, scoring |
+| Squad vs Military | Players team up (co-op) against Military bots |
+| Capture the Flag | Carry the other team's flag to your base |
+| Hardpoint | A zone scores for the team holding it (standing or flying over it); the zone moves at intervals; most hardpoint time wins |
+| Kill Confirmed (FFA) | A kill counts only when you pick up the victim's dog tag; kills and confirms are tracked separately |
+| Last One Standing | Free for All, no respawns |
+| Word Duel | 1v1: both see the same words, first to finish fires. Fighting-game style: versus intro, big health bars, rounds |
+| Infected | Players who die come back as zombies |
+| Gun Game | Every kill moves you to the next weapon: SMG → assault rifle → shotgun → LMG → marksman → sniper → pistol → launcher → special → melee; the first melee kill wins |
 
 ---
 
@@ -281,7 +333,7 @@ keys-militia/
 ├── src/
 │   ├── main.js                  ✅ Phaser config
 │   ├── scenes/                  # Boot ✅ (loads maps, builds icons), Game ✅, Menu, Lobby, GameOver, Settings
-│   ├── entities/                # Player ✅, Dummy ✅, Grenade ✅, Crate ✅, Pickup ✅, Projectile ✅ (launcher rounds), Bullet ✅, Bot
+│   ├── entities/                # Player ✅, Dummy ✅, Bot ✅, Grenade ✅, Crate ✅, Pickup ✅, Projectile ✅ (launcher rounds), Bullet ✅, EnemyBullet ✅
 │   ├── systems/
 │   │   ├── VoidSystem.js        ✅ void visuals, fall detection
 │   │   ├── TypingSystem.js      ✅ typing state, words, lock-on, typos, word refresh
@@ -291,6 +343,11 @@ keys-militia/
 │   │   ├── AirdropSystem.js     ✅ parachute crates, supply drops, death drops
 │   │   ├── PickupSystem.js      ✅ nearest crate/drop, 1/2/3/4 swaps and refills
 │   │   ├── CollisionSystem.js   ✅ object-vs-object collision rules
+│   │   ├── Terrain.js           ✅ ground, wall and void checks for bot AI
+│   │   ├── BotBrain.js          ✅ bot AI: decide (approach, back off, hold, hunt, loot, retreat) and move safely
+│   │   ├── BotCombat.js         ✅ bots attacking: turns, reaction, typing time, aim error, bullets, melee, launchers, grenades, bombers
+│   │   ├── BotGear.js           ✅ what a bot carries: loadout, ammo, gun choice, loot, drops
+│   │   ├── EnemySpawner.js      ✅ spawn slots, random types, family rotation
 │   │   ├── HazardSystem.js      # map hazards and advantages
 │   │   └── ScoreSystem.js       # kills, assists, fall credit, MVP
 │   ├── ui/
@@ -299,13 +356,13 @@ keys-militia/
 │   │   ├── PickupPanel.js       ✅ pickup panel (icon, name, keys) at the bottom of the screen
 │   │   └── WordLabel.js         ✅ word plates above targets
 │   └── data/
-│       ├── player.js            ✅ movement, HP, typing and knockback tuning (shared by all characters)
-│       ├── maps.js              ✅ map configs (test map)
+│       ├── player.js            ✅ movement, HP, regen, typing and knockback tuning (bots scale it)
+│       ├── maps.js              ✅ map configs (test map, its enemy slots and families)
 │       ├── words.js             ✅ word lists by length, refresh timer
 │       ├── weapons.js           ✅ weapon categories, guns, launchers, melee, throwables, aim, loadout
 │       ├── bullets.js           ✅ bullet speed and look per gun family, damage-number merge
 │       ├── icons.js             ✅ placeholder icon shapes
-│       ├── enemies.js           ✅ target dummy (bots in Phase 5)
+│       ├── enemies.js           ✅ target dummy, enemy roster (BOTS), bot AI, ranges, bullets, spawner
 │       ├── airdrops.js          ✅ crate timing, parachute, tipping, pickup radius, item pool, supply drops, death drops
 │       └── characters.js
 ├── public/assets/
@@ -326,26 +383,28 @@ keys-militia/
 | 3 | Weapons | 2 gun slots, throwables with aim and falloff, Shift switch | ✅ |
 | 4 | Airdrops | Crates, proximity panel, death drops with timeout | ✅ |
 | 4.5 | Arsenal I | Weapon categories and ammo in data, melee, pistols, SMG, shotgun, rifle variants, LMG, marksman, rocket launcher, thumper, placeholder icons, frag supply drops | ✅ |
-| 5 | Enemies | Shooter, rusher, bomber bots | ⏭️ next |
-| 5.5 | Arsenal II | Status effects, saw gun, nail gun, laser, flamethrower, sticky grenade, molotov, combat axe, trip mine, smoke, flashbang, concussion, EMP, cryo bomb, riot shield, health pack, fuel tank, armor vest | |
+| 5 | Enemies | Enemy roster with jetpack, walker, leaper and flyer movement; shooters, rushers and a bomber; smart Military gear; spawn slots; attack turns, flinch, regen | ✅ |
+| 5.5 | Arsenal II | Status effects, saw gun, nail gun, laser, flamethrower, sticky grenade, molotov, combat axe, trip mine, smoke, flashbang, concussion, EMP, cryo bomb, riot shield, health pack, fuel tank, armor vest | ⏭️ next |
 | 6 | Effects | Blood, gibs, pain sounds, gore toggle | |
 | 7 | Maps | All launch maps with hazards and advantages, open and enclosed | |
-| 8 | Offline modes | Team vs Bots, Zombies, Endless, scoring, awards | |
+| 8 | Offline modes | You vs Military, Zombies, Endless vs Enemies, scoring, awards | |
 | 9 | Menus and guest | Menu, settings, name and character select, local saves | |
 | 9.5 | Art pass | Replace placeholders with final sprites, tiles, backgrounds and effects | |
 | 10 | Launch | Published on itch.io, linked from the VAO site | |
-| 11 | Online | Sign-in, lobby, FFA and TDM | |
+| 11 | Online | Sign-in, lobby, online modes (section 10) | |
 | 12+ | Upgrades | Coins, more weapons, characters and maps | |
 
 ---
 
 ## 17. Open decisions
 - [ ] Final hazard and advantage behavior per map (test in prototype)
-- [ ] Match length and kill targets
+- [ ] Match length and kill targets (starting values in section 10; measure the real kill pace)
 - [ ] Exact weapon stats (damage, word length, range falloff)
 - [ ] Blast knockback strength and stagger time (starting values 520 px/s, 220 lift, 350ms)
 - [ ] Airdrop timer and death-drop timeout (starting values 20s drops, 40s crate life, 60s death drops, supply drops every 25s)
 - [ ] Ammo per weapon (starting rule: shots = 600 / damage), burst sizes and bullet speeds, launcher blast and self-damage (starting 0.5)
+- [ ] Enemy tuning per character: HP, speed, aim, typing speed, damage share (starting values in `enemies.js`). Difficulty (Phase 9) will scale damage, aim and attack turns
+- [ ] Maps need routes for walkers (Phase 7): on the test map's islands they can only reach you on your own platform
 - [ ] Mouse movement details
 - [ ] Slow-fall speed while typing (starting value 60 px/s in `player.js`)
 - [ ] Final movement tuning (starting values in `src/data/player.js`)
@@ -354,6 +413,7 @@ keys-militia/
 ---
 
 ## 18. Changelog
+- **0.12:** Phase 5 (Enemies) done. 15 enemy characters in 5 families (Military, Undead, Machines, Sci-fi, Animals) whose type sets looks, behavior, speed and HP. Bots move with your physics through a virtual controller, with jetpack, walker, leaper and flyer movement, and stay out of the void. They hunt you, keep their range, and shoot back with real bullets that can miss, at a typist's pace and with softer damage. Military characters loot, swap guns and throw grenades; others keep the weapon they spawn with. Scrap Bots explode, the Zombie K9 bites and backs off. Up to 4 enemies at once (2 main, 1 machine, 1 animal) with a rotating family. Playable under pressure: attack turns, hit flinch and health regen. Modes list updated (3 offline, 10 online).
 - **0.11:** Phase 4.5 (Arsenal I) done. 29 guns in 7 families plus 3 launchers and 7 melee weapons, using the names Victor chose. Each weapon picks its word list (short, medium, long, extraLong). Ammo per gun with no reloads; an empty gun is thrown away and the same gun refills. Melee slot M with reach and knockback (key 4). LMGs need two words per burst. Launchers: SMRS rocket, Thumper shell, War Machine bombs. Bullets now fly with a muzzle flash and still always hit, with bursts by gun family and one counting damage number. Placeholder icons on crates, drops, the pickup panel and the HUD. Frag grenades fall as supply drops instead of coming in crates.
 - **0.10:** Phase 4 done. Parachute airdrop crates that sway, land, stack and tip off edges. Solid collisions between characters, crates and grenades. Pickup panel (1 / 2 swap a gun slot, 3 takes throwables). Death drops with a 60s timeout; respawn with the default loadout. Arsenal plan added (phases 4.5 and 5.5).
 - **0.9:** Plan book restored (sections 4 to 18 were accidentally cut in 0.8). Guns stay hitscan and always hit; per-gun range falloff (pistol and assault rifle weaken with distance, sniper doesn't). Grenade blasts knock survivors back with a short stagger. Status, structure and roadmap updated.

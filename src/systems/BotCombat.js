@@ -17,6 +17,7 @@ const SWING_COLOR = 0xff4d6d;
 // per "typed" attack (same words as yours, at its typing speed).
 // Attack turns: only a couple of bots shoot at you at the same time.
 // A bot you just hit flinches (worse aim, next shot delayed).
+// Bombers (Scrap Bot) don't attack: they run up, beep, and blow up.
 // Guns fire real bullets that can miss; launchers fire real rounds;
 // melee needs you within reach; grenades get lobbed at you, often when you hide.
 // Explosions reuse your WeaponSystem's blast rules (falloff, walls, knockback).
@@ -53,6 +54,10 @@ export default class BotCombat {
   // ---- Attacks (guns, launchers, melee) ----
 
   updateAttack(bot, now) {
+    if (bot.config.bomber) {
+      this.updateBomber(bot, now);
+      return;
+    }
     const { brain, gear } = bot;
     const weapon = gear.current;
     const ready = bot.alive && !bot.staggered && brain.sees && brain.target && !gear.busy(now);
@@ -89,6 +94,37 @@ export default class BotCombat {
     if (used === 'reload') this.note(bot, 'reloading');
     else if (used) this.note(bot, `${used.name} empty`);
     bot.nextShotAt = now + this.typeTime(bot, gear.current);
+  }
+
+  // ---- Bombers ----
+
+  // Close enough and it can see you: start the fuse (blinking, "beep!").
+  // When it runs out, boom. Killed before that, it just falls apart.
+  updateBomber(bot, now) {
+    const bomb = bot.config.bomb;
+    if (!bot.alive) return;
+
+    if (bot.fuseUntil) {
+      bot.setFillStyle(Math.floor(now / 80) % 2 ? 0xff4d6d : bot.baseColor);
+      if (now >= bot.fuseUntil) this.detonate(bot);
+      return;
+    }
+
+    const t = bot.brain.target;
+    if (!t || !bot.brain.sees) return;
+    if (Phaser.Math.Distance.Between(bot.x, bot.y, t.x, t.y) > bomb.triggerPx) return;
+
+    bot.fuseUntil = now + bomb.fuseMs;
+    this.note(bot, 'beep!');
+  }
+
+  detonate(bot) {
+    const bomb = bot.config.bomb;
+    const { x, y } = bot;
+    bot.fuseUntil = 0;
+    this.weapons.blastFx(x, y, bomb.blastRadius);
+    this.blast(bot, x, y, bomb, this.scale(bot));
+    bot.kill('self'); // blew itself up: not your kill
   }
 
   // ---- Attack turns ----
@@ -242,6 +278,10 @@ export default class BotCombat {
       target.applyKnockback(bot.facing * weapon.knockback, -weapon.knockback * 0.4);
     }
     this.damage(bot, target, Math.max(1, Math.round(weapon.damage * this.scale(bot))));
+
+    // Hit and run (Zombie K9): back off for a moment after each bite.
+    const run = bot.config.hitAndRun;
+    if (run) bot.brain.retreat(target, run.px, run.ms);
   }
 
   // ---- Explosives (launchers and grenades) ----

@@ -13,7 +13,8 @@ const EYE_OFFSET_Y = -8;
 //             where do I want to be? (approach, back off, hold, hunt, loot)
 //   steer() - every frame: press left/right/up to get there safely
 //             (stop at the void, fly over gaps and walls, keep fuel to get back).
-// It only presses buttons; Player's movement code does the rest.
+//             Walkers and leapers jump instead of flying; drones use fly().
+// It only presses buttons (and jumps); Player's movement code does the rest.
 export default class BotBrain {
   constructor(bot, groundLayer, getTarget) {
     this.bot = bot;
@@ -39,9 +40,11 @@ export default class BotBrain {
     this.lootSince = 0;
     this.lootBest = Infinity; // closest it got to that loot
     this.ignoredLoot = new Map(); // loot it gave up on -> until when
+    this.retreatUntil = 0;    // hit and run: backing off until then
+    this.retreatX = 0;
   }
 
-  update() {
+  update(delta) {
     const bot = this.bot;
     const c = bot.controls;
     c.left.isDown = false;
@@ -55,10 +58,23 @@ export default class BotBrain {
       this.think(now);
       this.nextThink = now + BOT_AI.thinkMs * Phaser.Math.FloatBetween(0.8, 1.2);
     }
-    this.steer(now);
+    this.steer(now, delta);
   }
 
   // ---- Deciding ----
+
+  // Back away from the target for a while (hit and run), then come back.
+  retreat(target, px, ms) {
+    const away = Math.sign(this.bot.x - target.x) || (Math.random() < 0.5 ? -1 : 1);
+    this.retreatUntil = this.bot.scene.time.now + ms;
+    this.retreatX = this.bot.x + away * px;
+    this.mode = 'retreat';
+    this.goalX = this.retreatX;
+  }
+
+  get retreating() {
+    return this.bot.scene.time.now < (this.retreatUntil ?? 0);
+  }
 
   think(now) {
     const bot = this.bot;
@@ -69,6 +85,13 @@ export default class BotBrain {
     if (this.target) {
       this.sees = hasLineOfSight(this.layer, bot.x, bot.y + EYE_OFFSET_Y, t.x, t.y + EYE_OFFSET_Y);
       if (this.sees) this.lastSeen = { x: t.x, y: t.y, at: now };
+    }
+
+    if (this.retreating) {
+      this.mode = 'retreat';
+      this.goalX = this.retreatX;
+      this.goalY = bot.y;
+      return;
     }
     const dist = this.target ? Phaser.Math.Distance.Between(bot.x, bot.y, t.x, t.y) : Infinity;
 
@@ -125,6 +148,16 @@ export default class BotBrain {
         this.goalX = bot.x + Phaser.Math.FloatBetween(-1, 1) * BOT_AI.strafePx;
       }
       this.goalY = t.y;
+    }
+
+    // Drones hang above you and keep darting about.
+    if (bot.movement === 'flyer' && this.target) {
+      this.goalY = t.y - (bot.config.hoverAbove ?? 120);
+      if (Math.random() < BOT_AI.drone.dartChance) {
+        this.goalX += Phaser.Math.Between(-BOT_AI.drone.dartPx, BOT_AI.drone.dartPx);
+        this.goalY += Phaser.Math.Between(-BOT_AI.drone.dartPx / 2, BOT_AI.drone.dartPx / 2);
+      }
+      this.goalY = Math.min(this.goalY, this.layer.tilemap.heightInPixels - BOT_AI.drone.floorMarginPx);
     }
 
     this.keepSpacing();
@@ -214,13 +247,68 @@ export default class BotBrain {
     return (Math.abs(dx) / airSpeed) * fuelDrain * BOT_AI.fuelSafety;
   }
 
-  steer(now) {
+  // Drones: no gravity, so just set a speed toward the goal. Blocked by a
+  // wall? Go over it.
+  fly(delta) {
+    const bot = this.bot;
+    const dx = this.goalX - bot.x;
+    const dy = this.goalY - bot.y;
+    const dist = Math.hypot(dx, dy);
+    const speed = bot.stats.airSpeed;
+    let vx = dist > BOT_AI.arrivePx ? (dx / dist) * speed : 0;
+    let vy = dist > BOT_AI.arrivePx ? (dy / dist) * speed : 0;
+
+    if (vx !== 0 && isSolid(this.layer, bot.x + Math.sign(vx) * (bot.width / 2 + 10), bot.y)) {
+      vy = -speed;
+    }
+
+    // Ease into the new speed so it glides instead of snapping.
+    const k = 1 - Math.pow(0.85, delta / 16.7); // same feel at any frame rate
+    const v = bot.body.velocity;
+    bot.body.setVelocity(v.x + (vx - v.x) * k, v.y + (vy - v.y) * k);
+  }
+
+  // Walkers and leapers: is there ground ahead that one jump reaches?
+  // A landing lower down gives more time in the air, so it can be farther.
+  canLeap(aheadX, feetY, dir) {
+    const bot = this.bot;
+    const g = bot.scene.physics.world.gravity.y;
+    const v = bot.config.jumpSpeed ?? 0;
+    const step = this.layer.tilemap.tileWidth;
+    const top = feetY - this.jumpHeight() * 0.85;
+
+    for (let off = step; off <= 640; off += step) {
+      const x = aheadX + dir * off;
+      const d = groundBelow(this.layer, x, top);
+      if (d === null) continue;
+      const drop = top + d - feetY; // > 0: landing is lower than its feet
+      if (drop > 400) continue;     // too far down to count on
+      const airtime = (v + Math.sqrt(Math.max(0, v * v + 2 * g * drop))) / g;
+      return off + bot.width / 2 <= airtime * bot.stats.airSpeed * 0.85;
+    }
+    return false;
+  }
+
+  // ...and how high (px).
+  jumpHeight() {
+    const g = this.bot.scene.physics.world.gravity.y;
+    const v = this.bot.config.jumpSpeed ?? 0;
+    return (v * v) / (2 * g);
+  }
+
+  steer(now, delta) {
     const bot = this.bot;
     const body = bot.body;
     const layer = this.layer;
     const half = bot.width / 2;
     const feetY = body.bottom + 1;
-    const canFly = this.bot.config.jetpack;
+    const canFly = bot.movement === 'jetpack';
+    const walks = bot.movement === 'walker' || bot.movement === 'leaper';
+
+    if (bot.movement === 'flyer') {
+      this.fly(delta);
+      return;
+    }
 
     let dir = Math.abs(this.goalX - bot.x) > BOT_AI.arrivePx ? Math.sign(this.goalX - bot.x) : 0;
     let up = false;
@@ -239,9 +327,18 @@ export default class BotBrain {
       this.detourDir = 0;
     }
 
+    // Walkers remember where they last stood, for getting back to it.
+    if (bot.onGround && below !== null) {
+      this.lastGroundX = bot.x;
+      this.leapDir = 0;
+    }
+
     // 1. Over the void: head back to ground while there's still enough
     //    fuel to make it (a little inside the edge, not on it).
-    if (!bot.onGround && below === null) {
+    //    Walkers mid-leap keep going; otherwise they steer back to ground.
+    if (walks && !bot.onGround && below === null) {
+      dir = this.leapDir || Math.sign((this.lastGroundX ?? bot.x) - bot.x);
+    } else if (canFly && !bot.onGround && below === null) {
       const safeX = nearestGroundX(layer, bot.x, feetY, BOT_AI.landSearchPx);
       if (safeX !== null) {
         const back = Math.sign(safeX - bot.x);
@@ -265,8 +362,19 @@ export default class BotBrain {
           landing !== null &&
           bot.fuel >= this.fuelFor(landing - bot.x) + BOT_AI.returnMarginFuel;
 
-        if (canFly && fuelOk) up = bot.onGround || up; // take off over the gap
-        else dir = 0;
+        if (canFly && fuelOk) {
+          up = bot.onGround || up; // take off over the gap
+        } else if (walks && bot.onGround) {
+          // Jump it only if there's ground within one leap; never into the void.
+          if (this.canLeap(aheadX, feetY, dir)) {
+            bot.jump();
+            this.leapDir = dir;
+          } else {
+            dir = 0;
+          }
+        } else if (!walks || bot.onGround) {
+          dir = 0;
+        }
       }
     }
 
@@ -290,8 +398,28 @@ export default class BotBrain {
       if (bot.fuel < BOT_AI.reserveFuel) this.refueling = true;
       if (bot.fuel >= BOT_AI.refuelTo) this.refueling = false;
       if (this.refueling && !unsafeBelow) up = false;
-    } else if (wallAhead) {
-      dir = 0; // walkers will jump here (zombies, later in Phase 5)
+    } else if (walks) {
+      // Jump walls low enough to clear; stop at taller ones.
+      if (wallAhead && bot.onGround) {
+        const clearY = body.bottom - this.jumpHeight() + 8;
+        if (!isSolid(layer, wallX, clearY)) bot.jump();
+        else dir = 0;
+      }
+      // Goal above and close: jump for it (onto a ledge or a crate).
+      if (bot.onGround && this.goalY < bot.y - BOT_AI.climbMarginPx && Math.abs(this.goalX - bot.x) < 120) {
+        bot.jump();
+      }
+      // Landed on your head? Slide off to the side.
+      const t = this.target;
+      if (t && bot.onGround && (below === null || below > 4) && Math.abs(t.x - bot.x) <= (t.width + bot.width) / 2 && bot.y < t.y) {
+        dir = bot.x < t.x ? -1 : 1;
+      }
+
+      // Leapers pounce when they're close to you.
+      if (bot.movement === 'leaper' && t && this.sees && bot.onGround && !this.retreating) {
+        const dx = Math.abs(t.x - bot.x);
+        if (dx < (bot.config.pouncePx ?? 0) && dx > 70 && Math.abs(t.y - bot.y) < 120) bot.jump();
+      }
     }
 
     // 4. Pushing but not moving (snagged on a corner): hop up for a moment.

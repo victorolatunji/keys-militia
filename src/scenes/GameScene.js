@@ -11,10 +11,13 @@ import CollisionSystem from '../systems/CollisionSystem.js';
 import PickupSystem from '../systems/PickupSystem.js';
 import BotCombat from '../systems/BotCombat.js';
 import EnemySpawner from '../systems/EnemySpawner.js';
+import { isSolid, groundBelow } from '../systems/Terrain.js';
 import { MAPS } from '../data/maps.js';
 import { PLAYER } from '../data/player.js';
 
 const BOT_DROP_Y = 40; // bots drop in from just under the top of the map
+const WALKER_MIN_GAP = 220; // walkers drop in at least this far from you
+const WALKER_DROP_PX = 120; // ...from this high above the ground
 
 // What the death message says for each cause.
 const DEATH_MESSAGES = {
@@ -118,8 +121,8 @@ export default class GameScene extends Phaser.Scene {
   }
 
   spawnBot(slot) {
-    const point = this.botSpawnPoint();
     const config = this.spawner.pick(slot);
+    const point = this.botSpawnPoint(config);
     const bot = new Bot(this, point.x, point.y, config, this.groundLayer, () => this.player, slot);
 
     this.physics.add.collider(bot, this.groundLayer);
@@ -129,13 +132,46 @@ export default class GameScene extends Phaser.Scene {
     return bot;
   }
 
-  // Drop in above the spawn point farthest from you.
-  botSpawnPoint() {
+  // Drop in above the spawn point farthest from you. Walkers can't fly across
+  // gaps, so they drop onto the ground you're on, at its far end.
+  botSpawnPoint(config) {
+    const walks = config && (config.movement === 'walker' || config.movement === 'leaper');
+    if (walks) {
+      const point = this.walkerSpawnPoint();
+      if (point) return point;
+    }
+
     let best = this.spawnPoints[0];
     for (const p of this.spawnPoints) {
       if (Math.abs(p.x - this.player.x) > Math.abs(best.x - this.player.x)) best = p;
     }
     return { x: best.x, y: BOT_DROP_Y };
+  }
+
+  // The far end of the ground under you that it can walk to you from
+  // (stops at edges and walls), or null (you're over the void, or it's too short).
+  walkerSpawnPoint() {
+    const layer = this.groundLayer;
+    const p = this.player;
+    const below = groundBelow(layer, p.x, p.body.bottom);
+    if (below === null) return null;
+
+    const surfaceY = p.body.bottom + below + 2; // inside the top row of tiles
+    const step = layer.tilemap.tileWidth;
+    let left = p.x;
+    let right = p.x;
+    // Walk the ground both ways until it ends or a wall blocks the way.
+    const open = (x) => isSolid(layer, x, surfaceY) && !isSolid(layer, x, surfaceY - 24);
+    while (open(left - step)) left -= step;
+    while (open(right + step)) right += step;
+
+    const x = p.x - left > right - p.x ? left + 24 : right - 24;
+    if (Math.abs(x - p.x) < WALKER_MIN_GAP) return null;
+
+    // Drop from a little above the ground, unless something is in the way.
+    const top = surfaceY - 4;
+    const clear = groundBelow(layer, x, top - WALKER_DROP_PX) >= WALKER_DROP_PX - layer.tilemap.tileHeight;
+    return { x, y: clear ? top - WALKER_DROP_PX : top - 40 };
   }
 
   handleBotDeath(bot, cause) {
@@ -148,9 +184,10 @@ export default class GameScene extends Phaser.Scene {
     }
 
     // A new random enemy takes its slot after a moment.
-    this.time.delayedCall(bot.config.respawnDelay, () =>
-      bot.respawn(this.botSpawnPoint(), this.spawner.pick(bot.slot))
-    );
+    this.time.delayedCall(bot.config.respawnDelay, () => {
+      const next = this.spawner.pick(bot.slot);
+      bot.respawn(this.botSpawnPoint(next), next);
+    });
   }
 
   // Builds the level from the Tiled file. Needs a tile layer "ground"

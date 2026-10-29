@@ -49,7 +49,7 @@ export default class Bot extends Player {
     this.layout();
   }
 
-  // Become this character: looks, HP, speeds and a fresh loadout.
+  // Become this character: looks, size, HP, speeds, movement and a fresh loadout.
   setType(config) {
     this.config = config;
     this.stats = Bot.statsFor(config);
@@ -58,21 +58,48 @@ export default class Bot extends Player {
     this.maxHp = config.hp;
     this.hp = config.hp;
     this.gear = new BotGear(config);
+    this.fuseUntil = 0; // bombers
+
+    // Size (drones and dogs are smaller, mutants bigger). The physics body
+    // follows the rectangle's size.
+    const size = config.size ?? { width: PLAYER.width, height: PLAYER.height };
+    this.setSize(size.width, size.height);
+    this.body.setSize(size.width, size.height);
+
+    // Flyers ignore gravity.
+    const flyer = this.movement === 'flyer';
+    this.body.setAllowGravity(!flyer);
+
+  }
+
+  // 'jetpack' (default), 'walker', 'leaper' or 'flyer'.
+  get movement() {
+    return this.config.movement ?? 'jetpack';
+  }
+
+  // Walkers and leapers: jump if standing on something.
+  jump() {
+    if (this.onGround && this.config.jumpSpeed) this.body.setVelocityY(-this.config.jumpSpeed);
   }
 
   // Your movement stats, scaled by the bot type's speeds, with its own HP.
   // Thrust never drops below what it takes to beat gravity (800). No regen.
+  // Walkers and leapers get no jetpack fuel at all.
   static statsFor(config) {
     const scale = config.speedScale ?? 1;
     const jet = config.jetScale ?? 1;
+    const movement = config.movement ?? 'jetpack';
+    const noJetpack = movement === 'walker' || movement === 'leaper';
     return {
       ...PLAYER,
       maxHp: config.hp,
       regenPerSec: 0,
       runSpeed: PLAYER.runSpeed * scale,
-      airSpeed: PLAYER.airSpeed * scale,
+      airSpeed: PLAYER.airSpeed * (config.airScale ?? scale),
       maxRiseSpeed: PLAYER.maxRiseSpeed * jet,
       jetThrust: Math.max(1000, PLAYER.jetThrust * jet),
+      fuelMax: noJetpack ? 0 : PLAYER.fuelMax,
+      fuelRefill: noJetpack ? 0 : PLAYER.fuelRefill,
     };
   }
 
@@ -91,7 +118,12 @@ export default class Bot extends Player {
   }
 
   update(delta) {
-    if (this.alive) {
+    if (this.alive && this.movement === 'flyer') {
+      // Drones set their own speed (BotBrain.fly); no running or jetpack.
+      this.brain.update(delta);
+      if (this.brain.sees && this.brain.target) this.faceToward(this.brain.target.x);
+      this.updateVisuals();
+    } else if (this.alive) {
       this.brain.update(delta);
       super.update(delta);
       // Keep facing you while it can see you (even when backing off).
@@ -177,7 +209,9 @@ export default class Bot extends Player {
 
     this.label.setPosition(this.x, top - 32);
 
-    // Weapon in hand, at its side, facing the way it faces.
+    // Weapon in hand, at its side, facing the way it faces
+    // (none for claws, fists and the like).
+    this.heldIcon.setVisible(this.alive && !this.gear.current.natural);
     const key = iconKey({ type: 'gun', key: this.gear.current.key });
     if (this.heldIcon.texture.key !== key) this.heldIcon.setTexture(key);
     this.heldIcon.setPosition(this.x + this.facing * 14, this.y + 4).setFlipX(this.facing < 0);

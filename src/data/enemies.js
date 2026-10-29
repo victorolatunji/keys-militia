@@ -27,7 +27,16 @@ export const ENEMIES = {
 //   knockbackScale: how hard blasts and hits push it (heavy = less)
 //   speedScale: run and air speed compared to yours (1 = same)
 //   jetScale: jetpack climb speed and thrust compared to yours
-//   jetpack: false = walks and jumps only (zombies, later)
+//   movement: 'jetpack' (default: flies like you, with fuel), 'walker'
+//     (no jetpack: walks, jumps walls and small gaps, never walks into the
+//     void), 'leaper' (a walker that jumps high and far: animals),
+//     'flyer' (drones: always airborne, no gravity, no fuel).
+//   jumpSpeed: walkers and leapers: how hard they jump (px/s upward)
+//   airScale: sideways speed in the air compared to yours (leapers jump far)
+//   size: { width, height } if it isn't human-sized
+//   bomber: runs at you and explodes (see bomb)
+//   hitAndRun: after each melee hit it backs off px for ms before coming
+//     back, so you get a moment to breathe (and to type)
 //   Bots "type" too: the time between attacks is the time to type that
 //     weapon's words at typingSpeed letters per second.
 //   reactionMs: after spotting you, extra time before the first shot.
@@ -42,6 +51,17 @@ const AIM = { spreadDeg: 10, movingTargetDeg: 10, selfMovingDeg: 5, lead: 0.3 };
 const SHARP_AIM = { spreadDeg: 7, movingTargetDeg: 8, selfMovingDeg: 4, lead: 0.5 };
 const SLOPPY_AIM = { spreadDeg: 14, movingTargetDeg: 12, selfMovingDeg: 6, lead: 0.1 };
 const NO_THROWABLES = { key: 'grenade', count: 0 };
+
+// Built-in "weapons" for characters that fight without guns: same shape as
+// melee weapons in weapons.js, but never dropped or picked up, and no icon.
+export const NATURAL_WEAPONS = {
+  claws: { key: 'claws', name: 'Claws', category: 'melee', wordList: 'short', damage: 30, ammo: null, reach: 56, knockback: 120, natural: true },
+  boneClub: { key: 'boneClub', name: 'Bone Club', category: 'melee', wordList: 'short', damage: 25, ammo: null, reach: 64, knockback: 160, natural: true },
+  fists: { key: 'fists', name: 'Mutant Fists', category: 'melee', wordList: 'short', damage: 45, ammo: null, reach: 70, knockback: 560, natural: true },
+  bite: { key: 'bite', name: 'Bite', category: 'melee', wordList: 'short', damage: 25, ammo: null, reach: 52, knockback: 80, natural: true },
+  charge: { key: 'charge', name: 'Charge', category: 'melee', wordList: 'short', damage: 0, ammo: null, reach: 30, knockback: 0, natural: true },
+};
+const BARE = { guns: [], throwable: NO_THROWABLES };
 
 export const BOTS = {
   // ---- Military: the smart ones ----
@@ -132,6 +152,40 @@ export const BOTS = {
   },
 
   // ---- Undead ----
+  zombie: {
+    name: 'Zombie',
+    family: 'undead',
+    role: 'main',
+    color: 0x52796f,
+    hp: 70,
+    speedScale: 0.35,
+    movement: 'walker',
+    jumpSpeed: 420,
+    smart: false,
+    loadout: { ...BARE, melee: 'claws' },
+    typingSpeed: 1.2,
+    reactionMs: 800,
+    damageScale: 0.5,
+    aim: AIM,
+    respawnDelay: 3000,
+  },
+  skeleton: {
+    name: 'Skeleton',
+    family: 'undead',
+    role: 'main',
+    color: 0xe9ecef,
+    hp: 30,
+    speedScale: 0.55,
+    movement: 'walker',
+    jumpSpeed: 500,
+    smart: false,
+    loadout: { ...BARE, melee: 'boneClub' },
+    typingSpeed: 1.6,
+    reactionMs: 500,
+    damageScale: 0.5,
+    aim: AIM,
+    respawnDelay: 3000,
+  },
   infectedSoldier: {
     name: 'Infected Soldier',
     family: 'undead',
@@ -189,6 +243,52 @@ export const BOTS = {
     respawnDelay: 3000,
   },
 
+  drone: {
+    name: 'Drone',
+    family: 'machines',
+    role: 'machine',
+    color: 0xadb5bd,
+    hp: 30,
+    speedScale: 0.6,
+    movement: 'flyer',
+    size: { width: 34, height: 18 },
+    hoverAbove: 140,       // likes to hang this far above you
+    smart: false,
+    dropsGear: false,
+    loadout: { guns: [['mw11', 'mac10', 'switchblade']], melee: 'charge', throwable: NO_THROWABLES },
+    typingSpeed: 1.8,
+    reactionMs: 500,
+    damageScale: 0.5,
+    aim: SLOPPY_AIM,
+    respawnDelay: 3000,
+  },
+  scrapBot: {
+    name: 'Scrap Bot',
+    family: 'machines',
+    role: 'machine',
+    color: 0xb08968,
+    hp: 40,
+    speedScale: 0.5,
+    movement: 'walker',
+    jumpSpeed: 450,
+    smart: false,
+    dropsGear: false,
+    bomber: true,
+    // Gets close, beeps for fuseMs, then blows up (a grenade-style blast that
+    // knocks you back). Kill it at range and it just falls apart.
+    bomb: {
+      triggerPx: 70, fuseMs: 700,
+      damage: 80, directHitRadius: 30, blastRadius: 110, selfDamage: 0,
+      knockback: 540, knockbackLift: 220, knockbackFullAt: 40,
+    },
+    loadout: { ...BARE, melee: 'charge' },
+    typingSpeed: 1.5,
+    reactionMs: 300,
+    damageScale: 0.5,
+    aim: AIM,
+    respawnDelay: 3000,
+  },
+
   // ---- Sci-fi ----
   alien: {
     name: 'Alien',
@@ -224,8 +324,48 @@ export const BOTS = {
     aim: SHARP_AIM,
     respawnDelay: 3000,
   },
-  // Walkers, flyers, leapers and bombers (Zombie, Skeleton, Mutant, Drone,
-  // Scrap Bot, Zombie K9) come in Phase 5 step 4b.
+  mutant: {
+    name: 'Mutant',
+    family: 'scifi',
+    role: 'main',
+    color: 0x9c6644,
+    hp: 110,
+    speedScale: 0.35,
+    movement: 'walker',
+    jumpSpeed: 520,
+    size: { width: 40, height: 56 },
+    knockbackScale: 0.4,
+    smart: false,
+    loadout: { ...BARE, melee: 'fists' },
+    typingSpeed: 1.1,
+    reactionMs: 700,
+    damageScale: 0.5,
+    aim: AIM,
+    respawnDelay: 3000,
+  },
+
+  // ---- Animals ----
+  zombieK9: {
+    name: 'Zombie K9',
+    family: 'animals',
+    role: 'animal',
+    color: 0x7f5539,
+    hp: 40,
+    speedScale: 0.45,
+    airScale: 0.9,
+    movement: 'leaper',
+    jumpSpeed: 560,
+    size: { width: 40, height: 26 },
+    pouncePx: 160,         // leaps at you from this close
+    hitAndRun: { px: 180, ms: 1400 },
+    smart: false,
+    loadout: { ...BARE, melee: 'bite' },
+    typingSpeed: 1.6,
+    reactionMs: 400,
+    damageScale: 0.5,
+    aim: AIM,
+    respawnDelay: 3000,
+  },
 };
 
 // Enemy spawning. The map's `enemies` setting lists how many of each slot.
@@ -300,6 +440,10 @@ export const BOT_AI = {
 
   // Non-smart bots (endless ammo): a reload pause every few attacks.
   reload: { every: 5, ms: 1800 },
+
+  // Drones: chance per think to dart to a new spot (px), and how close to
+  // the bottom of the map they're allowed to go.
+  drone: { dartChance: 0.35, dartPx: 160, floorMarginPx: 300 },
 
   // Weapons
   switchEveryMs: 2000,    // at most one gun switch this often (switching takes GUN_SWITCH_MS)

@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { WEAPONS, THROWABLES } from '../data/weapons.js';
-import { BOT_RANGES, BOT_AI, WORD_LETTERS } from '../data/enemies.js';
+import { BOT_RANGES, BOT_AI, WORD_LETTERS, NATURAL_WEAPONS } from '../data/enemies.js';
 
 export const BOT_MELEE = 'melee'; // value of `active` when the melee weapon is in hand
 
@@ -24,7 +24,7 @@ export default class BotGear {
       const key = Array.isArray(options) ? Phaser.Utils.Array.GetRandom(options) : options;
       return { weapon: WEAPONS[key], ammo: WEAPONS[key].ammo };
     });
-    this.melee = WEAPONS[this.loadout.melee];
+    this.melee = WEAPONS[this.loadout.melee] ?? NATURAL_WEAPONS[this.loadout.melee];
     this.throwable = THROWABLES[this.loadout.throwable.key];
     this.throwableCount = this.loadout.throwable.count;
     this.active = this.firstGun();
