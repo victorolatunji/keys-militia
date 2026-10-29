@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import Grenade from '../entities/Grenade.js';
 import Projectile from '../entities/Projectile.js';
+import Saw from '../entities/Saw.js';
 import Bullet from '../entities/Bullet.js';
 import { hasLineOfSight } from './LineOfSight.js';
 import {
@@ -16,8 +17,8 @@ const DAMAGE_COLOR = '#ff9f1c';  // full-damage hit
 const REDUCED_COLOR = '#ffe8b0'; // hit weakened by range falloff
 const EMPTY_COLOR = '#c9c9c9';   // "Pistol empty"
 const SWING_FADE_MS = 160;
-const SPIN_COLOR = '#ffd166';    // LMG "spin 1/2"
-const SPIN_LOST_COLOR = '#c9c9c9';
+const RELOAD_COLOR = '#ffd166';  // LMG "reloading"
+const RING_RADIUS = 22;          // LMG reload ring around you
 const PELLET_SPREAD = 14;        // px: how far shotgun pellets scatter around the target
 const BURST_SCATTER = 5;         // px: later bullets of a burst wander a little
 const PREVIEW_DOTS = 14;
@@ -51,11 +52,13 @@ export default class WeaponSystem {
     this.aimStartedAt = 0;
     this.grenades = [];
     this.projectiles = []; // launcher rounds in flight
+    this.saws = [];        // Saw Gun blades in flight or grinding
     this.bullets = [];     // gun bullets in flight
     this.counters = new Map(); // target -> its running damage number
     this.thrown = 0;
 
     this.preview = scene.add.graphics().setDepth(45);
+    this.reloadRing = scene.add.graphics().setDepth(46);
 
     const kb = scene.input.keyboard;
     kb.addCapture('SPACE'); // stop the browser from scrolling on Space
@@ -88,12 +91,26 @@ export default class WeaponSystem {
     ];
     this.ammo = this.slots.map((w) => (w ? w.ammo : 0));
     this.active = 0;
-    this.resetSpin();
+    this.belt = this.slots.map(() => 0);        // LMG bursts fired since the last reload
+    this.reloadUntil = this.slots.map(() => 0); // LMG reloading until (per slot)
   }
 
-  // LMG words finished toward the next burst: lost on any weapon change.
-  resetSpin() {
-    this.spin = { count: 0, until: 0, slot: -1, warned: false };
+  // LMG: is the gun in your hand reloading?
+  get reloading() {
+    return this.scene.time.now < this.reloadUntil[this.active];
+  }
+
+  // LMG: bursts left before the next reload (null for other weapons).
+  get beltLeft() {
+    const w = this.current;
+    return w?.belt ? w.belt - this.belt[this.active] : null;
+  }
+
+  // After a switch: if the gun you switched to is still reloading,
+  // letters stay blocked until it's done.
+  blockIfReloading() {
+    const left = this.reloadUntil[this.active] - this.scene.time.now;
+    if (left > GUN_SWITCH_MS) this.typing.block(left, 'reload');
   }
 
   // 0 to 1: how charged the throw is.
@@ -116,8 +133,8 @@ export default class WeaponSystem {
       const next = (this.active + step) % this.slots.length;
       if (this.slots[next]) {
         this.active = next;
-        this.resetSpin();
         this.typing.onWeaponChanged(GUN_SWITCH_MS);
+        this.blockIfReloading();
         return;
       }
     }
@@ -141,11 +158,12 @@ export default class WeaponSystem {
 
     this.slots[slot] = config;
     this.ammo[slot] = config.ammo === null ? null : Math.min(ammo ?? config.ammo, config.ammo);
+    this.belt[slot] = 0;
+    this.reloadUntil[slot] = 0;
 
     // Holding nothing? Take the new weapon in hand.
     if (!this.slots[this.active]) this.active = slot;
     if (slot === this.active) {
-      this.resetSpin();
       this.typing.onWeaponChanged(GUN_SWITCH_MS);
     }
     return old;
@@ -167,43 +185,21 @@ export default class WeaponSystem {
     const gun = this.current;
     this.slots[this.active] = null;
     this.ammo[this.active] = 0;
+    this.belt[this.active] = 0;
+    this.reloadUntil[this.active] = 0;
     this.floatText(this.player, `${gun.name} empty`, EMPTY_COLOR);
 
     const next = this.slots.findIndex(Boolean);
     if (next !== -1) this.active = next;
-    this.resetSpin();
     this.typing.onWeaponChanged(GUN_SWITCH_MS); // re-roll words for the new weapon
-  }
-
-  // LMG words finished toward the next burst (0 when not spinning).
-  get spinCount() {
-    const { count, until, slot } = this.spin;
-    return slot === this.active && this.scene.time.now < until ? count : 0;
+    this.blockIfReloading();
   }
 
   // Called by TypingSystem when a word is finished. Always hits;
   // for guns, distance only changes how much damage the attack does.
   fire(target) {
     const weapon = this.current;
-    if (!weapon) return;
-
-    // LMGs: the first word(s) only spin the gun up; the last one fires.
-    const needed = weapon.wordsPerShot ?? 1;
-    if (needed > 1) {
-      const count = this.spinCount + 1;
-      if (count < needed) {
-        this.spin = {
-          count,
-          until: this.scene.time.now + weapon.spinWindowMs,
-          slot: this.active,
-          warned: false,
-        };
-        const left = needed - count;
-        this.floatText(this.player, `spin ${count}/${needed}: ${left} more word${left > 1 ? 's' : ''}`, SPIN_COLOR);
-        return;
-      }
-      this.resetSpin();
-    }
+    if (!weapon || this.reloading) return;
 
     const p = this.player;
     const distance = Phaser.Math.Distance.Between(p.x, p.y, target.x, target.y);
@@ -219,6 +215,8 @@ export default class WeaponSystem {
 
     if (weapon.category === 'launcher') {
       this.launch(target, weapon); // the round does the damage when it explodes
+    } else if (weapon.saw) {
+      this.launchSaw(target, weapon); // the blade does the damage
     } else if (weapon.category === 'melee') {
       this.drawSwing(weapon);
       if (weapon.knockback && target.applyKnockback) {
@@ -234,6 +232,7 @@ export default class WeaponSystem {
     if (this.ammo[this.active] !== null) {
       this.ammo[this.active] -= 1;
       if (this.ammo[this.active] <= 0) this.emptyCurrent();
+      else this.countBurst(weapon);
     }
   }
 
@@ -289,6 +288,24 @@ export default class WeaponSystem {
       this.explode(ex, ey, weapon.blast);
     });
     this.projectiles.push(round);
+  }
+
+  // ---- Saw Gun ----
+
+  launchSaw(target, weapon) {
+    const p = this.player;
+    const x = p.x + p.facing * 20;
+    const y = p.y - 6;
+    const saw = new Saw(this.scene, x, y, target, weapon.saw, this.typing.targets, this.groundLayer, {
+      cut: (enemy, dmg) => this.addDamage(enemy, dmg, REDUCED_COLOR),
+      grind: (enemy, dmg) => this.addDamage(enemy, dmg, DAMAGE_COLOR),
+      explode: (ex, ey) => {
+        this.blastFx(ex, ey, weapon.blast.blastRadius);
+        this.explode(ex, ey, weapon.blast);
+      },
+    });
+    this.saws.push(saw);
+    this.muzzleFlash(x, y);
   }
 
   // Orange flash and a little camera shake.
@@ -690,15 +707,43 @@ export default class WeaponSystem {
     this.bullets = this.bullets.filter((b) => b.active);
     for (const bullet of this.bullets) bullet.update(delta);
 
-    this.checkSpinLost();
+    this.saws = this.saws.filter((s) => s.active);
+    for (const saw of this.saws) saw.update(delta);
+
+    this.drawReloadRing();
   }
 
-  // LMG: say so when the spin runs out before the next word.
-  checkSpinLost() {
-    const { count, until, warned } = this.spin;
-    if (count > 0 && !warned && this.scene.time.now >= until) {
-      this.spin.warned = true;
-      this.floatText(this.player, 'spin lost', SPIN_LOST_COLOR);
-    }
+  // LMG: after `belt` bursts the gun spins down to reload for reloadMs.
+  // Letters are blocked meanwhile (switching or running is up to you).
+  countBurst(weapon) {
+    if (!weapon.belt) return;
+    this.belt[this.active] += 1;
+    if (this.belt[this.active] < weapon.belt) return;
+
+    this.belt[this.active] = 0;
+    this.reloadUntil[this.active] = this.scene.time.now + weapon.reloadMs;
+    this.typing.block(weapon.reloadMs, 'reload');
+    this.floatText(this.player, 'reloading', RELOAD_COLOR);
+  }
+
+  // A spinning ring around you that fills up while the LMG reloads.
+  drawReloadRing() {
+    const g = this.reloadRing;
+    g.clear();
+    if (!this.reloading || !this.player.alive) return;
+
+    const now = this.scene.time.now;
+    const weapon = this.current;
+    const done = 1 - (this.reloadUntil[this.active] - now) / weapon.reloadMs;
+    const spin = (now / 150) % (Math.PI * 2);
+    const x = this.player.x;
+    const y = this.player.y - 4;
+
+    g.lineStyle(3, 0x000000, 0.5);
+    g.strokeCircle(x, y, RING_RADIUS);
+    g.lineStyle(3, 0xffd166, 1);
+    g.beginPath();
+    g.arc(x, y, RING_RADIUS, spin, spin + Math.PI * 2 * done, false);
+    g.strokePath();
   }
 }

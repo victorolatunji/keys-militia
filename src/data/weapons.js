@@ -3,16 +3,15 @@
 // Starting values, tune in playtests (README open decision).
 //
 // category: the weapon family (see WEAPON_CATEGORIES).
-// damage: total damage of one attack (one finished word, or one LMG burst).
+// damage: total damage of one attack (one finished word).
 // hits: bullets per attack; the damage is split between them (default 1).
 //   hitDelayMs > 0: a burst, bullets leave one after another (SMGs: fast
 //     and light, assault rifles: steady bursts, LMGs: a long stream).
 //   hitDelayMs 0:   pellets, all at once in a spread (shotguns).
 //   Bullets fly at the speed of their family (bullets.js) and do their
 //   damage when they reach the target. A finished word always hits.
-// wordsPerShot: words you must finish to fire once (LMGs: 2 = spin up, then
-//   a long burst). The words can be on different enemies; the burst goes to
-//   the last one. Spin is lost after spinWindowMs without a finished word.
+// belt / reloadMs (LMGs): after `belt` bursts the gun spins down to reload
+//   for reloadMs. You can't fire it meanwhile: wait, switch, or run.
 // ammo: attacks in a full weapon. Starting rule: round(600 / damage), kept
 //   between 3 and 40, so stronger weapons get fewer. No reload button:
 //   an empty gun is thrown away and you switch to your next weapon.
@@ -299,18 +298,18 @@ export const WEAPONS = {
     tracerWidth: 2,
   },
 
-  // ---- LMGs: finish 2 words to unleash one long burst ----
+  // ---- LMGs: every word sprays a burst; after a belt of bursts, a reload ----
   rpd: {
     key: 'rpd',
     name: 'RPD',
     category: 'lmg',
     wordList: 'short',
-    wordsPerShot: 2,
-    spinWindowMs: 3000,
-    damage: 72,
-    hits: 10,
-    hitDelayMs: 60,
-    ammo: 8,
+    damage: 40,
+    hits: 6,
+    hitDelayMs: 55,
+    ammo: 15,
+    belt: 5,
+    reloadMs: 2500,
     falloff: { startPx: 350, endPx: 750, minMultiplier: 0.6 },
     tracerColor: 0xff9f1c,
     tracerWidth: 3,
@@ -320,12 +319,12 @@ export const WEAPONS = {
     name: 'Chopper',
     category: 'lmg',
     wordList: 'short',
-    wordsPerShot: 2,
-    spinWindowMs: 2000,
-    damage: 84,
-    hits: 14,
+    damage: 46,
+    hits: 8,
     hitDelayMs: 35,
-    ammo: 7,
+    ammo: 13,
+    belt: 3,
+    reloadMs: 2500,
     falloff: { startPx: 250, endPx: 600, minMultiplier: 0.45 },
     tracerColor: 0xff9f1c,
     tracerWidth: 2,
@@ -335,12 +334,12 @@ export const WEAPONS = {
     name: 'M4LMG',
     category: 'lmg',
     wordList: 'medium',
-    wordsPerShot: 2,
-    spinWindowMs: 3500,
-    damage: 66,
-    hits: 8,
-    hitDelayMs: 80,
-    ammo: 9,
+    damage: 36,
+    hits: 5,
+    hitDelayMs: 70,
+    ammo: 17,
+    belt: 5,
+    reloadMs: 2500,
     falloff: { startPx: 400, endPx: 800, minMultiplier: 0.7 },
     tracerColor: 0xff9f1c,
     tracerWidth: 4,
@@ -350,12 +349,12 @@ export const WEAPONS = {
     name: 'Holger 26',
     category: 'lmg',
     wordList: 'short',
-    wordsPerShot: 2,
-    spinWindowMs: 3500,
-    damage: 60,
-    hits: 10,
-    hitDelayMs: 55,
-    ammo: 10,
+    damage: 34,
+    hits: 6,
+    hitDelayMs: 50,
+    ammo: 18,
+    belt: 5,
+    reloadMs: 2500,
     falloff: { startPx: 380, endPx: 780, minMultiplier: 0.65 },
     tracerColor: 0xff9f1c,
     tracerWidth: 3,
@@ -365,12 +364,12 @@ export const WEAPONS = {
     name: 'PKM',
     category: 'lmg',
     wordList: 'medium',
-    wordsPerShot: 2,
-    spinWindowMs: 3000,
-    damage: 96,
-    hits: 9,
-    hitDelayMs: 75,
-    ammo: 6,
+    damage: 52,
+    hits: 6,
+    hitDelayMs: 70,
+    ammo: 12,
+    belt: 3,
+    reloadMs: 2500,
     falloff: { startPx: 400, endPx: 800, minMultiplier: 0.7 },
     tracerColor: 0xff9f1c,
     tracerWidth: 4,
@@ -528,6 +527,45 @@ export const WEAPONS = {
     },
   },
 
+  // ---- Specials: player-only, rare crate finds ----
+  // Saw Gun: a medium word fires a spinning saw blade that homes in on your
+  // target, weaving as it goes (zigzag, wave or diagonal swerves, random per
+  // shot). It bounces off walls and keeps homing, cuts any enemy it passes
+  // through, then sticks into the target and grinds until its fuse runs out
+  // and explodes. If the target dies first it goes after the nearest enemy
+  // it can see. damage: rough total of one saw (for the HUD and ammo).
+  sawGun: {
+    key: 'sawGun',
+    name: 'Saw Gun',
+    category: 'special',
+    wordList: 'medium',
+    damage: 110,
+    ammo: 5,
+    falloff: null,
+    saw: {
+      speed: 480,           // px per second
+      radius: 11,
+      color: 0xc0c8d0,
+      weavePx: 70,          // how far it swerves off the straight line
+      weaveMs: 380,         // time for one swerve
+      bounceMs: 160,        // after hitting a wall it flies the bounce for this long, then homes again
+      cutDamage: 12,        // enemies it passes through on the way
+      grindDps: 40,         // damage per second while stuck in the target
+      fuseMinMs: 1200,      // once stuck in, it explodes after 1.2-2s
+      fuseMaxMs: 2000,
+      maxFlightMs: 3000,    // never reaches anything: explodes after this long
+    },
+    blast: {
+      damage: 50,
+      directHitRadius: 26,
+      blastRadius: 95,
+      selfDamage: 0.5,      // half damage to you if you're caught in it
+      knockback: 420,
+      knockbackLift: 200,
+      knockbackFullAt: 40,
+    },
+  },
+
   // ---- Melee: always in your melee slot, never runs out ----
   knife: {
     key: 'knife',
@@ -619,6 +657,7 @@ export const WEAPON_CATEGORIES = {
   marksman: { name: 'Marksman' },
   rifle: { name: 'Sniper' },
   launcher: { name: 'Launcher' },
+  special: { name: 'Special' },
 };
 
 // Throwables: thrown with Space, no word needed.

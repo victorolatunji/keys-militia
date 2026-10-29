@@ -390,11 +390,16 @@ export default class BotCombat {
     this.note(bot, 'grenade!');
   }
 
-  // A bot's blast hurts you and itself (selfDamage), not other bots.
+  // A bot's blast hurts everyone caught in it: you, other bots, and itself
+  // (at selfDamage strength). A bot killed by a bot's blast isn't your kill.
   blast(bot, x, y, config, scale) {
     if (this.player.alive && this.inBlast(x, y, config, this.player)) {
       this.player.lastAttacker = bot;
       this.weapons.applyBlast(x, y, config, this.player, scale, 'bot');
+    }
+    for (const other of this.bots) {
+      if (other === bot || !other.alive) continue;
+      this.weapons.applyBlast(x, y, config, other, scale, 'bot');
     }
     if (config.selfDamage > 0) {
       this.weapons.applyBlast(x, y, config, bot, config.selfDamage, 'self');

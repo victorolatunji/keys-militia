@@ -97,25 +97,35 @@ export default class BotGear {
 
   switchTo(active, now, switchMs) {
     this.active = active;
+    this.attacksSinceReload = 0;
     this.lastSwitchAt = now;
     this.switchingUntil = now + switchMs;
   }
 
-  // One attack used. Returns the gun if that emptied it (it's thrown away).
-  // Non-smart bots never run out; they pause to reload now and then
-  // (returns 'reload' when that starts).
+  // One attack used. Returns the gun if that emptied it (it's thrown away),
+  // or 'reload' when a reload pause starts: LMGs after their belt (like
+  // yours), and non-smart bots (endless ammo) every few attacks.
   useAmmo(now, switchMs) {
     if (this.active === BOT_MELEE) return null;
-    if (!this.smart) {
-      this.attacksSinceReload += 1;
-      if (this.attacksSinceReload < BOT_AI.reload.every) return null;
-      this.attacksSinceReload = 0;
-      this.reloadingUntil = now + BOT_AI.reload.ms;
-      return 'reload';
-    }
     const slot = this.guns[this.active];
-    slot.ammo -= 1;
-    if (slot.ammo > 0) return null;
+    const weapon = slot.weapon;
+
+    if (this.smart) {
+      slot.ammo -= 1;
+      if (slot.ammo <= 0) return this.throwAway(now, switchMs);
+    }
+
+    const every = weapon.belt ?? (this.smart ? Infinity : BOT_AI.reload.every);
+    this.attacksSinceReload += 1;
+    if (this.attacksSinceReload < every) return null;
+    this.attacksSinceReload = 0;
+    this.reloadingUntil = now + (weapon.reloadMs ?? BOT_AI.reload.ms);
+    return 'reload';
+  }
+
+  // Empty gun: thrown away, next gun (or melee) in hand.
+  throwAway(now, switchMs) {
+    const slot = this.guns[this.active];
 
     this.guns[this.active] = null;
     this.switchTo(this.firstGun(), now, switchMs);
@@ -139,6 +149,7 @@ export default class BotGear {
     if (item.type !== 'gun') return false; // melee pickups: rushers, later
 
     const weapon = WEAPONS[item.key];
+    if (weapon.category === 'special') return false; // specials are player-only
     const same = this.guns.findIndex((s) => s?.weapon.key === item.key);
     if (same !== -1) {
       const slot = this.guns[same];

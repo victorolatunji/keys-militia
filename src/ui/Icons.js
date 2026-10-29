@@ -35,6 +35,7 @@ export function iconKey(item) {
 
   const weapon = WEAPONS[item.key];
   if (!weapon) return 'icon-melee';
-  if (weapon.category === 'melee') return ICONS[weapon.key] ? `icon-${weapon.key}` : 'icon-melee';
+  if (ICONS[weapon.key]) return `icon-${weapon.key}`; // its own icon (melee, specials)
+  if (weapon.category === 'melee') return 'icon-melee';
   return `icon-${weapon.category}`;
 }

@@ -127,13 +127,14 @@ export default class Hud {
 
   // Three lines about the weapon in hand: family and words, damage, range.
   weaponInfo(w, weapons) {
-    const needed = w.wordsPerShot ?? 1;
-    const words = `${LIST_NAMES[w.wordList]} words${needed > 1 ? ` x${needed}` : ''}`;
+    const words = `${LIST_NAMES[w.wordList]} words`;
     const family = `${WEAPON_CATEGORIES[w.category].name} · ${words}`;
 
     const hits = w.hits ?? 1;
     let damage = `dmg ${w.damage}`;
-    if (w.projectile) {
+    if (w.saw) {
+      damage += ' grind + blast';
+    } else if (w.projectile) {
       const count = w.projectile.count ?? 1;
       damage += count > 1 ? ` in ${count} bombs` : ' splash';
     } else if (hits > 1) {
@@ -141,9 +142,10 @@ export default class Hud {
     }
 
     let range;
-    if (w.blast) range = `blast ${w.blast.blastRadius}px · can hurt you`;
+    if (w.saw) range = 'homes in · grinds · explodes';
+    else if (w.blast) range = `blast ${w.blast.blastRadius}px · can hurt you`;
     else if (w.category === 'melee') range = `reach ${w.reach}px: get close`;
-    else if (needed > 1) range = `spin ${weapons.spinCount}/${needed} · then burst`;
+    else if (w.belt) range = weapons.reloading ? 'reloading…' : `belt ${weapons.beltLeft}/${w.belt} · then reload`;
     else if (w.falloff) range = `weaker past ${w.falloff.startPx}px`;
     else range = 'full dmg at any range';
 
@@ -158,6 +160,8 @@ export default class Hud {
       this.typingTag.setText(`AIMING ${power}%`).setColor('#ff9f1c').setVisible(true);
     } else if (reason === 'jam') {
       this.typingTag.setText('JAMMED').setColor('#ff4d6d').setVisible(true);
+    } else if (reason === 'reload') {
+      this.typingTag.setText('RELOADING').setColor('#ffd166').setVisible(true);
     } else if (reason === 'switch') {
       this.typingTag.setText('SWITCHING').setColor('#ffd166').setVisible(true);
     } else if (typing.isTyping) {

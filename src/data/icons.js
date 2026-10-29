@@ -49,6 +49,12 @@ export const ICONS = {
     [8, 7, 2, 3, 'metal'], [14, 7, 2, 3, 'metal'],
   ],
 
+  // Specials: one icon each
+  sawGun: [
+    [1, 4, 12, 4, 'metal'], [3, 8, 3, 3, 'wood'], [13, 3, 2, 6, 'metal'],
+    [15, 1, 8, 10, 'steel'], [17, 0, 4, 12, 'steel'], [18, 5, 2, 2, 'red'],
+  ],
+
   // Melee: one icon each
   knife: [[3, 5, 6, 2, 'metal'], [9, 4, 1, 4, 'steel'], [10, 5, 12, 2, 'steel'], [22, 5, 1, 1, 'steel']],
   machete: [[2, 5, 6, 2, 'wood'], [8, 4, 1, 4, 'metal'], [9, 4, 14, 3, 'steel']],
