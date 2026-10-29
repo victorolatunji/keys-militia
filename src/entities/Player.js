@@ -53,6 +53,11 @@ export default class Player extends Phaser.GameObjects.Rectangle {
     return this.body.blocked.down || this.body.touching.down;
   }
 
+  // Nailed in place by a Nail Gun (StatusSystem sets pinnedUntil).
+  get pinned() {
+    return this.scene.time.now < (this.pinnedUntil ?? 0);
+  }
+
   // True right after a blast push: controls are ignored so the push plays out.
   get staggered() {
     return this.scene.time.now < this.staggerUntil;
@@ -68,6 +73,8 @@ export default class Player extends Phaser.GameObjects.Rectangle {
 
     if (this.staggered) {
       this.updateStaggered(dt);        // flying from a blast, no control
+    } else if (this.pinned) {
+      this.updatePinned(dt);           // nailed in place: no running or jetpack
     } else if (this.typing) {
       this.updateTyping(dt);           // hold still, slow fall
     } else if (this.aiming) {
@@ -184,6 +191,16 @@ export default class Player extends Phaser.GameObjects.Rectangle {
       this.body.setVelocityY(this.stats.typingFallSpeed);
     }
 
+    this.refillFuel(dt);
+  }
+
+  // Pinned: can't run, jump or use the jetpack. In the air it drops
+  // straight down (no rising), then stays where it lands.
+  updatePinned(dt) {
+    this.thrusting = false;
+    this.body.setVelocityX(0);
+    this.body.setAccelerationY(0);
+    if (this.body.velocity.y < 0) this.body.setVelocityY(0);
     this.refillFuel(dt);
   }
 

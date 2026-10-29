@@ -6,7 +6,7 @@
 export const BULLETS = {
   pistol: { speed: 1500, length: 10 },
   smg: { speed: 1700, length: 8 },
-  shotgun: { speed: 1400, length: 6 },
+  shotgun: { speed: 1500, length: 11 },
   assault: { speed: 1900, length: 14 },
   lmg: { speed: 1800, length: 16 },
   marksman: { speed: 2600, length: 22, trail: true },

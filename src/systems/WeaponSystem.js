@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import Grenade from '../entities/Grenade.js';
 import Projectile from '../entities/Projectile.js';
 import Saw from '../entities/Saw.js';
+import StatusSystem from './StatusSystem.js';
 import Bullet from '../entities/Bullet.js';
 import { hasLineOfSight } from './LineOfSight.js';
 import {
@@ -15,11 +16,13 @@ import { BULLETS, BULLET_DEFAULT, MUZZLE_FLASH, DAMAGE_MERGE_MS } from '../data/
 
 const DAMAGE_COLOR = '#ff9f1c';  // full-damage hit
 const REDUCED_COLOR = '#ffe8b0'; // hit weakened by range falloff
+const BURN_COLOR = '#ff7b00';    // burning damage ticks
 const EMPTY_COLOR = '#c9c9c9';   // "Pistol empty"
 const SWING_FADE_MS = 160;
 const RELOAD_COLOR = '#ffd166';  // LMG "reloading"
 const RING_RADIUS = 22;          // LMG reload ring around you
-const PELLET_SPREAD = 14;        // px: how far shotgun pellets scatter around the target
+const PELLET_SPREAD = 14;        // px: shotgun pellets scatter at least this much...
+const PELLET_CONE = 0.18;        // ...and this share of the distance (a cone that widens)
 const BURST_SCATTER = 5;         // px: later bullets of a burst wander a little
 const PREVIEW_DOTS = 14;
 const PREVIEW_STEP = 0.06; // seconds between preview dots
@@ -53,6 +56,13 @@ export default class WeaponSystem {
     this.grenades = [];
     this.projectiles = []; // launcher rounds in flight
     this.saws = [];        // Saw Gun blades in flight or grinding
+
+    // Burning, pinned (and later shocked, dazed...): ticks and damage.
+    // Your effects count as your hits; a bot's would count as theirs.
+    this.status = new StatusSystem(scene, (target, amount, source) => {
+      if (source === 'player') this.addDamage(target, amount, BURN_COLOR);
+      else target.takeDamage(amount, source);
+    });
     this.bullets = [];     // gun bullets in flight
     this.counters = new Map(); // target -> its running damage number
     this.thrown = 0;
@@ -217,6 +227,10 @@ export default class WeaponSystem {
       this.launch(target, weapon); // the round does the damage when it explodes
     } else if (weapon.saw) {
       this.launchSaw(target, weapon); // the blade does the damage
+    } else if (weapon.beam) {
+      this.fireLaser(target, weapon, damage);
+    } else if (weapon.flame) {
+      this.sprayFlame(target, weapon, damage);
     } else if (weapon.category === 'melee') {
       this.drawSwing(weapon);
       if (weapon.knockback && target.applyKnockback) {
@@ -290,6 +304,97 @@ export default class WeaponSystem {
     this.projectiles.push(round);
   }
 
+  // ---- Laser and Flamethrower ----
+
+  // A straight beam from you through the target, on until a wall (or its
+  // range) stops it. Every enemy it crosses is hit: full damage to the
+  // first, then pierceShare of the one before for each after.
+  fireLaser(target, weapon, damage) {
+    const beam = weapon.beam;
+    const p = this.player;
+    const x1 = p.x + p.facing * 16;
+    const y1 = p.y - 4;
+    const angle = Phaser.Math.Angle.Between(x1, y1, target.x, target.y);
+    const end = this.beamEnd(x1, y1, angle, beam.rangePx);
+
+    const line = new Phaser.Geom.Line(x1, y1, end.x, end.y);
+    const hit = this.typing.targets
+      .filter((t) => t.alive && Phaser.Geom.Intersects.LineToRectangle(line, t.getBounds()))
+      .sort((a, b) =>
+        Phaser.Math.Distance.Between(x1, y1, a.x, a.y) - Phaser.Math.Distance.Between(x1, y1, b.x, b.y)
+      );
+    if (!hit.includes(target)) hit.unshift(target); // a finished word always hits
+
+    let amount = damage;
+    for (const t of hit) {
+      this.addDamage(t, Math.max(1, Math.round(amount)), DAMAGE_COLOR);
+      amount *= beam.pierceShare;
+    }
+
+    // Glowing core with a wider soft glow, fading out.
+    const g = this.scene.add.graphics().setDepth(45);
+    g.lineStyle(beam.width * 2.5, beam.color, 0.35);
+    g.lineBetween(x1, y1, end.x, end.y);
+    g.lineStyle(beam.width, beam.glowColor, 1);
+    g.lineBetween(x1, y1, end.x, end.y);
+    this.scene.tweens.add({ targets: g, alpha: 0, duration: beam.fadeMs, onComplete: () => g.destroy() });
+    this.muzzleFlash(x1, y1);
+  }
+
+  // Where a beam from (x, y) at this angle stops: the first solid tile,
+  // or rangePx away.
+  beamEnd(x, y, angle, rangePx) {
+    const step = 8;
+    const dx = Math.cos(angle);
+    const dy = Math.sin(angle);
+    for (let d = step; d <= rangePx; d += step) {
+      const tile = this.groundLayer.getTileAtWorldXY(x + dx * d, y + dy * d);
+      if (tile && tile.collides) return { x: x + dx * d, y: y + dy * d };
+    }
+    return { x: x + dx * rangePx, y: y + dy * rangePx };
+  }
+
+  // A cone of fire toward the target, out to the weapon's reach. Everyone
+  // inside it (that the fire can reach past walls) takes the damage and
+  // starts burning. The target is always hit.
+  sprayFlame(target, weapon, damage) {
+    const flame = weapon.flame;
+    const p = this.player;
+    const x = p.x + p.facing * 16;
+    const y = p.y - 4;
+    const angle = Phaser.Math.Angle.Between(x, y, target.x, target.y);
+    const half = Phaser.Math.DegToRad(flame.coneDeg / 2);
+
+    for (const t of this.typing.targets) {
+      if (!t.alive) continue;
+      const d = Phaser.Math.Distance.Between(x, y, t.x, t.y);
+      const off = Math.abs(Phaser.Math.Angle.Wrap(Phaser.Math.Angle.Between(x, y, t.x, t.y) - angle));
+      const inCone = d <= weapon.reach + t.width / 2 && off <= half && hasLineOfSight(this.groundLayer, x, y, t.x, t.y);
+      if (t !== target && !inCone) continue;
+      this.addDamage(t, damage, BURN_COLOR);
+      this.status.apply(t, 'burning');
+    }
+
+    // Puffs of fire rushing out along the cone.
+    for (let i = 0; i < 14; i++) {
+      const a = angle + Phaser.Math.FloatBetween(-half, half);
+      const dist = Phaser.Math.FloatBetween(weapon.reach * 0.5, weapon.reach);
+      const puff = this.scene.add
+        .circle(x, y, Phaser.Math.Between(4, 8), i % 3 ? flame.color : flame.coreColor, 0.85)
+        .setDepth(44);
+      this.scene.tweens.add({
+        targets: puff,
+        x: x + Math.cos(a) * dist,
+        y: y + Math.sin(a) * dist - Phaser.Math.Between(0, 14),
+        scale: 2.2,
+        alpha: 0,
+        delay: i * 12,
+        duration: 320,
+        onComplete: () => puff.destroy(),
+      });
+    }
+  }
+
   // ---- Saw Gun ----
 
   launchSaw(target, weapon) {
@@ -332,13 +437,18 @@ export default class WeaponSystem {
     const per = Math.floor(damage / hits);
     const last = damage - per * (hits - 1); // remainder goes on the last bullet
     const pellets = delay === 0 && hits > 1;
+    const range = Phaser.Math.Distance.Between(this.player.x, this.player.y, target.x, target.y);
+    const cone = Math.max(PELLET_SPREAD, range * PELLET_CONE);
 
     for (let i = 0; i < hits; i++) {
       const amount = i === hits - 1 ? last : per;
-      const scatter = pellets ? PELLET_SPREAD : i > 0 ? BURST_SCATTER : 0;
+      const scatter = pellets ? cone : i > 0 ? BURST_SCATTER : 0;
       const shoot = () => {
         if (!target.alive || !this.player.alive) return; // stop the burst
-        this.fireBullet(target, weapon, scatter, (t) => this.addDamage(t, amount, color));
+        this.fireBullet(target, weapon, scatter, (t) => {
+          this.addDamage(t, amount, color);
+          if (weapon.pins) this.status.apply(t, 'pinned'); // Nail Gun
+        });
       };
 
       if (i === 0 || pellets) shoot();
@@ -354,7 +464,7 @@ export default class WeaponSystem {
       x: scatter ? Phaser.Math.Between(-scatter, scatter) : 0,
       y: scatter ? Phaser.Math.Between(-scatter, scatter) : 0,
     };
-    const style = BULLETS[weapon.category] ?? BULLET_DEFAULT;
+    const style = weapon.bullet ?? BULLETS[weapon.category] ?? BULLET_DEFAULT;
 
     this.bullets.push(
       new Bullet(this.scene, x, y, target, offset, style, weapon.tracerColor, weapon.tracerWidth, onArrive)
@@ -709,6 +819,8 @@ export default class WeaponSystem {
 
     this.saws = this.saws.filter((s) => s.active);
     for (const saw of this.saws) saw.update(delta);
+
+    this.status.update();
 
     this.drawReloadRing();
   }

@@ -55,6 +55,19 @@ export const ICONS = {
     [15, 1, 8, 10, 'steel'], [17, 0, 4, 12, 'steel'], [18, 5, 2, 2, 'red'],
   ],
 
+  nailGun: [
+    [2, 3, 14, 4, 'gold'], [16, 4, 4, 2, 'metal'], [20, 4, 3, 1, 'steel'],
+    [5, 7, 3, 4, 'metal'], [10, 7, 4, 3, 'metal'],
+  ],
+  laser: [
+    [1, 3, 15, 4, 'steel'], [4, 2, 8, 1, 'glass'], [16, 4, 6, 2, 'glass'],
+    [22, 4, 2, 2, 'steel'], [5, 7, 3, 4, 'metal'],
+  ],
+  flamethrower: [
+    [0, 5, 10, 3, 'metal'], [2, 1, 5, 4, 'red'], [10, 4, 9, 3, 'metal'],
+    [19, 3, 3, 5, 'metal'], [22, 4, 2, 3, 'gold'], [12, 7, 3, 4, 'wood'],
+  ],
+
   // Melee: one icon each
   knife: [[3, 5, 6, 2, 'metal'], [9, 4, 1, 4, 'steel'], [10, 5, 12, 2, 'steel'], [22, 5, 1, 1, 'steel']],
   machete: [[2, 5, 6, 2, 'wood'], [8, 4, 1, 4, 'metal'], [9, 4, 14, 3, 'steel']],

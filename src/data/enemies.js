@@ -434,6 +434,10 @@ export const BOT_AI = {
   // comes delayMs later. Typing is also your defense.
   flinch: { ms: 500, aimDeg: 15, delayMs: 400 },
 
+  // Weapon families that hit harder or softer than the bot's damageScale.
+  // LMGs: a full belt that lands on you takes about 70-75% of your HP.
+  damageByCategory: { lmg: 0.3 },
+
   // No bot deals more than this much damage per second before misses
   // (heavy weapons wait longer between attacks instead of hitting harder).
   maxDps: 7,

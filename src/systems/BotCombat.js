@@ -165,7 +165,7 @@ export default class BotCombat {
   typeTime(bot, weapon) {
     const letters = WORD_LETTERS[weapon.wordList] * (weapon.wordsPerShot ?? 1);
     const typing = (letters / bot.config.typingSpeed) * 1000;
-    const damage = weapon.damage * this.scale(bot);
+    const damage = weapon.damage * this.scale(bot, weapon);
     const capped = (damage / BOT_AI.maxDps) * 1000;
     return Math.max(typing, capped) * Phaser.Math.FloatBetween(0.8, 1.2);
   }
@@ -238,7 +238,7 @@ export default class BotCombat {
   }
 
   hit(bot, victim, gun, amount, distance) {
-    const damage = Math.max(1, Math.round(amount * this.scale(bot) * this.falloff(gun.falloff, distance)));
+    const damage = Math.max(1, Math.round(amount * this.scale(bot, gun) * this.falloff(gun.falloff, distance)));
     this.damage(bot, victim, damage);
   }
 
@@ -250,8 +250,9 @@ export default class BotCombat {
     this.floatText(victim, `-${amount}`, HIT_COLOR);
   }
 
-  scale(bot) {
-    return bot.config.damageScale ?? 1;
+  // Share of a weapon's damage a bot deals (some families have their own).
+  scale(bot, weapon) {
+    return BOT_AI.damageByCategory?.[weapon?.category] ?? bot.config.damageScale ?? 1;
   }
 
   // Same range falloff rule as your guns.

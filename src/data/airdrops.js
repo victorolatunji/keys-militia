@@ -93,6 +93,9 @@ export const AIRDROP_POOL = [
   { type: 'gun', key: 'warMachine', weight: 0.25 },
   // Specials: rare (player-only; bots never pick them up)
   { type: 'gun', key: 'sawGun', weight: 0.3 },
+  { type: 'gun', key: 'nailGun', weight: 0.35 },
+  { type: 'gun', key: 'laser', weight: 0.25 },
+  { type: 'gun', key: 'flamethrower', weight: 0.3 },
   // Melee
   { type: 'melee', key: 'machete', weight: 0.6 },
   { type: 'melee', key: 'bat', weight: 0.6 },

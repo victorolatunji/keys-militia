@@ -134,6 +134,8 @@ export default class Hud {
     let damage = `dmg ${w.damage}`;
     if (w.saw) {
       damage += ' grind + blast';
+    } else if (w.flame) {
+      damage += ' + burning';
     } else if (w.projectile) {
       const count = w.projectile.count ?? 1;
       damage += count > 1 ? ` in ${count} bombs` : ' splash';
@@ -143,6 +145,9 @@ export default class Hud {
 
     let range;
     if (w.saw) range = 'homes in · grinds · explodes';
+    else if (w.beam) range = 'beam pierces every enemy in line';
+    else if (w.flame) range = `reach ${w.reach}px · cone · sets on fire`;
+    else if (w.pins) range = 'each nail pins them in place';
     else if (w.blast) range = `blast ${w.blast.blastRadius}px · can hurt you`;
     else if (w.category === 'melee') range = `reach ${w.reach}px: get close`;
     else if (w.belt) range = weapons.reloading ? 'reloading…' : `belt ${weapons.beltLeft}/${w.belt} · then reload`;
