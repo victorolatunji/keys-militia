@@ -87,4 +87,10 @@ export const ICONS = {
   sticky: [[8, 3, 8, 8, 'olive'], [10, 1, 4, 2, 'metal'], [7, 6, 10, 2, 'gold'], [11, 10, 2, 2, 'gold']],
   molotov: [[10, 4, 5, 8, 'wood'], [11, 2, 3, 2, 'glass'], [11, 0, 3, 2, 'red'], [12, 0, 1, 1, 'gold']],
   combatAxe: [[3, 5, 13, 2, 'metal'], [15, 2, 5, 7, 'steel'], [20, 3, 1, 5, 'steel'], [3, 4, 2, 4, 'red']],
+  // Tacticals: canisters, colour band says which
+  smoke: [[9, 2, 6, 10, 'steel'], [10, 0, 4, 2, 'metal'], [9, 5, 6, 2, 'metal'], [14, 0, 4, 1, 'metal']],
+  flashbang: [[9, 2, 6, 10, 'steel'], [10, 0, 4, 2, 'metal'], [9, 5, 6, 2, 'gold'], [14, 0, 4, 1, 'metal']],
+  concussion: [[9, 2, 6, 10, 'olive'], [10, 0, 4, 2, 'metal'], [9, 5, 6, 2, 'steel'], [14, 0, 4, 1, 'metal']],
+  emp: [[9, 2, 6, 10, 'metal'], [10, 0, 4, 2, 'steel'], [9, 5, 6, 2, 'glass'], [14, 0, 4, 1, 'steel'], [7, 3, 2, 1, 'glass'], [15, 8, 2, 1, 'glass']],
+  cryo: [[9, 2, 6, 10, 'glass'], [10, 0, 4, 2, 'metal'], [9, 5, 6, 2, 'steel'], [14, 0, 4, 1, 'metal']],
 };

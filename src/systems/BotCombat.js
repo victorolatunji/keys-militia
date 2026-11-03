@@ -6,6 +6,7 @@ import { GUN_SWITCH_MS } from '../data/weapons.js';
 import { BULLETS, BULLET_DEFAULT, MUZZLE_FLASH } from '../data/bullets.js';
 import { BOT_AI, BOT_BULLETS, WORD_LETTERS } from '../data/enemies.js';
 import { hasLineOfSight } from './LineOfSight.js';
+import { STATUS } from '../data/status.js';
 
 const HIT_COLOR = '#ff4d6d';
 const NOTE_COLOR = '#c9c9c9';
@@ -93,7 +94,16 @@ export default class BotCombat {
     const used = gear.useAmmo(now, GUN_SWITCH_MS);
     if (used === 'reload') this.note(bot, 'reloading');
     else if (used) this.note(bot, `${used.name} empty`);
-    bot.nextShotAt = now + this.typeTime(bot, gear.current);
+    bot.nextShotAt = now + this.typeTime(bot, gear.current) * this.slowdown(bot);
+  }
+
+  // Dazed, shocked or frozen bots attack slower (the strongest one wins).
+  slowdown(bot) {
+    let k = 1;
+    for (const type of ['dazed', 'shocked', 'frozen']) {
+      if (bot.hasStatus(type)) k = Math.max(k, STATUS[type].attackScale);
+    }
+    return k;
   }
 
   // ---- Bombers ----

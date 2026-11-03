@@ -121,8 +121,10 @@ export default class Bot extends Player {
     if (this.alive && this.movement === 'flyer') {
       // Drones set their own speed (BotBrain.fly); no running or jetpack.
       // Pinned: its rotors are jammed, so it drops like everything else.
-      this.body.setAllowGravity(this.pinned);
-      if (this.pinned) this.body.setVelocityX(0);
+      // Shocked (EMP) or frozen: its rotors die too.
+      const grounded = this.pinned || this.jetLocked;
+      this.body.setAllowGravity(grounded);
+      if (grounded) this.body.setVelocityX(0);
       else this.brain.update(delta);
       if (this.brain.sees && this.brain.target) this.faceToward(this.brain.target.x);
       this.updateVisuals();

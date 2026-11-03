@@ -106,13 +106,11 @@ export default class TypingSystem {
       if (d > reach) return false;
     }
 
-    return hasLineOfSight(
-      this.groundLayer,
-      this.player.x,
-      this.player.y + EYE_OFFSET_Y,
-      target.x,
-      target.y
-    );
+    const eyeY = this.player.y + EYE_OFFSET_Y;
+    if (!hasLineOfSight(this.groundLayer, this.player.x, eyeY, target.x, target.y)) return false;
+
+    // Smoke in the way (or around either of you): no word.
+    return !this.scene.weapons?.smokeBlocks(this.player.x, eyeY, target.x, target.y);
   }
 
   // Runs every frame: show, hide and refresh words.

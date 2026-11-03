@@ -721,12 +721,32 @@ export const WEAPON_CATEGORIES = {
 // Throwables: thrown with Space, no word needed.
 // All share the blast logic in WeaponSystem; each sets its own numbers.
 // Special effects (fire, EMP, sticky) will be added per throwable later.
+// Shared by every tactical throwable: thrown like a frag (arc, bounces).
+const TACTICAL = {
+  kind: 'tactical',
+  flight: 'arc',
+  radius: 6,
+  bounce: 0.4,
+  groundFriction: 0.9,
+  minSpeed: 250,
+  maxSpeed: 750,
+  chargeMs: 900,
+  fuseMs: 1500,
+  mass: 0.2,
+  ownerIgnoreMs: 300,
+  maxCarry: 3,
+};
+
 export const THROWABLES = {
   // kind: what happens when it goes off
   //   'frag'    bounces, rolls, explodes on its fuse
   //   'sticky'  blows up on an enemy; on a wall or floor it sticks and becomes a trip mine
   //   'molotov' breaks on impact and leaves a patch of fire (burning)
   //   'axe'     no blast: hits the first enemy it reaches, hard
+  //   'tactical' bounces like a frag, goes off on its fuse; config.effect says
+  //             what it does: 'smoke', 'flash', 'concussion', 'emp', 'cryo'.
+  //             Tacticals reach anyone in radiusPx that it has a clear line
+  //             to: enemies AND you. Player-only (enemies never carry them).
     // flight: 'arc' (lobbed, gravity pulls it down) or 'straight' (flies flat
   //   like a throw, no drop until it has gone rangePx, then it falls).
   //   Straight throws: holding Space longer throws farther, from minRangePx
@@ -757,8 +777,9 @@ export const THROWABLES = {
   },
   // Sticky Grenade (also your trip mine): thrown flat. Hits an enemy: blows
   // up on impact. Hits a wall or the floor: sticks there, arms, and blows up
-  // when an enemy walks or flies past. A blast going off near it (grenade,
-  // rocket, EMP...) sets it off too.
+  // when anyone walks or flies past: enemies, or you (suicide). A blast going
+  // off near it (grenade, rocket, EMP...) sets it off too. Damage falls off
+  // with distance: the closer you are when it blows, the harder it hits.
   sticky: {
     key: 'sticky',
     name: 'Sticky Grenade',
@@ -770,15 +791,16 @@ export const THROWABLES = {
     chargeMs: 700,
     radius: 6,
     color: 0x6a994e,
-    armMs: 600,           // after it sticks, then it's live (blinks red)
-    triggerPx: 60,        // an enemy this close sets it off
+    armMs: 1000,          // after it sticks, then it's live (blinks red): time to step away
+    triggerPx: 90,        // anyone this close (from their middle) sets it off
+    tripDelayMs: 250,     // fast beeping between the trip and the blast
     fuseMs: 30000,        // stuck and nobody came: it fizzles after this long
     maxActive: 3,         // your oldest stuck sticky disappears past this
     bounce: 0,
     groundFriction: 0.8,
-    damage: 110,
+    damage: 110,          // within directHitRadius; falls to 0 at blastRadius
     directHitRadius: 28,
-    blastRadius: 110,
+    blastRadius: 130,
     selfDamage: 1,
     knockback: 540,
     knockbackLift: 230,
@@ -832,6 +854,78 @@ export const THROWABLES = {
     maxCarry: 3,
   },
 
+  // ---- Tacticals (no frag damage; they mess with whoever is caught) ----
+  // Smoke: a cloud nobody sees through. Enemies inside or behind it lose
+  // their words; bots can't see you inside or behind it either.
+  smoke: {
+    ...TACTICAL,
+    key: 'smoke',
+    name: 'Smoke Grenade',
+    effect: 'smoke',
+    color: 0x8d99ae,
+    fuseMs: 1200,
+    smoke: {
+      radiusPx: 120,
+      durationMs: 9000,
+      growMs: 700,        // swells out
+      fadeMs: 1500,       // thins away at the end
+      puffs: 16,
+      color: 0xb0b7c0,
+    },
+  },
+  // Flashbang: blinds everyone with a clear line to it. Up close it lasts
+  // longest. Blinded bots can't see you; blinded you gets a white screen.
+  flashbang: {
+    ...TACTICAL,
+    key: 'flashbang',
+    name: 'Flashbang',
+    effect: 'flash',
+    color: 0xe9ecef,
+    radiusPx: 230,
+    maxMs: 3500,          // blinded this long at the bang...
+    minMs: 1200,          // ...down to this at the edge
+  },
+  // Concussion: a small shove and dazed (slow, weak jetpack, slow attacks).
+  concussion: {
+    ...TACTICAL,
+    key: 'concussion',
+    name: 'Concussion',
+    effect: 'concussion',
+    color: 0x6c757d,
+    radiusPx: 170,
+    statusMs: 4000,
+    // a light blast for the shove (same rules as a frag, much weaker)
+    damage: 15,
+    directHitRadius: 28,
+    blastRadius: 170,
+    selfDamage: 1,
+    knockback: 380,
+    knockbackLift: 160,
+    knockbackFullAt: 10,
+  },
+  // EMP: shocked (no jetpack or Jet Boost, no gun switching). Machines take
+  // heavy damage and drones drop. Sets off stickies in range.
+  emp: {
+    ...TACTICAL,
+    key: 'emp',
+    name: 'EMP Grenade',
+    effect: 'emp',
+    color: 0x4361ee,
+    radiusPx: 180,
+    statusMs: 4000,
+    machineDamage: 80,    // Machines family only (drones die, Scrap Bots hurt)
+  },
+  // Cryo: frozen (very slow, jetpack frozen, slow attacks).
+  cryo: {
+    ...TACTICAL,
+    key: 'cryo',
+    name: 'Cryo Bomb',
+    effect: 'cryo',
+    color: 0x90e0ef,
+    radiusPx: 150,
+    statusMs: 4000,
+  },
+
 };
 
 // Aiming while holding Space. Angles in degrees: 0 = straight ahead, negative = up.
@@ -852,5 +946,5 @@ export const DEFAULT_LOADOUT = {
   // A random melee weapon from this list, new every time you spawn.
   // Melee weapons never drop and can't be picked up.
   melee: ['knife', 'machete', 'bat', 'spade', 'hammer', 'sword', 'axe'],
-  throwable: { key: 'grenade', count: 3 },
+  throwable: { key: 'cryo', count: 3 },
 };

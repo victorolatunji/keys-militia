@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { PLAYER } from '../data/player.js';
+import { STATUS } from '../data/status.js';
 
 const SMOKE_COLOR = 0x9a9a9a;
 const HIT_FLASH_MS = 80;
@@ -61,6 +62,24 @@ export default class Player extends Phaser.GameObjects.Rectangle {
     return this.scene.time.now < (this.pinnedUntil ?? 0);
   }
 
+  // Status effects (StatusSystem keeps them in this.statuses).
+  hasStatus(type) {
+    return (this.statuses?.[type]?.until ?? 0) > this.scene.time.now;
+  }
+
+  // Dazed or frozen: everything moves slower (the strongest one wins).
+  get moveScale() {
+    let scale = 1;
+    if (this.hasStatus('dazed')) scale = Math.min(scale, STATUS.dazed.moveScale);
+    if (this.hasStatus('frozen')) scale = Math.min(scale, STATUS.frozen.moveScale);
+    return scale;
+  }
+
+  // Shocked (EMP) or frozen: the jetpack and Jet Boost don't work.
+  get jetLocked() {
+    return this.hasStatus('shocked') || this.hasStatus('frozen');
+  }
+
   // True right after a blast push: controls are ignored so the push plays out.
   get staggered() {
     return this.scene.time.now < this.staggerUntil;
@@ -98,7 +117,7 @@ export default class Player extends Phaser.GameObjects.Rectangle {
   // Let go and you drift to a stop sideways and keep sinking slowly.
   // While typing or aiming you just sink slowly. A nail pin or a blast wins.
   updateFloat(left, right, up, down, delta) {
-    const floating = this.boosted && !this.pinned && !this.staggered;
+    const floating = this.boosted && !this.pinned && !this.staggered && !this.jetLocked;
     this.body.setAllowGravity(!floating);
     if (!floating) {
       this.floatVel = null;
@@ -107,13 +126,14 @@ export default class Player extends Phaser.GameObjects.Rectangle {
 
     const cfg = this.boostConfig;
     const steering = !this.typing && !this.aiming;
+    const slow = this.moveScale;
     let tx = 0;
     let ty = cfg.sinkSpeed;
     if (steering) {
-      if (left.isDown && !right.isDown) tx = -cfg.glideSpeed;
-      else if (right.isDown && !left.isDown) tx = cfg.glideSpeed;
-      if (up.isDown) ty = -cfg.riseSpeed;
-      else if (down.isDown) ty = cfg.diveSpeed;
+      if (left.isDown && !right.isDown) tx = -cfg.glideSpeed * slow;
+      else if (right.isDown && !left.isDown) tx = cfg.glideSpeed * slow;
+      if (up.isDown) ty = -cfg.riseSpeed * slow;
+      else if (down.isDown) ty = cfg.diveSpeed * slow;
     }
 
     // Ease from the current float speed toward the target (same feel at any frame rate).
@@ -259,7 +279,7 @@ export default class Player extends Phaser.GameObjects.Rectangle {
   }
 
   updateHorizontal(left, right) {
-    const speed = this.onGround ? this.stats.runSpeed : this.stats.airSpeed;
+    const speed = (this.onGround ? this.stats.runSpeed : this.stats.airSpeed) * this.moveScale;
 
     if (left.isDown && !right.isDown) {
       this.body.setVelocityX(-speed);
@@ -274,7 +294,7 @@ export default class Player extends Phaser.GameObjects.Rectangle {
 
   updateJetpack(up, down, dt) {
     if (this.boosted) this.fuel = this.stats.fuelMax; // Jet Boost: tank stays full
-    this.thrusting = up.isDown && this.fuel > 0;
+    this.thrusting = up.isDown && this.fuel > 0 && !this.jetLocked;
 
     if (this.thrusting) {
       this.body.setAccelerationY(-this.stats.jetThrust);
@@ -286,7 +306,8 @@ export default class Player extends Phaser.GameObjects.Rectangle {
     }
 
     // Cap upward speed so the jetpack feels controlled (a bit higher when boosted).
-    const maxRise = this.stats.maxRiseSpeed * (this.boosted ? this.boostRise : 1);
+    let maxRise = this.stats.maxRiseSpeed * (this.boosted ? this.boostRise : 1);
+    if (this.hasStatus('dazed')) maxRise *= STATUS.dazed.riseScale; // weak jetpack
     if (this.body.velocity.y < -maxRise) {
       this.body.setVelocityY(-maxRise);
     }

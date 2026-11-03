@@ -4,6 +4,7 @@ import Projectile from '../entities/Projectile.js';
 import Saw from '../entities/Saw.js';
 import StatusSystem from './StatusSystem.js';
 import FirePatch from '../entities/FirePatch.js';
+import SmokeCloud from '../entities/SmokeCloud.js';
 import { groundBelow } from './Terrain.js';
 import Bullet from '../entities/Bullet.js';
 import { hasLineOfSight } from './LineOfSight.js';
@@ -69,6 +70,7 @@ export default class WeaponSystem {
     });
     this.fires = [];       // molotov fire patches
     this.stickies = [];    // your planted/flying stickies (they double as trip mines)
+    this.smokes = [];      // smoke clouds (nobody sees through them)
     this.bullets = [];     // gun bullets in flight
     this.counters = new Map(); // target -> its running damage number
     this.thrown = 0;
@@ -157,6 +159,7 @@ export default class WeaponSystem {
 
   // Shift: next slot that holds something you can use (gun 1 -> gun 2 -> melee -> gun 1).
   switchGun() {
+    if (this.shockedNote()) return;
     for (let step = 1; step < this.slots.length; step++) {
       const next = (this.active + step) % this.slots.length;
       if (this.usable(this.slots[next])) {
@@ -676,6 +679,7 @@ export default class WeaponSystem {
   // Put this slot in your hand (if you can use it right now).
   selectSlot(slot) {
     if (slot === this.active || !this.usable(this.slots[slot])) return;
+    if (this.shockedNote()) return;
     this.active = slot;
     this.typing.onWeaponChanged(GUN_SWITCH_MS);
     this.blockIfReloading();
@@ -754,6 +758,7 @@ export default class WeaponSystem {
     grenade.on('explode', (x, y) => this.explode(x, y, config));
     grenade.on('ignite', (x, y) => this.spawnFire(x, y, config, 'player'));
     grenade.on('strike', (enemy) => this.axeHit(enemy, config, grenade));
+    grenade.on('pop', (x, y) => this.tactical(x, y, config));
 
     this.grenades.push(grenade);
     this.throwableCount -= 1;
@@ -806,7 +811,117 @@ export default class WeaponSystem {
     }
   }
 
-  // Any blast (yours, a bot's, later an EMP) sets off stickies caught in it.
+  // Shocked by an EMP: no switching. Says so and returns true.
+  shockedNote() {
+    if (!this.player.hasStatus('shocked')) return false;
+    this.floatText(this.player, 'shocked: can\'t switch', '#4cc9f0');
+    return true;
+  }
+
+  // ---- Tacticals ----
+
+  // A tactical went off. Smoke leaves a cloud; the others reach everyone in
+  // radiusPx with a clear line to the bang (enemies and you).
+  tactical(x, y, config) {
+    if (config.effect === 'smoke') {
+      this.smokes.push(new SmokeCloud(this.scene, x, y - 10, config.smoke));
+      return;
+    }
+    this.tacticalFx(x, y, config);
+    if (config.effect === 'emp') this.chainReaction(x, y, config.radiusPx);
+
+    const victims = [...this.typing.targets, this.player].filter((v) => {
+      if (!v.alive) return false;
+      const d = Phaser.Math.Distance.Between(x, y, v.x, v.y);
+      return d <= config.radiusPx && hasLineOfSight(this.groundLayer, x, y - 4, v.x, v.y);
+    });
+
+    for (const v of victims) {
+      const you = v === this.player;
+      const dist = Phaser.Math.Distance.Between(x, y, v.x, v.y);
+      switch (config.effect) {
+        case 'flash': {
+          const k = Math.min(1, dist / config.radiusPx);
+          const ms = Math.round(config.maxMs - (config.maxMs - config.minMs) * k);
+          this.status.apply(v, 'blinded', 'player', ms);
+          if (you) this.whiteOut(ms);
+          break;
+        }
+        case 'concussion':
+          this.applyBlast(x, y, config, v, you ? config.selfDamage : 1, you ? 'self' : undefined);
+          this.status.apply(v, 'dazed', 'player', config.statusMs);
+          break;
+        case 'emp':
+          this.status.apply(v, 'shocked', 'player', config.statusMs);
+          if (v.config?.family === 'machines') {
+            this.addDamage(v, config.machineDamage, DAMAGE_COLOR);
+          }
+          break;
+        case 'cryo':
+          this.status.apply(v, 'frozen', 'player', config.statusMs);
+          break;
+      }
+    }
+  }
+
+  // The bang itself: a ring in the tactical's colour.
+  tacticalFx(x, y, config) {
+    const color = config.effect === 'flash' ? 0xffffff : config.color;
+    const ring = this.scene.add
+      .circle(x, y, config.radiusPx, color, config.effect === 'flash' ? 0.6 : 0.25)
+      .setStrokeStyle(3, color, 0.9)
+      .setDepth(42)
+      .setScale(0.15);
+    this.scene.tweens.add({
+      targets: ring,
+      scale: 1,
+      alpha: 0,
+      duration: config.effect === 'flash' ? 220 : 400,
+      onComplete: () => ring.destroy(),
+    });
+    if (config.effect === 'emp') {
+      // a few lightning strokes
+      for (let i = 0; i < 6; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const r = Phaser.Math.Between(40, config.radiusPx);
+        const bolt = this.scene.add
+          .line(0, 0, x, y, x + Math.cos(a) * r, y + Math.sin(a) * r, 0x4cc9f0)
+          .setOrigin(0, 0)
+          .setLineWidth(2)
+          .setDepth(43);
+        this.scene.time.delayedCall(140, () => bolt.destroy());
+      }
+    }
+    if (config.effect !== 'smoke') this.scene.cameras.main.shake(120, 0.004);
+  }
+
+  // Flashbang on you: the screen goes white and fades back.
+  whiteOut(ms) {
+    const cam = this.scene.cameras.main;
+    this.whiteRect?.destroy();
+    this.whiteRect = this.scene.add
+      .rectangle(0, 0, cam.width, cam.height, 0xffffff, 1)
+      .setOrigin(0, 0)
+      .setScrollFactor(0)
+      .setDepth(5000);
+    this.scene.tweens.add({
+      targets: this.whiteRect,
+      alpha: 0,
+      delay: ms * 0.5,      // fully white for the first half
+      duration: ms * 0.5,   // then fades back
+      onComplete: () => {
+        this.whiteRect?.destroy();
+        this.whiteRect = null;
+      },
+    });
+  }
+
+  // Is the line between two points (or either end) in smoke?
+  smokeBlocks(x1, y1, x2, y2) {
+    return this.smokes.some((c) => c.active && c.blocksLine(x1, y1, x2, y2));
+  }
+
+  // Any blast (yours, a bot's, an EMP) sets off stickies caught in it.
   chainReaction(x, y, radius) {
     this.stickies = this.stickies.filter((g) => g.active && !g.done);
     for (const g of this.stickies) {
@@ -927,6 +1042,9 @@ export default class WeaponSystem {
 
     this.fires = this.fires.filter((f) => f.active);
     for (const fire of this.fires) fire.update();
+
+    this.smokes = this.smokes.filter((c) => c.active);
+    for (const cloud of this.smokes) cloud.update();
 
     this.status.update();
 

@@ -6,6 +6,8 @@ import { STATUS } from '../data/status.js';
 //   burning: damage every tickMs until it runs out, little flames rising
 //   pinned:  sets character.pinnedUntil (Player/Bot movement checks it) and
 //            draws nails sticking out of the character
+//   blinded, dazed, shocked, frozen: Player/Bot read them through
+//            hasStatus() (movement, jetpack, sight, attacks); drawn here
 // damage(target, amount, source) is given by WeaponSystem so damage
 // numbers and kill credit work like any other hit.
 export default class StatusSystem {
@@ -16,7 +18,8 @@ export default class StatusSystem {
   }
 
   // Start (or refresh) an effect. source: 'player' or 'bot'.
-  apply(target, type, source = 'player') {
+  // durationMs: optional, overrides the default (a flashbang up close lasts longer).
+  apply(target, type, source = 'player', durationMs = null) {
     if (!target.alive) return;
     const config = STATUS[type];
     const now = this.scene.time.now;
@@ -24,8 +27,10 @@ export default class StatusSystem {
     const fresh = !target.statuses[type] || target.statuses[type].until <= now;
 
     const old = target.statuses[type];
+    const until = now + (durationMs ?? config.durationMs);
     target.statuses[type] = {
-      until: now + config.durationMs,
+      until: fresh ? until : Math.max(until, old.until),
+      overlay: old?.overlay ?? null,
       source,
       nextTickAt: old?.nextTickAt ?? now + (config.tickMs ?? 0),
       nextFxAt: 0,
@@ -50,11 +55,16 @@ export default class StatusSystem {
       for (const [type, s] of Object.entries(statuses)) {
         if (!target.alive || now >= s.until) {
           if (s.nails) s.nails.forEach((n) => n.img.destroy());
+          if (s.overlay) s.overlay.destroy();
           if (type === 'pinned') target.pinnedUntil = 0;
           delete statuses[type];
           continue;
         }
         if (type === 'burning') this.burn(target, s, now);
+        else if (type === 'dazed') this.every(s, now, 160, () => this.star(target));
+        else if (type === 'shocked') this.every(s, now, 90, () => this.spark(target));
+        else if (type === 'blinded') this.every(s, now, 200, () => this.glare(target));
+        else if (type === 'frozen') this.ice(target, s);
         if (s.nails) {
           for (const n of s.nails) n.img.setPosition(target.x + n.dx, target.y + n.dy);
         }
@@ -74,6 +84,58 @@ export default class StatusSystem {
       s.nextFxAt = now + 70;
       this.flame(target, Math.random() < 0.7 ? config.flameColor : config.flameCoreColor);
     }
+  }
+
+  every(s, now, ms, fn) {
+    if (now < s.nextFxAt) return;
+    s.nextFxAt = now + ms;
+    fn();
+  }
+
+  // Dazed: little stars circling over the head.
+  star(target) {
+    const top = target.y - target.height / 2 - 6;
+    const st = this.scene.add.star(target.x - 12, top, 5, 2, 4, STATUS.dazed.fxColor).setDepth(44);
+    this.scene.tweens.add({
+      targets: st,
+      x: target.x + 12,
+      angle: 180,
+      alpha: 0,
+      duration: 500,
+      onUpdate: () => (st.y = target.y - target.height / 2 - 6),
+      onComplete: () => st.destroy(),
+    });
+  }
+
+  // Shocked: blue sparks crackling on the body.
+  spark(target) {
+    const x = target.x + Phaser.Math.Between(-target.width / 2, target.width / 2);
+    const y = target.y + Phaser.Math.Between(-target.height / 2, target.height / 2);
+    const sp = this.scene.add
+      .line(0, 0, x, y, x + Phaser.Math.Between(-8, 8), y + Phaser.Math.Between(-8, 8), STATUS.shocked.fxColor)
+      .setOrigin(0, 0)
+      .setLineWidth(2)
+      .setDepth(44);
+    this.scene.time.delayedCall(80, () => sp.destroy());
+  }
+
+  // Blinded (bots): a white glare over the eyes.
+  glare(target) {
+    const g = this.scene.add
+      .circle(target.x, target.y - target.height / 2 + 10, 7, STATUS.blinded.fxColor, 0.9)
+      .setDepth(44);
+    this.scene.tweens.add({ targets: g, scale: 1.8, alpha: 0, duration: 300, onComplete: () => g.destroy() });
+  }
+
+  // Frozen: a sheet of ice over the body that follows it.
+  ice(target, s) {
+    if (!s.overlay) {
+      s.overlay = this.scene.add
+        .rectangle(target.x, target.y, target.width + 4, target.height + 4, STATUS.frozen.fxColor, 0.5)
+        .setStrokeStyle(2, 0xffffff, 0.8)
+        .setDepth(44);
+    }
+    s.overlay.setPosition(target.x, target.y);
   }
 
   // A few grey nails stuck into the character, at random spots.

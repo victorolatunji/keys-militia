@@ -84,6 +84,11 @@ export default class BotBrain {
 
     if (this.target) {
       this.sees = hasLineOfSight(this.layer, bot.x, bot.y + EYE_OFFSET_Y, t.x, t.y + EYE_OFFSET_Y);
+      // Blinded by a flashbang, or smoke in the way: it can't see you.
+      if (bot.hasStatus('blinded')) this.sees = false;
+      else if (this.sees && bot.scene.weapons?.smokeBlocks(bot.x, bot.y + EYE_OFFSET_Y, t.x, t.y + EYE_OFFSET_Y)) {
+        this.sees = false;
+      }
       if (this.sees) this.lastSeen = { x: t.x, y: t.y, at: now };
     }
 
@@ -96,7 +101,8 @@ export default class BotBrain {
     const dist = this.target ? Phaser.Math.Distance.Between(bot.x, bot.y, t.x, t.y) : Infinity;
 
     // Weapon for the distance (only while it can see you).
-    if (this.sees) bot.gear.chooseFor(dist, now, GUN_SWITCH_MS);
+    // Shocked (EMP): can't switch.
+    if (this.sees && !bot.hasStatus('shocked')) bot.gear.chooseFor(dist, now, GUN_SWITCH_MS);
 
     // Crates and drops: worth a detour when it has no gun, can't see you,
     // or the item is right next to it.
@@ -269,7 +275,7 @@ export default class BotBrain {
     const dx = this.goalX - bot.x;
     const dy = this.goalY - bot.y;
     const dist = Math.hypot(dx, dy);
-    const speed = bot.stats.airSpeed;
+    const speed = bot.stats.airSpeed * bot.moveScale;
     let vx = dist > BOT_AI.arrivePx ? (dx / dist) * speed : 0;
     let vy = dist > BOT_AI.arrivePx ? (dy / dist) * speed : 0;
 

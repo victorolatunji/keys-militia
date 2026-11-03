@@ -4,7 +4,7 @@ const BLINK_COLOR = 0xff4d6d;
 const BURST_COLOR = 0xff9f1c;
 
 // Anything thrown with Space: frag, sticky (also the trip mine), molotov,
-// combat axe (config.kind, see THROWABLES in weapons.js).
+// combat axe, tacticals (config.kind, see THROWABLES in weapons.js).
 //   flight 'arc':      lobbed, gravity pulls it down from the start
 //   flight 'straight': flies flat (no gravity) until it has gone rangePx,
 //                      then drops like anything else
@@ -14,6 +14,8 @@ const BURST_COLOR = 0xff9f1c;
 //   'explode' (x, y)       frag, sticky: a blast
 //   'ignite'  (x, y)       molotov: a patch of fire
 //   'strike'  (enemy)      combat axe: hit the first enemy it reached
+//   'pop'     (x, y)       tacticals (smoke, flashbang, concussion, EMP,
+//                          cryo): goes off on its fuse, effect by config.effect
 // opts.targets: who it can hit, strike, or trip on (not the owner).
 // opts.rangePx: straight throws: how far before it starts to drop.
 export default class Grenade extends Phaser.GameObjects.Arc {
@@ -62,6 +64,13 @@ export default class Grenade extends Phaser.GameObjects.Arc {
       return;
     }
 
+    // Tripped or caught in a blast: fast beeping, then boom.
+    if (this.settingOff) {
+      if (now >= this.blowAt) this.explode();
+      else this.setFillStyle(Math.floor(now / 60) % 2 ? 0xffffff : BLINK_COLOR);
+      return;
+    }
+
     // Straight throw: start dropping once it has flown its range.
     if (!this.dropping && !this.planted) {
       const flown = Phaser.Math.Distance.Between(this.startX, this.startY, this.x, this.y);
@@ -79,13 +88,14 @@ export default class Grenade extends Phaser.GameObjects.Arc {
 
     switch (this.kind) {
       case 'sticky':
-        // In flight: an enemy sets it off at once; a wall or the floor catches it.
+        // In flight: an enemy sets it off at once. Anything solid it lands
+        // on or hits (floor, wall, ceiling, a crate) catches it.
         if (!this.planted) {
           if (enemy) {
             this.explode();
             return;
           }
-          if (hitTerrain || b.blocked.down) {
+          if (hitTerrain || b.touching.down || b.blocked.down) {
             this.plant();
             this.armedAt = now + this.config.armMs;
           }
@@ -125,6 +135,7 @@ export default class Grenade extends Phaser.GameObjects.Arc {
     if (now >= this.explodeAt) {
       if (this.kind === 'molotov') this.finish('ignite', this.x, this.y);
       else if (this.kind === 'axe') this.remove();
+      else if (this.kind === 'tactical') this.finish('pop', this.x, this.y);
       else this.explode();
     }
   }
@@ -139,8 +150,11 @@ export default class Grenade extends Phaser.GameObjects.Arc {
     this.body.setImmovable(true);
   }
 
-  // A stuck sticky is a trip mine: once armed it blinks red and goes off
-  // when an enemy comes close (walking or flying). Fizzles after fuseMs.
+  // A stuck sticky is a trip mine: once armed it blinks red (with a faint
+  // ring showing its trigger zone) and goes off when ANYONE comes within
+  // triggerPx: an enemy walking or flying by, or you (that's on you).
+  // After it trips it beeps fast for tripDelayMs, so whoever set it off
+  // usually gets a step closer (more damage) before it blows.
   updateTrap(now) {
     if (now >= this.explodeAt) {
       this.remove();
@@ -148,22 +162,28 @@ export default class Grenade extends Phaser.GameObjects.Arc {
     }
     if (now < this.armedAt) return;
 
+    if (!this.ring) {
+      this.ring = this.scene.add
+        .circle(this.x, this.y, this.config.triggerPx, BLINK_COLOR, 0.07)
+        .setStrokeStyle(1, BLINK_COLOR, 0.35)
+        .setDepth(40);
+    }
     this.setFillStyle(Math.floor(now / 500) % 2 ? BLINK_COLOR : this.config.color);
-    const trip = this.targets.some(
-      (t) => t.alive && t !== this.owner &&
-        Phaser.Geom.Rectangle.Inflate(t.getBounds(), this.config.triggerPx, this.config.triggerPx)
-          .contains(this.x, this.y)
-    );
-    if (trip) this.explode();
+
+    const near = (t) => {
+      if (!t || !t.alive || !t.body) return false;
+      const c = t.body.center;
+      return Phaser.Math.Distance.Between(c.x, c.y, this.x, this.y) <= this.config.triggerPx;
+    };
+    if (this.targets.some(near) || near(this.owner)) this.setOff(this.config.tripDelayMs);
   }
 
   // Set off by a blast nearby (chain reaction), after a short delay.
+  // update() beeps it fast and blows it at blowAt.
   setOff(delayMs = 120) {
     if (this.done || this.settingOff) return;
     this.settingOff = true;
-    this.scene.time.delayedCall(delayMs, () => {
-      if (this.active && !this.done) this.explode();
-    });
+    this.blowAt = this.scene.time.now + delayMs;
   }
 
   // First living target (not the owner) it overlaps, or null.
@@ -212,6 +232,7 @@ export default class Grenade extends Phaser.GameObjects.Arc {
 
   remove() {
     this.done = true;
+    this.ring?.destroy();
     this.collider.destroy();
     this.destroy();
   }
