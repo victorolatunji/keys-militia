@@ -17,7 +17,8 @@ export const ENEMIES = {
 //   family: military, undead, machines, scifi, animals
 //   role: which spawn slot it fills: 'main' (humanoids), 'machine', 'animal'
 //   smart: true = Military gear IQ: loots crates and drops, swaps and
-//     switches guns for the distance, throws grenades, runs out of ammo.
+//     switches guns for the distance, throws frag grenades (the only
+//     throwable an enemy ever uses), runs out of ammo.
 //     false = keeps the weapon family it spawns with (you know what to
 //     expect from its looks): endless ammo, a short reload pause every
 //     few attacks, no looting, no grenades.
@@ -454,8 +455,12 @@ export const BOT_AI = {
   switchEveryMs: 2000,    // at most one gun switch this often (switching takes GUN_SWITCH_MS)
   switchMargin: 0.25,     // only switches when the other gun fits clearly better
 
-  // Grenades: lobbed at you when you're in range, most often when you hide.
+  // Grenades: Military only, and only frags (no sticky, molotov or axe:
+  // too hard to fight while you type). Lobbed when you're in range,
+  // most often when you hide.
   grenade: {
+    enabled: true,
+    allowed: ['grenade'],  // the only throwable keys an enemy will carry or loot
     minRangePx: 140,      // never this close (it would hurt itself)
     maxRangePx: 520,
     checkMs: 1000,        // how often it considers a throw

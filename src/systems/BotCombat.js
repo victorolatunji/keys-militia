@@ -345,6 +345,7 @@ export default class BotCombat {
   updateGrenade(bot, now) {
     const cfg = BOT_AI.grenade;
     const { brain, gear } = bot;
+    if (!cfg.enabled) return; // enemies don't throw (see BOT_AI.grenade)
     if (!bot.alive || bot.staggered || gear.throwableCount <= 0) return;
     if (now < (bot.nextThrowCheck ?? 0)) return;
     bot.nextThrowCheck = now + cfg.checkMs;
@@ -364,43 +365,66 @@ export default class BotCombat {
     const dist = Phaser.Math.Distance.Between(bot.x, bot.y, spot.x, spot.y);
     if (dist < cfg.minRangePx || dist > cfg.maxRangePx) return;
 
+    // Straight throws (sticky, axe) need you in sight and in range.
+    const config = gear.throwable;
+    if (config.flight === 'straight' && (!brain.sees || dist > config.maxRangePx)) return;
+
     this.throwGrenade(bot, spot);
     bot.nextThrowAt = now + cfg.cooldownMs;
   }
 
-  // Pick a throw that lands on the spot: a lob that takes longer the farther
-  // it goes, kept under the grenade's max throw speed. Then add some error.
+  // Lobbed throwables (frag, molotov): a lob that lands on the spot, taking
+  // longer the farther it goes, kept under the max throw speed.
+  // Straight ones (sticky, axe): thrown flat at the spot.
+  // Either way with some error.
   throwGrenade(bot, spot) {
     const config = bot.gear.throwable;
     bot.faceToward(spot.x);
     const x = bot.x + bot.facing * 14;
     const y = bot.y - 10;
     const g = this.scene.physics.world.gravity.y;
-
-    let t = Phaser.Math.Clamp(Math.abs(spot.x - x) / 450, 0.6, 1.3);
+    const errShare = BOT_AI.grenade.errorShare;
     let vx;
     let vy;
-    for (let i = 0; i < 6; i++) {
-      vx = (spot.x - x) / t;
-      vy = (spot.y - y) / t - (g * t) / 2;
-      if (Math.hypot(vx, vy) <= config.maxSpeed) break;
-      t += 0.15;
-    }
-    const error = 1 + Phaser.Math.FloatBetween(-1, 1) * BOT_AI.grenade.errorShare;
+    let rangePx = Infinity;
 
-    const grenade = new Grenade(this.scene, x, y, config, this.groundLayer, this.worldHeight, bot);
-    grenade.body.setVelocity(vx * error, vy * error);
+    if (config.flight === 'straight') {
+      const angle = Phaser.Math.Angle.Between(x, y, spot.x, spot.y) + Phaser.Math.FloatBetween(-1, 1) * errShare * 0.6;
+      vx = Math.cos(angle) * config.speed;
+      vy = Math.sin(angle) * config.speed;
+      rangePx = Phaser.Math.Distance.Between(x, y, spot.x, spot.y) + 40;
+    } else {
+      let t = Phaser.Math.Clamp(Math.abs(spot.x - x) / 450, 0.6, 1.3);
+      for (let i = 0; i < 6; i++) {
+        vx = (spot.x - x) / t;
+        vy = (spot.y - y) / t - (g * t) / 2;
+        if (Math.hypot(vx, vy) <= config.maxSpeed) break;
+        t += 0.15;
+      }
+      const error = 1 + Phaser.Math.FloatBetween(-1, 1) * errShare;
+      vx *= error;
+      vy *= error;
+    }
+
+    const grenade = new Grenade(this.scene, x, y, config, this.groundLayer, this.worldHeight, bot, {
+      targets: [this.player],
+      rangePx,
+    });
+    grenade.body.setVelocity(vx, vy);
     this.collisions.addGrenade(grenade);
     grenade.on('explode', (ex, ey) => this.blast(bot, ex, ey, config, this.scale(bot)));
+    grenade.on('ignite', (ex, ey) => this.weapons.spawnFire(ex, ey, config, 'bot', bot));
+    grenade.on('strike', (victim) => this.damage(bot, victim, Math.round(config.damage * this.scale(bot))));
     this.thrown.push(grenade);
 
     bot.gear.throwableCount -= 1;
-    this.note(bot, 'grenade!');
+    this.note(bot, `${config.name.toLowerCase()}!`);
   }
 
   // A bot's blast hurts everyone caught in it: you, other bots, and itself
   // (at selfDamage strength). A bot killed by a bot's blast isn't your kill.
   blast(bot, x, y, config, scale) {
+    this.weapons.chainReaction(x, y, config.blastRadius);
     if (this.player.alive && this.inBlast(x, y, config, this.player)) {
       this.player.lastAttacker = bot;
       this.weapons.applyBlast(x, y, config, this.player, scale, 'bot');

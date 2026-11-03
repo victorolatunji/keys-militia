@@ -92,7 +92,10 @@ export const SUPPLY_DROPS = {
   spin: 6,               // radians per second while falling
   pool: [
     { type: 'gun', category: 'pistol', weight: 3 },
-    { type: 'throwable', key: 'grenade', count: 2, weight: 3 },
+    { type: 'throwable', key: 'grenade', count: 2, weight: 2.5 },
+    { type: 'throwable', key: 'sticky', count: 2, weight: 1.2 },
+    { type: 'throwable', key: 'molotov', count: 2, weight: 1.2 },
+    { type: 'throwable', key: 'combatAxe', count: 2, weight: 1 },
     { type: 'boost', key: 'jetBoost', weight: 2.5 },
     { type: 'shield', key: 'riotShield', weight: 1.5 },
     { type: 'gun', category: 'special', weight: 0.5 },

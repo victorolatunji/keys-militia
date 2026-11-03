@@ -3,6 +3,8 @@ import Grenade from '../entities/Grenade.js';
 import Projectile from '../entities/Projectile.js';
 import Saw from '../entities/Saw.js';
 import StatusSystem from './StatusSystem.js';
+import FirePatch from '../entities/FirePatch.js';
+import { groundBelow } from './Terrain.js';
 import Bullet from '../entities/Bullet.js';
 import { hasLineOfSight } from './LineOfSight.js';
 import {
@@ -61,9 +63,12 @@ export default class WeaponSystem {
     // Burning, pinned (and later shocked, dazed...): ticks and damage.
     // Your effects count as your hits; a bot's would count as theirs.
     this.status = new StatusSystem(scene, (target, amount, source) => {
-      if (source === 'player') this.addDamage(target, amount, BURN_COLOR);
+      if (source === 'player' && target === this.player) target.takeDamage(amount, 'self'); // your own fire
+      else if (source === 'player') this.addDamage(target, amount, BURN_COLOR);
       else target.takeDamage(amount, source);
     });
+    this.fires = [];       // molotov fire patches
+    this.stickies = [];    // your planted/flying stickies (they double as trip mines)
     this.bullets = [];     // gun bullets in flight
     this.counters = new Map(); // target -> its running damage number
     this.thrown = 0;
@@ -718,9 +723,15 @@ export default class WeaponSystem {
     return { x: p.x + p.facing * 14, y: p.y - 10 };
   }
 
+  // Straight throws (sticky, axe): how far it flies flat before dropping.
+  throwRange() {
+    const t = this.throwable;
+    return t.minRangePx + (t.maxRangePx - t.minRangePx) * this.charge;
+  }
+
   throwVelocity() {
     const t = this.throwable;
-    const speed = t.minSpeed + (t.maxSpeed - t.minSpeed) * this.charge;
+    const speed = t.flight === 'straight' ? t.speed : t.minSpeed + (t.maxSpeed - t.minSpeed) * this.charge;
     const rad = Phaser.Math.DegToRad(this.aimAngle);
 
     return {
@@ -729,30 +740,62 @@ export default class WeaponSystem {
     };
   }
 
+  // Throw whatever throwable you carry. What happens when it goes off
+  // depends on its kind (see Grenade.js).
   throwGrenade({ vx, vy }) {
     const origin = this.throwOrigin();
     const config = this.throwable;
     const grenade = new Grenade(
-      this.scene,
-      origin.x,
-      origin.y,
-      config,
-      this.groundLayer,
-      this.worldHeight,
-      this.player
+      this.scene, origin.x, origin.y, config, this.groundLayer, this.worldHeight, this.player,
+      { targets: this.typing.targets, rangePx: config.flight === 'straight' ? this.throwRange() : Infinity }
     );
     grenade.body.setVelocity(vx, vy);
     this.collisions.addGrenade(grenade);
     grenade.on('explode', (x, y) => this.explode(x, y, config));
+    grenade.on('ignite', (x, y) => this.spawnFire(x, y, config, 'player'));
+    grenade.on('strike', (enemy) => this.axeHit(enemy, config, grenade));
 
     this.grenades.push(grenade);
     this.throwableCount -= 1;
     this.thrown += 1;
+
+    // Stickies: only a few of yours on the map at once (the oldest fizzles).
+    if (config.kind === 'sticky') {
+      this.stickies = this.stickies.filter((g) => g.active && !g.done);
+      this.stickies.push(grenade);
+      while (this.stickies.length > config.maxActive) this.stickies.shift().remove();
+    }
+  }
+
+  // Combat Axe: a heavy hit and a shove, no blast.
+  axeHit(enemy, config, axe) {
+    this.addDamage(enemy, config.damage, DAMAGE_COLOR);
+    if (enemy.applyKnockback) {
+      const dir = Math.sign(axe.body.velocity.x) || this.player.facing;
+      enemy.applyKnockback(dir * config.knockback, -config.knockback * 0.4);
+    }
+  }
+
+  // Molotov: a patch of fire on the ground below where it broke (nothing if
+  // it broke over the void). It burns everyone standing in it, you too.
+  // source: 'player' or 'bot' (attacker: the bot that threw it).
+  spawnFire(x, y, config, source, attacker = null) {
+    const below = groundBelow(this.groundLayer, x, y - 8);
+    if (below === null || below > 220) return;
+    const surfaceY = Math.floor((y - 8 + below) / 32) * 32; // top of that tile row
+
+    const victims = () => [...this.typing.targets, this.player];
+    const burn = (v) => {
+      if (source === 'bot' && attacker) v.lastAttacker = attacker;
+      this.status.apply(v, 'burning', source);
+    };
+    this.fires.push(new FirePatch(this.scene, x, surfaceY, config.fire, victims, burn));
   }
 
   // Shared blast for every explosive throwable.
   // Full damage up close, falling to 0 at the edge. Walls block it.
   explode(x, y, config) {
+    this.chainReaction(x, y, config.blastRadius);
     for (const target of this.typing.targets) {
       this.applyBlast(x, y, config, target, 1);
     }
@@ -760,6 +803,14 @@ export default class WeaponSystem {
     // Your own throwable can hurt you (selfDamage: 0 = safe, 1 = full).
     if (config.selfDamage > 0) {
       this.applyBlast(x, y, config, this.player, config.selfDamage, 'self');
+    }
+  }
+
+  // Any blast (yours, a bot's, later an EMP) sets off stickies caught in it.
+  chainReaction(x, y, radius) {
+    this.stickies = this.stickies.filter((g) => g.active && !g.done);
+    for (const g of this.stickies) {
+      if (Phaser.Math.Distance.Between(x, y, g.x, g.y) <= radius) g.setOff();
     }
   }
 
@@ -828,7 +879,8 @@ export default class WeaponSystem {
     this.drawPreview();
   }
 
-  // Dotted arc showing where the grenade will fly.
+  // Dotted path showing where it will fly: an arc for lobbed throwables,
+  // a straight line (as far as it flies flat) for sticky and axe.
   drawPreview() {
     const { vx, vy } = this.throwVelocity();
     const o = this.throwOrigin();
@@ -836,6 +888,17 @@ export default class WeaponSystem {
 
     this.preview.clear();
     this.preview.fillStyle(0xffffff, 0.8);
+
+    if (this.throwable.flight === 'straight') {
+      const range = this.throwRange();
+      const speed = Math.hypot(vx, vy);
+      const dots = 12;
+      for (let i = 1; i <= dots; i++) {
+        const d = (range * i) / dots;
+        this.preview.fillCircle(o.x + (vx / speed) * d, o.y + (vy / speed) * d, 3.5 - i * 0.15);
+      }
+      return;
+    }
 
     for (let i = 1; i <= PREVIEW_DOTS; i++) {
       const t = i * PREVIEW_STEP;
@@ -861,6 +924,9 @@ export default class WeaponSystem {
 
     this.saws = this.saws.filter((s) => s.active);
     for (const saw of this.saws) saw.update(delta);
+
+    this.fires = this.fires.filter((f) => f.active);
+    for (const fire of this.fires) fire.update();
 
     this.status.update();
 

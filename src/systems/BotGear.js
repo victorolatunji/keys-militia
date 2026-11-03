@@ -160,6 +160,9 @@ export default class BotGear {
     if (!this.smart) return false; // only Military bots loot
     if (item.type === 'crate') return this.crateChoice(item) !== -1;
     if (item.type === 'throwable') {
+      // Frags only (BOT_AI.grenade.allowed): top up when not full.
+      if (!BOT_AI.grenade.allowed.includes(item.key)) return false;
+      if (this.throwableCount === 0) return true;
       return item.key === this.throwable.key && this.throwableCount < this.throwable.maxCarry;
     }
     if (item.type !== 'gun') return false; // melee pickups: rushers, later
@@ -192,6 +195,12 @@ export default class BotGear {
   // just like your swaps: an old gun keeps its ammo.
   take(item, now, switchMs) {
     if (item.type === 'throwable') {
+      if (item.key !== this.throwable.key) {
+        // A different kind (it only takes one when it has none left).
+        this.throwable = THROWABLES[item.key];
+        this.throwableCount = Math.min(item.count, this.throwable.maxCarry);
+        return null;
+      }
       const space = this.throwable.maxCarry - this.throwableCount;
       const taken = Math.min(space, item.count);
       this.throwableCount += taken;

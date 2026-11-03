@@ -722,9 +722,20 @@ export const WEAPON_CATEGORIES = {
 // All share the blast logic in WeaponSystem; each sets its own numbers.
 // Special effects (fire, EMP, sticky) will be added per throwable later.
 export const THROWABLES = {
+  // kind: what happens when it goes off
+  //   'frag'    bounces, rolls, explodes on its fuse
+  //   'sticky'  blows up on an enemy; on a wall or floor it sticks and becomes a trip mine
+  //   'molotov' breaks on impact and leaves a patch of fire (burning)
+  //   'axe'     no blast: hits the first enemy it reaches, hard
+    // flight: 'arc' (lobbed, gravity pulls it down) or 'straight' (flies flat
+  //   like a throw, no drop until it has gone rangePx, then it falls).
+  //   Straight throws: holding Space longer throws farther, from minRangePx
+  //   to maxRangePx. Arc throws: from minSpeed to maxSpeed.
   grenade: {
     key: 'grenade',
-    name: 'Grenade',
+    name: 'Frag Grenade',
+    kind: 'frag',
+    flight: 'arc',
     radius: 6,
     color: 0x3d5a40,
     fuseMs: 1800,         // time from throw to explosion
@@ -742,8 +753,85 @@ export const THROWABLES = {
     knockbackFullAt: 40,  // damage at or above this gives the full push
     mass: 0.2,            // vs 1 for characters: bounces off them, barely moves them
     ownerIgnoreMs: 300,   // passes through the thrower right after the throw
-    maxCarry: 6,          // most you can hold (airdrops can top you up)
+    maxCarry: 6,          // most you can hold (supply drops can top you up)
   },
+  // Sticky Grenade (also your trip mine): thrown flat. Hits an enemy: blows
+  // up on impact. Hits a wall or the floor: sticks there, arms, and blows up
+  // when an enemy walks or flies past. A blast going off near it (grenade,
+  // rocket, EMP...) sets it off too.
+  sticky: {
+    key: 'sticky',
+    name: 'Sticky Grenade',
+    kind: 'sticky',
+    flight: 'straight',
+    speed: 620,
+    minRangePx: 120,
+    maxRangePx: 320,
+    chargeMs: 700,
+    radius: 6,
+    color: 0x6a994e,
+    armMs: 600,           // after it sticks, then it's live (blinks red)
+    triggerPx: 60,        // an enemy this close sets it off
+    fuseMs: 30000,        // stuck and nobody came: it fizzles after this long
+    maxActive: 3,         // your oldest stuck sticky disappears past this
+    bounce: 0,
+    groundFriction: 0.8,
+    damage: 110,
+    directHitRadius: 28,
+    blastRadius: 110,
+    selfDamage: 1,
+    knockback: 540,
+    knockbackLift: 230,
+    knockbackFullAt: 40,
+    mass: 0.2,
+    ownerIgnoreMs: 300,
+    maxCarry: 4,
+  },
+  molotov: {
+    key: 'molotov',
+    name: 'Molotov',
+    kind: 'molotov',
+    flight: 'arc',
+    radius: 6,
+    color: 0xbc6c25,
+    minSpeed: 250,
+    maxSpeed: 650,
+    chargeMs: 800,
+    bounce: 0,
+    groundFriction: 0.8,
+    fuseMs: 4000,         // safety: breaks after this long even if it hits nothing
+    fire: {
+      widthPx: 150,       // patch of fire on the ground where it breaks
+      heightPx: 60,
+      durationMs: 5000,
+      tickMs: 300,        // how often it sets people inside on fire
+    },
+    selfDamage: 1,        // the fire burns you too if you stand in it
+    mass: 0.2,
+    ownerIgnoreMs: 300,
+    maxCarry: 3,
+  },
+  combatAxe: {
+    key: 'combatAxe',
+    name: 'Combat Axe',
+    kind: 'axe',
+    flight: 'straight',
+    speed: 700,
+    minRangePx: 120,
+    maxRangePx: 300,
+    chargeMs: 600,
+    radius: 7,
+    color: 0xc0c8d0,
+    damage: 60,           // to the first enemy it hits; no blast
+    knockback: 220,
+    bounce: 0,
+    groundFriction: 0.7,
+    fuseMs: 3000,         // stuck in a wall: gone after this long
+    mass: 0.2,
+    ownerIgnoreMs: 300,
+    maxCarry: 3,
+  },
+
 };
 
 // Aiming while holding Space. Angles in degrees: 0 = straight ahead, negative = up.
