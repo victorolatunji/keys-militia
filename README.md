@@ -1,10 +1,10 @@
 # Keys Militia
 *A VAO game. Living plan book: update it whenever the plan changes.*
 
-**Version:** 0.12
+**Version:** 0.13
 **Owner:** Victor Olatunji / VAO
 **Budget:** $0, free tools and free assets only
-**Status:** Phase 5 (Enemies) complete. Phase 5.5 (Arsenal II) next.
+**Status:** Phase 5.5 (Arsenal II) complete. Phase 6 (Effects) next.
 **Live build:** https://victorolatunji.github.io/keys-militia/
 
 ---
@@ -28,9 +28,11 @@ A 2D arena shooter **influenced by Mini Militia**, but its own game: **typing is
 | Jetpack | Up (combine for diagonals: Up+Right, Down+Left, etc.) |
 | Drop / descend | Down |
 | Shoot | Type the word on an enemy (locks on by first letter) |
-| Switch weapon | Shift (gun 1 → gun 2 → melee → gun 1, empty slots skipped) |
-| Throw | Hold Space, aim with Up/Down, release (hold longer = farther) |
-| Pick from crate or drop panel | 1 / 2 (gun slot, or refill a gun you hold), 3 (throwable), 4 (melee) |
+| Switch gun | Shift (gun 1 → gun 2 → melee → gun 1, empty slots skipped) |
+| Throw | Hold the left mouse button and point at the spot, release to throw. Or hold Space, aim with Up/Down, release (hold longer = farther) |
+| Switch throwable | Tab or mouse wheel (throwable 1 ↔ throwable 2) |
+| Pick from a crate | 1–6 (one gun per key, take any 2) |
+| Pick a loose item | 1 / 2 (gun into that slot, or refill a gun you hold), 3 (throwable, Jet Boost, Riot Shield, Health Pack, Armor Vest) |
 | Alt movement (setting) | Hold right-click to fly toward the cursor |
 
 **Move or type rule:**
@@ -46,7 +48,7 @@ A 2D arena shooter **influenced by Mini Militia**, but its own game: **typing is
 - **Leaving sight** hides the word and breaks your lock. Coming back into sight gives a different word.
 - **One word = one shot.** A new word spawns after each hit until the enemy dies.
 - **Bullets fly, but always hit:** finishing a word fires real bullets (streaks with a muzzle flash) that chase the target and do their damage on arrival. A correctly typed word is never wasted. If the target dies first, the rest of the burst stops. (Changed in 0.11: shots used to be instant lines.)
-- **Bursts by gun family:** `hits` is the number of bullets per attack and the damage is split between them. SMGs fire fast, light bursts (4–7 bullets), assault rifles steady bursts (2–4), LMGs a long stream (8–14), shotguns a spread of pellets all at once, marksman rifles and snipers one very fast bullet with a thin trail. Bullet speed and length per family live in `bullets.js`.
+- **Bursts by gun family:** `hits` is the number of bullets per attack and the damage is split between them. SMGs fire fast, light bursts (4–7 bullets), assault rifles steady bursts (2–4), LMGs a long stream (8–14), shotguns burst into pellets that fan out in a cone (wider with distance), marksman rifles and snipers one very fast bullet with a thin trail. Bullet speed and length per family live in `bullets.js`.
 - **One damage number per burst:** hits on the same target add up into one number that counts up (`-6`, `-12` … `-60`).
 - **Range falloff:** gun damage drops with distance from you to the target. Full damage up to `startPx`, then a straight line down to `minMultiplier` at `endPx` (per gun, `falloff` in `weapons.js`). Weakened hits show a paler damage number. Marksman rifles and snipers have no falloff.
 - After a shot you **stay in typing mode**, so you can chain words. Press an arrow to move.
@@ -55,8 +57,9 @@ A 2D arena shooter **influenced by Mini Militia**, but its own game: **typing is
 - **Enemies shoot back** with real bullets (red) that can miss: see section 7.
 - **Health regen:** after 4s without taking damage, your HP refills at 8 per second (`regenDelayMs`, `regenPerSec` in `player.js`). Break line of sight to recover. Bots don't regenerate.
 - **The weapon decides the words:** each gun uses one word list: short (3–4 letters: pistols, SMGs, shotguns, most LMGs, most melee), medium (5–6: assault rifles, launchers, heavy melee), long (7–8: marksman rifles, Arctic .50) or extraLong (9+: DL Q33, ZRG 20mm). Stronger weapons need longer words.
-- **LMGs need two words per burst:** the first spins the gun up (`spin 1/2: 1 more word`), the second fires a long burst at whoever you typed it on. The words can be on different enemies. Wait longer than `spinWindowMs` (2–3.5s) and the spin is lost (`spin lost`).
-- **Melee** (slot M): words only show on enemies within the weapon's `reach`, so you have to get close. Hits push the enemy back (`knockback`). Melee never runs out.
+- **LMGs fire on belts:** every word fires a heavy burst. After a belt (5 bursts light, 3 heavy) the gun spins down to reload (4s light, 5s heavy), shown as a ring filling around you; letters wait meanwhile (switch or run if you need to). Changed in 0.13: LMGs used to need two words per burst.
+- **Melee** (slot M): you spawn with a **random** melee weapon (knife, machete, bat, spade, hammer, sword or axe), a new one every spawn. All do 40 damage with short words; they differ in `reach` and push. Words only show on enemies within reach, so get close. Melee never runs out, never drops and can't be picked up.
+- **Both guns empty:** you switch to melee. Picking up a gun while holding melee puts the gun in your hand.
 - **Launchers** fire a round instead of hitting directly, and the blast does the damage (same falloff, wall blocking and knockback as a grenade). SMRS: a straight rocket. Thumper: a lobbed shell that explodes on impact. War Machine: 3 bouncing bombs on a short fuse. A round that touches an enemy explodes right there. They hurt you at half strength (`selfDamage 0.5`) if you're too close.
 - **Ammo, no reloads.** Every gun has a number of attacks (`ammo`, starting rule `round(600 / damage)`, kept between 3 and 40), so stronger guns get fewer. One finished word (or one LMG burst) uses one. An empty gun is thrown away and you switch to your next weapon. Your typing speed is still your fire rate.
 - **Typo** = a wrong letter on your locked word, or a first letter that matches no word. The gun jams briefly (0.5s, `typoJamMs` in `player.js`) and letters typed during the jam are ignored. The lock breaks and progress resets, but the word stays the same so you can retry it.
@@ -65,7 +68,20 @@ A 2D arena shooter **influenced by Mini Militia**, but its own game: **typing is
 - **Unique first letters:** no two words on screen start with the same letter, so lock-on is never ambiguous.
 - **Multiplayer:** each player sees their own words on enemies. Nobody can read what you're about to type, and players never race for the same word.
 - **Obstacles** (walls, rocks, mountains) block bullets. Ricochet only on specific weapons.
-- **Throwables** go over cover and hit enemies with no word showing. **Damage falloff:** full damage within `directHitRadius`, falling to 0 at `blastRadius`. Walls between the blast and a target block it. Your own throwables hurt you (`selfDamage`).
+- **Throwables** go over cover and hit enemies with no word showing (the nine kinds are in section 5). **Damage falloff:** full damage within `directHitRadius`, falling to 0 at `blastRadius`: the closer, the harder. Walls between the blast and a target block it. Your own throwables hurt you (`selfDamage`), and tacticals catch you too if you're in range.
+- **Chain reactions:** any explosion (frag, sticky, launcher, a bot's frag or rocket, a Scrap Bot, an EMP) sets off planted stickies within its radius.
+- **Status effects** (one shared system for you and enemies, `status.js`):
+
+| Effect | Caused by | What it does |
+|---|---|---|
+| Burning | Flamethrower, Molotov fire | 6 damage per second for 5s, red flames |
+| Pinned | Nail Gun | 4s: no running, jumping or flying; in the air you drop and stay put |
+| Blinded | Flashbang | Enemies can't see you (no shooting). You: a white glare around the bang, a faint afterimage and blurry vision that clears. Longer up close; looking away cuts it to 40% |
+| Dazed | Concussion | 4s: about a third of normal speed, jetpack barely lifts, enemies attack slower |
+| Shocked | EMP | 4s: no jetpack or Jet Boost (you fall), no gun switching, drones drop |
+| Frozen | Cryo Bomb | 4s: very slow, jetpack frozen, enemies attack slower, ice over the body |
+
+- **Smoke** hides everything inside and behind the cloud: enemies there get no word, and enemies can't see you through it.
 - **Collisions:** characters (you, dummies, bots) are solid to each other. Landed crates are solid to everything and stack; falling crates pass through characters. A crate whose center lands over empty space tips off the edge. Grenades bounce off terrain, crates and characters, and ignore the thrower for 0.3s after the throw (`ownerIgnoreMs`). Launcher rounds never hit their shooter.
 - **Blast knockback:** survivors get pushed away from the blast and up a little, stronger with more damage (full push at `knockbackFullAt`). Right after a push you have no control for a moment (`knockbackStaggerMs` in `player.js`), so a blast near the edge can throw you into the void. Stationary dummies don't move; bots do (heavy enemies less: `knockbackScale`).
 - **Hit effects:** blood particles and pain sounds. **Death:** body splits into pieces (gibs).
@@ -74,25 +90,33 @@ A 2D arena shooter **influenced by Mini Militia**, but its own game: **typing is
 ---
 
 ## 5. Loadout and pickups
-**Slots:** 2 guns (1, 2) + 1 melee weapon (M, always there) + 1 throwable type.
+**Slots:** 2 guns (1, 2) + 1 melee weapon (M, always there) + 2 throwable slots (T1, T2). The two throwable slots never mix: each holds one kind with its own count.
 
-**Default spawn:** AK-47 + DL Q33 + Knife, 3 grenades (`DEFAULT_LOADOUT` in `weapons.js`). Players spawn by dropping in from the sky.
+**Default spawn:** AK-47 + DL Q33 + a random melee weapon + 3 frag grenades (`DEFAULT_LOADOUT` in `weapons.js`). Players spawn by dropping in from the sky.
 
-**HUD:** top right, one line per slot with ammo (`> 1. AK-47 18/18`, `M. Knife (melee)`), then three lines about the weapon in hand (family and word list, damage and how it lands, range or reach or spin), then your throwables. A picture of the weapon in hand sits left of the panel and pops when you switch.
+**HUD:** top right, one line per slot with ammo (`> 1. AK-47 18/18`, `M. Bat (melee)`), three lines about the weapon in hand (family and word list, damage, range or reach or belt), then both throwable slots (`> T1. Frag Grenade x3`) and your Riot Shield's HP. A picture of the weapon in hand sits left of the panel and pops when you switch. An **ARMOR** bar appears next to HP while you wear a vest.
 
-**Airdrops:** crates parachute down on a timer (one every ~20s, max 2 on the map), swaying as they fall. Each crate holds one gun, launcher or melee weapon (weighted pool: pistols and SMGs common, LMGs, snipers and launchers rare), and shows its picture on the side. A landed crate vanishes after ~40s (blinks first). Tuning in `src/data/airdrops.js`.
+**How items reach the map** (tuning in `src/data/airdrops.js`, with the per-minute maths in its comments):
+1. **Crates** parachute down (one every ~20s, max 2 on the map, gone ~40s after landing, blinking first). Each holds one random gun from each of SMG, assault rifle, shotgun, LMG, sniper and marksman (keys 1–6). Take any 2, then the crate is gone. Your old gun drops beside the crate; your other old gun is put in your hand as the suggested next swap (take a second gun to replace it, or walk away to keep it). Picking a gun you already hold refills it. Military bots take their best pick too.
+2. **Supply drops** fall loose and spinning, in two lanes, each with its own timer and its own cap:
 
-**Supply drops:** throwables don't come in crates. They fall loose from the sky, spinning, on their own timer (2 frag grenades every ~25s, first at 12s, max 2 on the map, gone ~40s after landing). Each new throwable joins the `rotation` list in `SUPPLY_DROPS`.
+| Lane | Every | Max on map | Gone after | What falls |
+|---|---|---|---|---|
+| Throwables | 12s (7.5s while you have none) | 2 | 22s | frag 28%, sticky 14%, molotov 14%, axe 10%, each tactical 6–7% (2 per drop) |
+| Items | 20s | 2 | 30s | health pack 24% (3× while under 40% HP), pistol 22%, Jet Boost 16%, armor vest 14%, riot shield 10%, special 8%, launcher 6% |
+
+   - **Rare guarantee:** if no special or launcher has fallen for 3 minutes, the next items drop is one. In practice: a special about every 3 min, a special or launcher about every 1.5–2 min.
+   - **Litter guard:** no supply drop while 6 or more loose items are already on the ground.
+3. **Death drops:** when you die, your guns (with their ammo) and both throwable slots pop out where you fell. **Military enemies** drop their guns and frags; every other enemy vanishes with its weapon. Melee and shields never drop. They vanish after **30 seconds** (blink first); at most 6 on the map. Nothing drops in the void. You respawn with the default loadout.
 
 **Pickup panel:**
-- Get **near** a landed crate or a dropped item (no need to touch it): it gets a yellow outline and a panel at the bottom of the screen shows its picture, name and shots.
+- Get **near** a landed crate or loose item (no need to touch it): it gets a yellow outline and a panel at the bottom shows its picture, name and keys. Crates come first when both are near.
 - The game **does not pause**, so you can get killed while choosing.
-- **1 / 2** swap that gun slot; your old gun goes into the crate with its ammo so you can swap back. **3** takes throwables (same type tops you up to `maxCarry`, 6 frags). **4** swaps your melee weapon. A gun you already hold isn't taken twice: its number **refills your ammo** from the crate instead. Move away and the panel closes.
-- Swapping the gun in your hand counts as a weapon switch (lock breaks, words re-roll).
+- **Guns:** 1 / 2 put it in that slot (your old gun drops with its ammo); a gun you already hold refills instead. Swapping the gun in your hand counts as a weapon switch (lock breaks, words re-roll).
+- **Throwables (3):** same kind as a slot tops it up to `maxCarry`; a new kind goes into a free slot and comes to your hand; with both slots full it replaces the one in your hand (the old one is left on the ground).
+- **Items (3):** Jet Boost starts at once, Health Pack heals (not at full HP), Armor Vest is worn (replaces a worn vest), Riot Shield is equipped.
 
-**Death drops:** when you die, your guns (with the ammo they had), your throwables and any melee weapon other than the knife pop out where you fell, each shown as its picture. Anyone can grab them with the same panel. They vanish after **60 seconds** (blink first); at most 8 on the map. Nothing drops in the void. You respawn with the default loadout.
-
-**Icons:** every item has a placeholder picture (gun family, each melee weapon, grenade), drawn from rectangles in `src/data/icons.js` and turned into textures at boot. Real art replaces them in the art pass under the same names.
+**Icons:** every item has a placeholder picture, drawn from rectangles in `src/data/icons.js` and turned into textures at boot. Real art replaces them in the art pass under the same names.
 
 **Arsenal I (built in 0.11):**
 | Family | Weapons | Words |
@@ -101,26 +125,48 @@ A 2D arena shooter **influenced by Mini Militia**, but its own game: **typing is
 | SMGs | RUS-79U, Switchblade, QQ9, Fennec, MAC10, PP19 Bizon | short |
 | Shotguns | BY15, KRM-262, Striker | short |
 | Assault rifles | AK-47, M4, AK117, Type 25, M13, Kilo 141, Oden, AS VAL (short words) | medium |
-| LMGs (2 words per burst) | RPD, Chopper, Holger 26, M4LMG (medium words), PKM (medium words) | short |
+| LMGs (belt + reload) | RPD, Chopper, Holger 26, M4LMG (medium words), PKM (medium words) | short |
 | Marksman | Kilo Bolt-Action, MK2 | long |
 | Snipers | DL Q33, Arctic .50 (long words), ZRG 20mm | extraLong |
 | Launchers | SMRS, Thumper, War Machine | medium |
-| Melee | Knife, Machete, Bat, Spade, Hammer, Sword (medium words), Axe (medium words) | short |
-| Throwables | Frag grenade | (Space) |
+| Melee (random at spawn, all 40 damage) | Knife, Machete, Bat, Spade, Hammer, Sword, Axe | short |
 
-Stats for every weapon live in `src/data/weapons.js`.
+**Arsenal II (built in 0.13):**
 
-**Arsenal II (planned for Phase 5.5):**
-- **Specials:** saw gun (ricochet blade), nail gun, laser gun (pierces a line), flamethrower (cone + burn).
-- **Lethal throwables:** sticky grenade (replaces the time bomb), molotov (fire patch), combat axe (thrown).
-- **Deployable:** trip mine.
-- **Tactical:** smoke (hides words inside the cloud), flashbang, concussion, EMP, cryo bomb. Thrown with Space, no words.
-- **Status effects** (one shared system for players and bots): shocked (EMP: no jetpack, no switching; disables mines and stickies), dazed (concussion: weak jetpack, slow run), blinded (flashbang: white screen, words hidden), gassed (HP drains in the cloud), burning, frozen (cryo: slowed, jetpack frozen).
-- **Supply drops** grow: new throwables join the rotation; health packs and fuel tanks fall on their own timers.
-- **Utility:** riot shield, health pack, fuel tank, armor vest.
-- **Weapon names:** guns use the real names Victor chose (AK-47, M4, Holger 26…), replacing the earlier "own names" rule (decided in 0.11). Mini Militia's names and art are never used.
+*Specials* (player-only: no enemy spawns with or loots one):
+| Weapon | Words | How it works |
+|---|---|---|
+| Saw Gun | medium | A blade that weaves (zigzag, wave or diagonal) toward the target, bounces off walls, cuts through enemies in its way, then sticks and grinds until it explodes; retargets if the target dies |
+| Nail Gun | short | Every nail pins the target for 4s |
+| Laser Gun | long | A beam through every enemy in a line (80% damage per extra enemy); walls stop it |
+| Flamethrower | short | 200px red cone that sets everyone in it on fire |
 
-**Later ideas:** dual pistols; throwing a grenade drops one of your dual pistols.
+*Throwables* (you only; Military enemies throw frags and nothing else):
+| Throwable | Flight | What it does |
+|---|---|---|
+| Frag Grenade | arc, bounces | Explodes on its fuse |
+| Sticky Grenade | straight, 120–320px | Explodes on impact with an enemy. On a floor, wall or crate it sticks and becomes a **trip mine**: arms after 1s (red ring shows its 90px zone), then goes off when **anyone** comes close, enemies or you. Beeps for a quarter second first. Max 3 planted, fizzles after 30s |
+| Molotov | arc | Breaks into a 150px fire patch for 5s that sets anyone in it burning, you too |
+| Combat Axe | straight, spins | 60 damage and a shove to the first enemy; no blast |
+| Smoke Grenade | arc | 9s cloud nobody sees through |
+| Flashbang | arc | Blinded (see section 4) |
+| Concussion | arc | Light blast (15 damage, shove) + dazed |
+| EMP Grenade | arc | Shocked; 80 damage to Machines (drones die); sets off stickies |
+| Cryo Bomb | arc | Frozen |
+
+*Utility:*
+| Item | What it does |
+|---|---|
+| Jet Boost | 20s of floating: see section 6 |
+| Riot Shield | Held on the side you face; blocks gun bullets and pellets only (not melee, specials or throwables). 200 HP, rim turns red when worn. Any explosion knocks it off. One-handed weapons only (pistol, SMG, melee): picking it switches you to one. **Throwing puts it down** where you stand, keeping its wear; press 3 to pick it back up |
+| Health Pack | +50 HP at once (not at full HP) |
+| Armor Vest | 100 armor points, works from every side. Takes a share of each hit from its points, the rest still hurts you: bullets 70%, melee 50%, explosions 35%, fire 0%. Gone at 0 or when you die |
+
+Stats live in `src/data/weapons.js` (guns, specials, throwables), `src/data/items.js` (utility) and `src/data/status.js` (effects).
+
+**Weapon names:** guns use the real names Victor chose (AK-47, M4, Holger 26…), replacing the earlier "own names" rule (decided in 0.11). Mini Militia's names and art are never used.
+
+**Later ideas:** dual pistols (throwing drops one); fuel tank pickup; gassed status (a gas grenade that drains HP in the cloud); trip mines for enemies on a harder difficulty.
 
 ---
 
@@ -130,7 +176,8 @@ Stats for every weapon live in `src/data/weapons.js`.
 - **Jetpack** for players and most enemies, with a **fuel bar** that refills on the ground only (also while typing on the ground).
 - **Jetpack feel:** thrust builds speed (acceleration), capped rise speed, release Up and you arc back down. Down in the air falls faster.
 - **Escape move:** pressing Up while typing mid-air exits typing and fires the jetpack instantly.
-- **Jet booster** pickup gives extra fuel or speed.
+- **Jet Boost** pickup: 20s of floating. Gravity is off and you sink slowly; arrows glide you in any direction (eased, quick enough to dodge bullets), let go and you drift to a stop and keep sinking. Blue flame, gold fuel bar. An EMP, a Cryo Bomb, a nail pin or a blast still wins.
+- **Status slowdowns:** dazed and frozen slow your running, flying and floating; shocked and frozen stop the jetpack (section 4).
 - **Run out of fuel over the void, and you fall.**
 - **Knocked back by a blast:** no control for a short stagger (also while typing), then normal rules again.
 - **Tuning** lives in `src/data/player.js` (run speed, air speed, thrust, rise cap, fuel drain and refill, typing fall speed, knockback stagger, respawn delay).
@@ -145,7 +192,7 @@ Stats for every weapon live in `src/data/weapons.js`.
 **Roster (starting values, tune in playtests):**
 | Family | Character | Moves | Fights with | HP |
 |---|---|---|---|---|
-| Military | Soldier | jetpack | assault rifle + pistol + grenades | 65 |
+| Military | Soldier | jetpack | assault rifle + pistol + frag grenades | 65 |
 | Military | Mercenary | jetpack | sniper or marksman + pistol, sharp aim | 65 |
 | Military | Commando | jetpack, fast | shotgun or SMG + machete | 65 |
 | Military | Armoured Trooper | jetpack, slow, hard to push | LMG + pistol | 130 |
@@ -168,9 +215,11 @@ Stats for every weapon live in `src/data/weapons.js`.
 - **Flyer (drones):** always airborne, no gravity or fuel; hangs above you and keeps darting about.
 
 **Gear:**
-- **Military characters are the smart ones:** they loot crates and drops, swap and switch guns for the distance (close with a shotgun, far with a sniper), throw grenades (more when you hide), and run out of ammo like you.
-- **Everyone else keeps what it spawns with** (an SMG enemy always has an SMG), so you know what to expect from its looks: endless ammo with a reload pause every 5 attacks, no looting, no grenades.
-- Enemies drop their gear when they die: Military drop everything, others drop their gun half loaded, machines drop nothing (built-in guns). Claws, fists and teeth never drop.
+- **Military characters are the smart ones:** they loot crates and drops, swap and switch guns for the distance (close with a shotgun, far with a sniper), throw **frag grenades only** (more when you hide), and run out of ammo like you. They never use specials or any other throwable.
+- **Military explosives hurt everyone:** their frags and rockets hurt you, other enemies and themselves; a bot killed by a bot's blast isn't your kill.
+- **Everyone else keeps what it spawns with** (an SMG enemy always has an SMG), so you know what to expect from its looks: endless ammo with a reload pause every 5 attacks, no looting, no throwables.
+- **Only Military drop their gear** when they die (guns and frags). Every other enemy vanishes with its weapon, so the ground stays clear.
+- **Your tacticals work on them:** blinded or smoked enemies can't see you, dazed and frozen ones move and attack slower, shocked ones can't switch guns and drones fall out of the sky.
 
 **How enemies fight:**
 - **Think at reaction speed:** a few times a second they decide to approach, back off, hold range (with side-steps), hunt (go where they last saw you, for ~4s) or loot. They keep space from each other and fly around platforms overhead.
@@ -186,7 +235,7 @@ Stats for every weapon live in `src/data/weapons.js`.
 
 **Spawning:** up to 4 enemies at once: **2 main characters** (humanoids), **1 machine** and **1 animal** (`enemies` in `maps.js`). The main pair comes from one family that rotates every 2 minutes (Military → Undead → Sci-fi); machines and animals are picked at random. A dead enemy is replaced 3s later by a new random type for its slot. A bot that falls into the void after you did half its HP in the last 10s counts as your kill; one that blows itself up doesn't. Dying to an enemy shows "Killed by a …".
 
-**Tuning** lives in `src/data/enemies.js`: `BOTS` per character, `BOT_AI` for everyone (reaction, turns, flinch, reload, grenades, loot, drones), `BOT_RANGES` per weapon family, `BOT_BULLETS`, `NATURAL_WEAPONS`, `SPAWNER`.
+**Tuning** lives in `src/data/enemies.js`: `BOTS` per character, `BOT_AI` for everyone (reaction, turns, flinch, reload, grenades and which throwables are allowed, loot, drones), `BOT_RANGES` per weapon family, `BOT_BULLETS`, `NATURAL_WEAPONS`, `SPAWNER`.
 
 ---
 
@@ -333,15 +382,16 @@ keys-militia/
 ├── src/
 │   ├── main.js                  ✅ Phaser config
 │   ├── scenes/                  # Boot ✅ (loads maps, builds icons), Game ✅, Menu, Lobby, GameOver, Settings
-│   ├── entities/                # Player ✅, Dummy ✅, Bot ✅, Grenade ✅, Crate ✅, Pickup ✅, Projectile ✅ (launcher rounds), Bullet ✅, EnemyBullet ✅
+│   ├── entities/                # Player ✅, Dummy ✅, Bot ✅, Grenade ✅ (every throwable), Crate ✅, Pickup ✅, Projectile ✅ (launcher rounds), Bullet ✅, EnemyBullet ✅, Saw ✅, FirePatch ✅, SmokeCloud ✅
 │   ├── systems/
 │   │   ├── VoidSystem.js        ✅ void visuals, fall detection
 │   │   ├── TypingSystem.js      ✅ typing state, words, lock-on, typos, word refresh
 │   │   ├── wordPicker.js        ✅ unique-first-letter word picks
 │   │   ├── LineOfSight.js       ✅ tile raycast: which enemies get words, which blasts land
-│   │   ├── WeaponSystem.js      ✅ gun + melee slots, ammo, bullets and bursts, LMG spin, launchers, damage + range falloff, throwables, blast + knockback
-│   │   ├── AirdropSystem.js     ✅ parachute crates, supply drops, death drops
-│   │   ├── PickupSystem.js      ✅ nearest crate/drop, 1/2/3/4 swaps and refills
+│   │   ├── WeaponSystem.js      ✅ gun + melee slots, ammo, bullets and bursts, LMG belts, launchers, specials, damage + range falloff, two throwable slots, mouse aim, blasts, chain reactions, tacticals, Jet Boost / shield pickups
+│   │   ├── StatusSystem.js      ✅ burning, pinned, blinded, dazed, shocked, frozen (you and bots)
+│   │   ├── AirdropSystem.js     ✅ parachute crates, supply-drop lanes, rare guarantee, death drops
+│   │   ├── PickupSystem.js      ✅ nearest crate/drop, crate keys 1–6, 1/2/3 swaps, refills and items
 │   │   ├── CollisionSystem.js   ✅ object-vs-object collision rules
 │   │   ├── Terrain.js           ✅ ground, wall and void checks for bot AI
 │   │   ├── BotBrain.js          ✅ bot AI: decide (approach, back off, hold, hunt, loot, retreat) and move safely
@@ -351,7 +401,7 @@ keys-militia/
 │   │   ├── HazardSystem.js      # map hazards and advantages
 │   │   └── ScoreSystem.js       # kills, assists, fall credit, MVP
 │   ├── ui/
-│   │   ├── Hud.js               ✅ HP and fuel bars, weapon panel + icon, state tag
+│   │   ├── Hud.js               ✅ HP, fuel and armor bars, weapon panel + icon, throwable slots, state tag
 │   │   ├── Icons.js             ✅ builds item icon textures at boot
 │   │   ├── PickupPanel.js       ✅ pickup panel (icon, name, keys) at the bottom of the screen
 │   │   └── WordLabel.js         ✅ word plates above targets
@@ -359,11 +409,13 @@ keys-militia/
 │       ├── player.js            ✅ movement, HP, regen, typing and knockback tuning (bots scale it)
 │       ├── maps.js              ✅ map configs (test map, its enemy slots and families)
 │       ├── words.js             ✅ word lists by length, refresh timer
-│       ├── weapons.js           ✅ weapon categories, guns, launchers, melee, throwables, aim, loadout
+│       ├── weapons.js           ✅ weapon categories, guns, launchers, specials, melee, throwables, aim, loadout
+│       ├── items.js             ✅ Jet Boost, Riot Shield, Health Pack, Armor Vest
+│       ├── status.js            ✅ status effect durations and strengths
 │       ├── bullets.js           ✅ bullet speed and look per gun family, damage-number merge
 │       ├── icons.js             ✅ placeholder icon shapes
 │       ├── enemies.js           ✅ target dummy, enemy roster (BOTS), bot AI, ranges, bullets, spawner
-│       ├── airdrops.js          ✅ crate timing, parachute, tipping, pickup radius, item pool, supply drops, death drops
+│       ├── airdrops.js          ✅ crate timing and contents, parachute, tipping, pickup radius, supply-drop lanes, death drops
 │       └── characters.js
 ├── public/assets/
 │   ├── maps/                    # Tiled maps (.json) — test.json ✅
@@ -384,8 +436,8 @@ keys-militia/
 | 4 | Airdrops | Crates, proximity panel, death drops with timeout | ✅ |
 | 4.5 | Arsenal I | Weapon categories and ammo in data, melee, pistols, SMG, shotgun, rifle variants, LMG, marksman, rocket launcher, thumper, placeholder icons, frag supply drops | ✅ |
 | 5 | Enemies | Enemy roster with jetpack, walker, leaper and flyer movement; shooters, rushers and a bomber; smart Military gear; spawn slots; attack turns, flinch, regen | ✅ |
-| 5.5 | Arsenal II | Status effects, saw gun, nail gun, laser, flamethrower, sticky grenade, molotov, combat axe, trip mine, smoke, flashbang, concussion, EMP, cryo bomb, riot shield, health pack, fuel tank, armor vest | ⏭️ next |
-| 6 | Effects | Blood, gibs, pain sounds, gore toggle | |
+| 5.5 | Arsenal II | Status effects, saw gun, nail gun, laser, flamethrower, sticky grenade (also the trip mine), molotov, combat axe, smoke, flashbang, concussion, EMP, cryo bomb, Jet Boost, riot shield, health pack, armor vest, mouse aiming, two throwable slots, crates and supply lanes | ✅ |
+| 6 | Effects | Blood, gibs, pain sounds, gore toggle | ⏭️ next |
 | 7 | Maps | All launch maps with hazards and advantages, open and enclosed | |
 | 8 | Offline modes | You vs Military, Zombies, Endless vs Enemies, scoring, awards | |
 | 9 | Menus and guest | Menu, settings, name and character select, local saves | |
@@ -401,7 +453,8 @@ keys-militia/
 - [ ] Match length and kill targets (starting values in section 10; measure the real kill pace)
 - [ ] Exact weapon stats (damage, word length, range falloff)
 - [ ] Blast knockback strength and stagger time (starting values 520 px/s, 220 lift, 350ms)
-- [ ] Airdrop timer and death-drop timeout (starting values 20s drops, 40s crate life, 60s death drops, supply drops every 25s)
+- [ ] Drop tuning (starting values: crates every 20s, 40s life; throwables lane every 12s, items lane every 20s; specials guaranteed every 3 min; death drops 30s, max 6)
+- [ ] Status effect strengths and durations, armor shares and flashbang strength (starting values in `status.js`, `items.js`, `weapons.js`)
 - [ ] Ammo per weapon (starting rule: shots = 600 / damage), burst sizes and bullet speeds, launcher blast and self-damage (starting 0.5)
 - [ ] Enemy tuning per character: HP, speed, aim, typing speed, damage share (starting values in `enemies.js`). Difficulty (Phase 9) will scale damage, aim and attack turns
 - [ ] Maps need routes for walkers (Phase 7): on the test map's islands they can only reach you on your own platform
@@ -413,6 +466,7 @@ keys-militia/
 ---
 
 ## 18. Changelog
+- **0.13:** Phase 5.5 (Arsenal II) done. Four player-only specials: Saw Gun, Nail Gun, Laser Gun, Flamethrower. Nine throwables: frag, sticky grenade (also a trip mine anyone can set off), molotov, combat axe, smoke, flashbang, concussion, EMP and cryo, with chain reactions. A shared status system: burning, pinned, blinded, dazed, shocked, frozen. Two throwable slots (Tab or wheel) and mouse aiming (hold left click, release to throw). Jet Boost (floating), Riot Shield, Health Pack and Armor Vest that soaks hits realistically. Crates now offer 6 guns (take 2); loose supply drops come in two lanes (throwables, items) with a guaranteed special every few minutes and caps against litter. Random melee at every spawn (all 40 damage), LMG belts with reloads, shotgun pellet cones. Military throw frags only and are the only enemies that drop gear.
 - **0.12:** Phase 5 (Enemies) done. 15 enemy characters in 5 families (Military, Undead, Machines, Sci-fi, Animals) whose type sets looks, behavior, speed and HP. Bots move with your physics through a virtual controller, with jetpack, walker, leaper and flyer movement, and stay out of the void. They hunt you, keep their range, and shoot back with real bullets that can miss, at a typist's pace and with softer damage. Military characters loot, swap guns and throw grenades; others keep the weapon they spawn with. Scrap Bots explode, the Zombie K9 bites and backs off. Up to 4 enemies at once (2 main, 1 machine, 1 animal) with a rotating family. Playable under pressure: attack turns, hit flinch and health regen. Modes list updated (3 offline, 10 online).
 - **0.11:** Phase 4.5 (Arsenal I) done. 29 guns in 7 families plus 3 launchers and 7 melee weapons, using the names Victor chose. Each weapon picks its word list (short, medium, long, extraLong). Ammo per gun with no reloads; an empty gun is thrown away and the same gun refills. Melee slot M with reach and knockback (key 4). LMGs need two words per burst. Launchers: SMRS rocket, Thumper shell, War Machine bombs. Bullets now fly with a muzzle flash and still always hit, with bursts by gun family and one counting damage number. Placeholder icons on crates, drops, the pickup panel and the HUD. Frag grenades fall as supply drops instead of coming in crates.
 - **0.10:** Phase 4 done. Parachute airdrop crates that sway, land, stack and tip off edges. Solid collisions between characters, crates and grenades. Pickup panel (1 / 2 swap a gun slot, 3 takes throwables). Death drops with a 60s timeout; respawn with the default loadout. Arsenal plan added (phases 4.5 and 5.5).

@@ -29,6 +29,12 @@ const PELLET_SPREAD = 14;        // px: shotgun pellets scatter at least this mu
 const PELLET_CONE = 0.18;        // ...and this share of the distance (a cone that widens)
 const BURST_SCATTER = 5;         // px: later bullets of a burst wander a little
 const PREVIEW_DOTS = 14;
+// Flashbang on you: glare size and strength (blur and length are in THROWABLES).
+const FLASH_GLOW = {
+  radiusPx: 380,    // how far the white glare reaches from the bang
+  alpha: 0.7,       // peak strength at the middle (1 = solid white)
+  afterimage: 0.3,  // how strong the burned-in picture is
+};
 const PREVIEW_STEP = 0.06; // seconds between preview dots
 
 // Weapon slots: two guns, then your melee weapon (always there, never runs out).
@@ -51,10 +57,12 @@ export default class WeaponSystem {
     this.shots = 0;
     this.lastShot = null; // { distance, multiplier } for the debug readout
 
-    // Throwable
-    this.throwable = THROWABLES[DEFAULT_LOADOUT.throwable.key];
-    this.throwableCount = DEFAULT_LOADOUT.throwable.count;
+    // Throwables: two slots, each its own kind and count (Tab or the mouse
+    // wheel switches). Space / left mouse throws the one in your hand.
+    this.resetThrowables();
     this.aiming = false;
+    this.mouseAim = false;  // aiming with the cursor (else Up/Down + hold time)
+    this.mouseCharge = 0;
     this.aimAngle = AIM.startAngle;
     this.aimStartedAt = 0;
     this.grenades = [];
@@ -64,9 +72,9 @@ export default class WeaponSystem {
     // Burning, pinned (and later shocked, dazed...): ticks and damage.
     // Your effects count as your hits; a bot's would count as theirs.
     this.status = new StatusSystem(scene, (target, amount, source) => {
-      if (source === 'player' && target === this.player) target.takeDamage(amount, 'self'); // your own fire
+      if (source === 'player' && target === this.player) target.takeDamage(amount, 'self', 'fire'); // your own fire
       else if (source === 'player') this.addDamage(target, amount, BURN_COLOR);
-      else target.takeDamage(amount, source);
+      else target.takeDamage(amount, source, 'fire');
     });
     this.fires = [];       // molotov fire patches
     this.stickies = [];    // your planted/flying stickies (they double as trip mines)
@@ -79,17 +87,45 @@ export default class WeaponSystem {
     this.reloadRing = scene.add.graphics().setDepth(46);
 
     player.on('shieldBroke', () => this.floatText(player, 'shield broke', EMPTY_COLOR));
+    player.on('armorBroke', () => this.floatText(player, 'armor spent', EMPTY_COLOR));
 
     const kb = scene.input.keyboard;
-    kb.addCapture('SPACE'); // stop the browser from scrolling on Space
+    kb.addCapture(['SPACE', 'TAB']); // stop the browser scrolling / changing focus
     kb.on('keydown-SHIFT', this.handleShift, this);
     kb.on('keydown-SPACE', this.startAim, this);
     kb.on('keyup-SPACE', this.releaseAim, this);
+    kb.on('keydown-TAB', this.handleTab, this);
+
+    // Mouse: hold the left button to aim at the cursor, let go to throw.
+    // Moving the mouse while holding Space aims with the cursor too.
+    // The wheel switches throwables.
+    const input = scene.input;
+    const onDown = (ptr) => {
+      if (ptr.leftButtonDown()) this.startAim({ repeat: false }, true);
+    };
+    const onUp = (ptr) => {
+      if (this.aiming && this.mouseAim && ptr.leftButtonReleased()) this.releaseAim();
+    };
+    const onMove = () => {
+      if (this.aiming) this.mouseAim = true;
+    };
+    const onWheel = (ptr, objects, dx, dy) => {
+      if (dy !== 0) this.switchThrowable();
+    };
+    input.on('pointerdown', onDown);
+    input.on('pointerup', onUp);
+    input.on('pointermove', onMove);
+    input.on('wheel', onWheel);
 
     scene.events.once('shutdown', () => {
       kb.off('keydown-SHIFT', this.handleShift, this);
       kb.off('keydown-SPACE', this.startAim, this);
       kb.off('keyup-SPACE', this.releaseAim, this);
+      kb.off('keydown-TAB', this.handleTab, this);
+      input.off('pointerdown', onDown);
+      input.off('pointerup', onUp);
+      input.off('pointermove', onMove);
+      input.off('wheel', onWheel);
     });
   }
 
@@ -135,9 +171,10 @@ export default class WeaponSystem {
     if (left > GUN_SWITCH_MS) this.typing.block(left, 'reload');
   }
 
-  // 0 to 1: how charged the throw is.
+  // 0 to 1: how charged the throw is (with the cursor: how far it is).
   get charge() {
     if (!this.aiming) return 0;
+    if (this.mouseAim) return this.mouseCharge;
     const held = this.scene.time.now - this.aimStartedAt;
     return Math.min(1, held / this.throwable.chargeMs);
   }
@@ -623,12 +660,14 @@ export default class WeaponSystem {
 
   // ---- Throwables ----
 
-  startAim(event) {
+  // mouse: started with the left mouse button (aims at the cursor).
+  startAim(event, mouse = false) {
     if (event.repeat || !this.player.alive || this.aiming) return;
-    if (this.throwableCount <= 0) return;
+    if (!this.throwable || this.throwableCount <= 0) return;
 
     this.typing.setTyping(false); // free to move while aiming; lock stays saved
     this.aiming = true;
+    this.mouseAim = mouse;
     this.aimStartedAt = this.scene.time.now;
     this.aimAngle = AIM.startAngle;
     this.player.setAiming(true);
@@ -636,6 +675,7 @@ export default class WeaponSystem {
 
   releaseAim() {
     if (!this.aiming) return;
+    if (this.mouseAim) this.aimAtCursor();
 
     const velocity = this.throwVelocity();
     this.stopAim();
@@ -656,8 +696,58 @@ export default class WeaponSystem {
   // Called on respawn: back to the default weapons and throwables.
   resetLoadout() {
     this.resetSlots();
-    this.throwable = THROWABLES[DEFAULT_LOADOUT.throwable.key];
-    this.throwableCount = DEFAULT_LOADOUT.throwable.count;
+    this.resetThrowables();
+    this.clearFlash();
+  }
+
+  // ---- Throwable slots ----
+
+  // Slot 1 gets your default throwable, slot 2 starts empty.
+  resetThrowables() {
+    this.throwSlots = [
+      { config: THROWABLES[DEFAULT_LOADOUT.throwable.key], count: DEFAULT_LOADOUT.throwable.count },
+      { config: null, count: 0 },
+    ];
+    this.throwActive = 0;
+  }
+
+  // The throwable in your hand (null when both slots are empty).
+  get throwable() {
+    return this.throwSlots[this.throwActive].config;
+  }
+
+  set throwable(config) {
+    this.throwSlots[this.throwActive].config = config;
+  }
+
+  get throwableCount() {
+    return this.throwSlots[this.throwActive].count;
+  }
+
+  // Run out: the slot empties and the other throwable (if any) comes to hand.
+  set throwableCount(n) {
+    const slot = this.throwSlots[this.throwActive];
+    slot.count = Math.max(0, n);
+    if (slot.count > 0) return;
+    slot.config = null;
+    const other = 1 - this.throwActive;
+    if (this.throwSlots[other].config) this.throwActive = other;
+  }
+
+  handleTab(event) {
+    event.preventDefault?.();
+    if (event.repeat || !this.player.alive) return;
+    this.switchThrowable();
+  }
+
+  // Tab / mouse wheel: the other throwable slot (if it holds anything).
+  // Fine mid-aim: the preview just changes to the new throwable.
+  switchThrowable() {
+    const other = 1 - this.throwActive;
+    const slot = this.throwSlots[other];
+    if (!slot.config) return;
+    this.throwActive = other;
+    this.floatText(this.player, `${slot.config.name} x${slot.count}`, '#ffffff');
   }
 
   // What you're carrying, as pickup items (dropped when you die).
@@ -670,8 +760,8 @@ export default class WeaponSystem {
     }
 
     // Melee weapons never drop.
-    if (this.throwableCount > 0) {
-      items.push({ type: 'throwable', key: this.throwable.key, count: this.throwableCount });
+    for (const t of this.throwSlots) {
+      if (t.config && t.count > 0) items.push({ type: 'throwable', key: t.config.key, count: t.count });
     }
     return items;
   }
@@ -693,8 +783,8 @@ export default class WeaponSystem {
 
   // The shield takes your second hand: switch to a one-handed weapon
   // (a pistol or SMG you carry, else your melee weapon).
-  pickShield() {
-    this.player.equipShield(ITEMS.riotShield);
+  pickShield(hp) {
+    this.player.equipShield(ITEMS.riotShield, hp);
     if (this.usable(this.current)) return;
     const slot = this.slots.findIndex((w) => this.usable(w));
     this.active = slot === -1 ? MELEE_SLOT : slot;
@@ -702,24 +792,34 @@ export default class WeaponSystem {
     this.blockIfReloading();
   }
 
-  // Pick up throwables. Same type: top up to maxCarry. Different type: swap,
-  // and hand back what you had so it can go into the crate.
+  // Pick up throwables (two slots, like your two guns, never mixed):
+  //   same kind as a slot: top that slot up to maxCarry
+  //   a free slot: it goes there, in your hand
+  //   both slots hold other kinds: swaps with the one in your hand, and
+  //   hands back what you had so it can lie where the pickup was.
   // Returns { taken, returned: { key, count } | null }.
   takeThrowable(key, count) {
     const config = THROWABLES[key];
 
-    if (this.throwable.key === key) {
-      const taken = Math.min(count, config.maxCarry - this.throwableCount);
-      this.throwableCount += Math.max(0, taken);
-      return { taken: Math.max(0, taken), returned: null };
+    const same = this.throwSlots.find((t) => t.config?.key === key);
+    if (same) {
+      const taken = Math.max(0, Math.min(count, config.maxCarry - same.count));
+      same.count += taken;
+      return { taken, returned: null };
     }
 
-    const returned =
-      this.throwableCount > 0 ? { key: this.throwable.key, count: this.throwableCount } : null;
+    let index = this.throwSlots.findIndex((t) => !t.config);
+    let returned = null;
+    if (index === -1) {
+      index = this.throwActive;
+      const old = this.throwSlots[index];
+      returned = { key: old.config.key, count: old.count };
+    }
     this.cancelAim();
-    this.throwable = config;
-    this.throwableCount = Math.min(count, config.maxCarry);
-    return { taken: this.throwableCount, returned };
+    const taken = Math.min(count, config.maxCarry);
+    this.throwSlots[index] = { config, count: taken };
+    this.throwActive = index;
+    return { taken, returned };
   }
 
   throwOrigin() {
@@ -749,6 +849,11 @@ export default class WeaponSystem {
   throwGrenade({ vx, vy }) {
     const origin = this.throwOrigin();
     const config = this.throwable;
+
+    // Throwing takes your free hand: a Riot Shield is put down where you
+    // stand (it keeps its wear; press 3 on it to pick it back up).
+    this.putDownShield();
+
     const grenade = new Grenade(
       this.scene, origin.x, origin.y, config, this.groundLayer, this.worldHeight, this.player,
       { targets: this.typing.targets, rangePx: config.flight === 'straight' ? this.throwRange() : Infinity }
@@ -811,6 +916,15 @@ export default class WeaponSystem {
     }
   }
 
+  putDownShield() {
+    const p = this.player;
+    if (!p.shield) return;
+    const hp = Math.max(1, Math.round(p.shield.hp));
+    p.dropShield();
+    this.scene.airdrops?.dropItems(p.x, p.y - 10, [{ type: 'shield', key: 'riotShield', hp }]);
+    this.floatText(p, 'shield down', EMPTY_COLOR);
+  }
+
   // Shocked by an EMP: no switching. Says so and returns true.
   shockedNote() {
     if (!this.player.hasStatus('shocked')) return false;
@@ -841,10 +955,14 @@ export default class WeaponSystem {
       const dist = Phaser.Math.Distance.Between(x, y, v.x, v.y);
       switch (config.effect) {
         case 'flash': {
+          // Closer = longer. Looking away from the bang cuts it a lot.
           const k = Math.min(1, dist / config.radiusPx);
-          const ms = Math.round(config.maxMs - (config.maxMs - config.minMs) * k);
-          this.status.apply(v, 'blinded', 'player', ms);
-          if (you) this.whiteOut(ms);
+          let ms = config.maxMs - (config.maxMs - config.minMs) * k;
+          const facingIt = Math.sign(x - v.x) === v.facing || Math.abs(x - v.x) < 20;
+          const intensity = (1 - k * 0.5) * (facingIt ? 1 : config.lookAwayScale);
+          if (!facingIt) ms *= config.lookAwayScale;
+          this.status.apply(v, 'blinded', 'player', Math.round(ms));
+          if (you) this.flashBlind(Math.round(ms), intensity, { x, y });
           break;
         }
         case 'concussion':
@@ -895,25 +1013,134 @@ export default class WeaponSystem {
     if (config.effect !== 'smoke') this.scene.cameras.main.shake(120, 0.004);
   }
 
-  // Flashbang on you: the screen goes white and fades back.
-  whiteOut(ms) {
+  // Flashbang on you, done like real flash blindness:
+  //   1. a white glare around the bang (bright in the middle, fading out)
+  //   2. an afterimage: the picture you saw at the bang stays burned in,
+  //      ghosting over the live view and fading slowly
+  //   3. blurry, over-bright vision that clears last
+  //   4. a small camera jolt
+  // intensity 0..1: up close and looking at it = 1, looking away = weak.
+  flashBlind(ms, intensity = 1, bang = this.player) {
+    const scene = this.scene;
+    const cam = scene.cameras.main;
+    const renderer = scene.game.renderer;
+    this.clearFlash();
+    const fx = (this.flashFx = { objects: [], tweens: [] });
+    cam.shake(200, 0.006 * intensity);
+
+    // 1. Glare: a white glow centred on the bang (not the whole screen),
+    // brightest at its middle and fading out to its edge. Starts once the
+    // afterimage frame is grabbed (next frame), so it isn't in the picture.
+    const startWhite = () => {
+      if (this.flashFx !== fx || fx.started) return;
+      fx.started = true;
+      startBlur();
+      const glow = scene.add
+        .image(bang.x, bang.y, this.glowTexture())
+        .setDepth(5000)
+        .setScale((FLASH_GLOW.radiusPx * (0.6 + 0.4 * intensity)) / 128)
+        .setAlpha(FLASH_GLOW.alpha * intensity)
+        .setBlendMode(Phaser.BlendModes.ADD);
+      fx.objects.push(glow);
+      fx.tweens.push(
+        scene.tweens.add({
+          targets: glow,
+          alpha: 0,
+          scale: glow.scale * 1.3,
+          delay: ms * 0.08,
+          duration: ms * 0.7,
+          ease: 'Cubic.easeOut',
+          onComplete: () => glow.destroy(),
+        })
+      );
+    };
+
+    // 2. Afterimage: grab the frame as it is (before the white burst covers it).
+    if (renderer.snapshot) {
+      renderer.snapshot((image) => {
+        startWhite();
+        if (this.flashFx !== fx || !(image instanceof HTMLImageElement)) return;
+        const key = `flash-snap-${scene.time.now | 0}`;
+        scene.textures.addImage(key, image);
+        fx.keys = [key];
+        const ghost = scene.add
+          .image(0, 0, key)
+          .setOrigin(0, 0)
+          .setDisplaySize(cam.width, cam.height)
+          .setScrollFactor(0)
+          .setDepth(4999)
+          .setAlpha(FLASH_GLOW.afterimage * intensity)
+          .setTint(0xfff6d5);
+        fx.objects.push(ghost);
+        fx.tweens.push(
+          scene.tweens.add({
+            targets: ghost,
+            alpha: 0,
+            duration: ms * 0.9,
+            ease: 'Sine.easeIn', // lingers, then goes
+            onComplete: () => ghost.destroy(),
+          })
+        );
+      });
+    }
+
+    // 3. Blur + brightness (WebGL only), clearing last. Starts with the
+    // white burst so the afterimage stays a sharp picture.
+    const startBlur = () => {
+      if (this.flashFx !== fx || !cam.postFX || renderer.type !== Phaser.WEBGL) return;
+      const blur = cam.postFX.addBlur(1, 2, 2, 2 * intensity);
+      const glow = cam.postFX.addColorMatrix();
+      glow.brightness(1 + 0.3 * intensity);
+      fx.blur = blur;
+      fx.glow = glow;
+      const state = { k: 1 };
+      fx.tweens.push(
+        scene.tweens.add({
+          targets: state,
+          k: 0,
+          duration: ms,
+          ease: 'Quad.easeIn',
+          onUpdate: () => {
+            blur.strength = 2 * intensity * state.k;
+            glow.brightness(1 + 0.3 * intensity * state.k);
+          },
+          onComplete: () => this.clearFlash(),
+        })
+      );
+    };
+
+    if (!renderer.snapshot) startWhite(); // no afterimage possible: straight to the burst
+  }
+
+  // Soft round white glow (made once): solid in the middle, fading to clear.
+  glowTexture() {
+    const key = 'flash-glow';
+    if (!this.scene.textures.exists(key)) {
+      const tex = this.scene.textures.createCanvas(key, 256, 256);
+      const ctx = tex.getContext();
+      const grad = ctx.createRadialGradient(128, 128, 0, 128, 128, 128);
+      grad.addColorStop(0, 'rgba(255,255,255,1)');
+      grad.addColorStop(0.35, 'rgba(255,255,240,0.75)');
+      grad.addColorStop(1, 'rgba(255,255,230,0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 256, 256);
+      tex.refresh();
+    }
+    return key;
+  }
+
+  // End any flash effect still showing (new flash, or death/respawn).
+  clearFlash() {
+    const fx = this.flashFx;
+    if (!fx) return;
+    this.flashFx = null;
+    fx.tweens.forEach((t) => t.remove());
+    fx.objects.forEach((o) => o.active && o.destroy());
     const cam = this.scene.cameras.main;
-    this.whiteRect?.destroy();
-    this.whiteRect = this.scene.add
-      .rectangle(0, 0, cam.width, cam.height, 0xffffff, 1)
-      .setOrigin(0, 0)
-      .setScrollFactor(0)
-      .setDepth(5000);
-    this.scene.tweens.add({
-      targets: this.whiteRect,
-      alpha: 0,
-      delay: ms * 0.5,      // fully white for the first half
-      duration: ms * 0.5,   // then fades back
-      onComplete: () => {
-        this.whiteRect?.destroy();
-        this.whiteRect = null;
-      },
-    });
+    if (fx.blur) cam.postFX.remove(fx.blur);
+    if (fx.glow) cam.postFX.remove(fx.glow);
+    (fx.keys ?? []).forEach((k) => this.scene.textures.exists(k) && this.scene.textures.remove(k));
+    this.whiteRect = null;
   }
 
   // Is the line between two points (or either end) in smoke?
@@ -945,7 +1172,7 @@ export default class WeaponSystem {
       this.floatText(victim, 'shield knocked off', EMPTY_COLOR);
     }
 
-    victim.takeDamage(damage, cause);
+    victim.takeDamage(damage, cause, 'blast');
     this.showDamage(victim, damage);
     this.applyKnockback(x, y, config, victim, damage);
   }
@@ -983,6 +1210,11 @@ export default class WeaponSystem {
   }
 
   updateAim(delta) {
+    if (this.mouseAim) {
+      this.aimAtCursor();
+      this.drawPreview();
+      return;
+    }
     const dt = delta / 1000;
     const { up, down } = this.player.cursors;
 
@@ -992,6 +1224,40 @@ export default class WeaponSystem {
     this.aimAngle = Phaser.Math.Clamp(this.aimAngle, AIM.minAngle, AIM.maxAngle);
 
     this.drawPreview();
+  }
+
+  // Cursor aiming: you face the cursor and the throw goes to it.
+  //   straight (sticky, axe): flies flat toward the cursor, as far as the
+  //     cursor is (within its min/max range)
+  //   arc (frag, molotov, tacticals): lobbed a bit higher than the cursor
+  //     so it comes down on it (as far as the throw's strength allows)
+  aimAtCursor() {
+    const p = this.player;
+    const cam = this.scene.cameras.main;
+    const cursor = this.scene.input.activePointer.positionToCamera(cam);
+    p.facing = cursor.x < p.x ? -1 : 1;
+
+    const o = this.throwOrigin();
+    const t = this.throwable;
+    const dx = Math.max(1, Math.abs(cursor.x - o.x));
+    const dy = cursor.y - o.y; // + is down
+    const lineDeg = Phaser.Math.RadToDeg(Math.atan2(dy, dx));
+
+    if (t.flight === 'straight') {
+      this.aimAngle = Phaser.Math.Clamp(lineDeg, -85, 85);
+      const dist = Math.hypot(dx, dy);
+      this.mouseCharge = Phaser.Math.Clamp((dist - t.minRangePx) / (t.maxRangePx - t.minRangePx), 0, 1);
+      return;
+    }
+
+    // Speed that lands it on the cursor at this angle (projectile motion).
+    const g = this.scene.physics.world.gravity.y;
+    const theta = Phaser.Math.DegToRad(Phaser.Math.Clamp(lineDeg - AIM.mouseLobDeg, AIM.minAngle, 70));
+    const cos = Math.cos(theta);
+    const denom = 2 * cos * cos * (dy - dx * Math.tan(theta));
+    const speed = denom > 0 ? Math.sqrt((g * dx * dx) / denom) : t.maxSpeed;
+    this.aimAngle = Phaser.Math.RadToDeg(theta);
+    this.mouseCharge = Phaser.Math.Clamp((speed - t.minSpeed) / (t.maxSpeed - t.minSpeed), 0, 1);
   }
 
   // Dotted path showing where it will fly: an arc for lobbed throwables,

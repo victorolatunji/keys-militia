@@ -259,9 +259,10 @@ export default class BotCombat {
     this.damage(bot, victim, damage);
   }
 
-  damage(bot, victim, amount) {
+  // kind: 'bullet' or 'melee' (an Armor Vest soaks them differently).
+  damage(bot, victim, amount, kind = 'bullet') {
     victim.lastAttacker = bot;
-    victim.takeDamage(amount, 'bot');
+    victim.takeDamage(amount, 'bot', kind);
     this.hits += 1;
     if (victim === this.player) this.scene.cameras.main.shake(60, 0.002);
     this.floatText(victim, `-${amount}`, HIT_COLOR);
@@ -295,7 +296,7 @@ export default class BotCombat {
     if (weapon.knockback && target.applyKnockback) {
       target.applyKnockback(bot.facing * weapon.knockback, -weapon.knockback * 0.4);
     }
-    this.damage(bot, target, Math.max(1, Math.round(weapon.damage * this.scale(bot))));
+    this.damage(bot, target, Math.max(1, Math.round(weapon.damage * this.scale(bot))), 'melee');
 
     // Hit and run (Zombie K9): back off for a moment after each bite.
     const run = bot.config.hitAndRun;

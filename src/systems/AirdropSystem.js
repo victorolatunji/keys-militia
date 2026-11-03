@@ -6,8 +6,9 @@ import { WEAPONS } from '../data/weapons.js';
 
 // Drops a crate on a timer, above a spot that has ground under it (it holds
 // a choice of guns, one per family, and 2 can be taken),
-// drops loose items on a second timer (supply drops: pistols, throwables,
-// Jet Boost, Riot Shield, and rarely specials and launchers),
+// drops loose items in two lanes (supply drops: throwables in one; health,
+// armor, Jet Boost, Riot Shield, pistols and rarely specials/launchers in
+// the other), each with its own timer and cap,
 // and spills loose pickups when someone dies (death drops).
 // PickupSystem handles the 1/2/3/4 panel for all of them.
 export default class AirdropSystem {
@@ -20,11 +21,27 @@ export default class AirdropSystem {
 
     this.crates = [];
     this.drops = [];    // loose death-drop pickups
-    this.supplies = []; // loose supply-drop throwables
+    this.supplies = []; // loose supply drops (both lanes)
     this.dropped = 0;
     this.supplied = 0;
     this.nextDropAt = scene.time.now + AIRDROPS.firstDropMs;
-    this.nextSupplyAt = scene.time.now + SUPPLY_DROPS.firstDropMs;
+
+    // One timer per supply lane (see SUPPLY_DROPS.lanes).
+    this.lanes = Object.entries(SUPPLY_DROPS.lanes).map(([name, config]) => ({
+      name,
+      config,
+      nextAt: scene.time.now + config.firstDropMs,
+    }));
+    this.lastRareAt = scene.time.now; // last special or launcher drop
+  }
+
+  // Pause or move every supply lane's timer at once (tests, debug).
+  set nextSupplyAt(time) {
+    for (const lane of this.lanes) lane.nextAt = time;
+  }
+
+  get nextSupplyAt() {
+    return Math.min(...this.lanes.map((l) => l.nextAt));
   }
 
   // Everything the pickup panel can open: crates, death drops and supply drops.
@@ -59,10 +76,21 @@ export default class AirdropSystem {
       this.nextDropAt = now + AIRDROPS.intervalMs;
     }
 
-    if (now >= this.nextSupplyAt) {
-      if (this.supplies.length < SUPPLY_DROPS.maxOnMap) this.dropSupply();
-      this.nextSupplyAt = now + SUPPLY_DROPS.intervalMs;
+    for (const lane of this.lanes) {
+      if (now < lane.nextAt) continue;
+      lane.nextAt = now + this.laneInterval(lane);
+      const onMap = this.supplies.filter((s) => s.lane === lane.name).length;
+      const loose = this.supplies.length + this.drops.length;
+      if (onMap < lane.config.maxOnMap && loose < SUPPLY_DROPS.maxLoose) this.dropSupply(lane);
     }
+  }
+
+  // Throwables come faster while you have none at all.
+  laneInterval(lane) {
+    const c = lane.config;
+    const slots = this.scene.weapons?.throwSlots;
+    const empty = slots && slots.every((t) => !t.config || t.count <= 0);
+    return c.hungryIntervalMs && empty ? c.hungryIntervalMs : c.intervalMs;
   }
 
   drop() {
@@ -82,8 +110,8 @@ export default class AirdropSystem {
   }
 
   // A loose item falls from the top of the map, spinning (random by weight).
-  dropSupply() {
-    const item = this.supplyItem();
+  dropSupply(lane = this.lanes[0]) {
+    const item = this.supplyItem(lane);
 
     const supply = new Pickup(
       this.scene,
@@ -93,13 +121,14 @@ export default class AirdropSystem {
       this.groundLayer,
       this.height,
       {
-        lifetimeMs: SUPPLY_DROPS.lifetimeMs,
+        lifetimeMs: lane.config.lifetimeMs,
         velocity: { x: 0, y: 0 },
         maxFallSpeed: SUPPLY_DROPS.fallSpeed,
         spin: SUPPLY_DROPS.spin,
       }
     );
 
+    supply.lane = lane.name;
     this.supplies.push(supply);
     this.supplied += 1;
   }
@@ -149,8 +178,26 @@ export default class AirdropSystem {
   }
 
   // A supply drop: weighted random entry; guns pick a random model.
-  supplyItem() {
-    const pool = SUPPLY_DROPS.pool;
+  // Pick a lane's item by weight. Items lane: more health packs while
+  // you're hurt, and a guaranteed special/launcher when none fell for a while.
+  supplyItem(lane) {
+    const c = lane.config;
+    const now = this.scene.time.now;
+    const rare = SUPPLY_DROPS.rare;
+    const rareEntry = (e) => e.type === 'gun' && rare.categories.includes(e.category);
+    let pool = c.pool;
+
+    if (pool.some(rareEntry) && now - this.lastRareAt >= rare.guaranteeMs) {
+      const category = Math.random() < rare.specialShare ? 'special' : 'launcher';
+      this.lastRareAt = now;
+      return { type: 'gun', key: this.randomGun(category) };
+    }
+
+    const player = this.scene.player;
+    if (c.hurt && player && player.hp / player.stats.maxHp < c.hurt.below) {
+      pool = pool.map((e) => (e.type === 'health' ? { ...e, weight: e.weight * c.hurt.healthWeightScale } : e));
+    }
+
     const total = pool.reduce((sum, entry) => sum + entry.weight, 0);
     let roll = Math.random() * total;
     let entry = pool[0];
@@ -162,6 +209,7 @@ export default class AirdropSystem {
       }
     }
 
+    if (rareEntry(entry)) this.lastRareAt = now;
     if (entry.type === 'gun') return { type: 'gun', key: this.randomGun(entry.category) };
     const { weight, ...item } = entry;
     return { ...item };

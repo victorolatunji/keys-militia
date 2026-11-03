@@ -80,6 +80,8 @@ export const ICONS = {
 
   // Utility
   jetBoost: [[7, 1, 10, 9, 'red'], [9, 0, 6, 1, 'metal'], [8, 10, 3, 2, 'gold'], [13, 10, 3, 2, 'gold'], [10, 3, 4, 3, 'steel']],
+  healthPack: [[6, 2, 12, 9, 'steel'], [9, 1, 6, 1, 'metal'], [11, 3, 2, 7, 'red'], [8, 5, 8, 2, 'red']],
+  armorVest: [[7, 1, 3, 2, 'olive'], [14, 1, 3, 2, 'olive'], [6, 3, 12, 9, 'olive'], [11, 3, 2, 9, 'metal'], [8, 6, 3, 2, 'metal'], [13, 6, 3, 2, 'metal']],
   riotShield: [[8, 0, 9, 12, 'metal'], [9, 1, 7, 10, 'glass'], [11, 3, 3, 1, 'steel'], [17, 4, 3, 3, 'wood']],
 
   // Throwables

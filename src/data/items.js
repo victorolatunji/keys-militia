@@ -35,4 +35,29 @@ export const ITEMS = {
     rimColor: 0x48cae4,
     damagedColor: 0xe76f51,
   },
+  // Health Pack: straight back up by `heal` HP (never above max). Quick to
+  // grab under fire; can't be picked while your HP is full.
+  healthPack: {
+    key: 'healthPack',
+    name: 'Health Pack',
+    heal: 50,
+    color: '#06d6a0',
+  },
+  // Armor Vest: worn over your body, works from every side. Like a real
+  // soft-armor vest it soaks most of a bullet, less of a blast and only
+  // some of a blade; burning goes straight through. The share it soaks
+  // comes out of its points; the rest still hurts you (blunt force).
+  // At 0 points it's spent. Lost when you die (it never drops).
+  armorVest: {
+    key: 'armorVest',
+    name: 'Armor Vest',
+    points: 100,          // ARMOR bar on the HUD
+    absorb: {             // share of each hit the vest takes
+      bullet: 0.7,        // guns and pellets
+      melee: 0.5,
+      blast: 0.35,        // grenades, rockets, your own sticky
+      fire: 0,            // burning
+    },
+    barColor: 0x8d99ae,
+  },
 };

@@ -148,7 +148,7 @@ export default class Bot extends Player {
 
   // Your bullets, blasts and melee land here (no cause = it was you).
   // Your hits make it flinch: its aim is thrown off and its next shot waits.
-  takeDamage(amount, cause = 'player') {
+  takeDamage(amount, cause = 'player', kind = 'bullet') {
     if (!this.alive) return;
     if (cause === 'player') {
       const now = this.scene.time.now;
@@ -156,7 +156,7 @@ export default class Bot extends Player {
       this.flinchUntil = now + BOT_AI.flinch.ms;
       this.nextShotAt = Math.max(this.nextShotAt, now) + BOT_AI.flinch.delayMs;
     }
-    super.takeDamage(amount, cause);
+    super.takeDamage(amount, cause, kind);
     this.layout();
   }
 

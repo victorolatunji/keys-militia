@@ -32,7 +32,7 @@ export function createIconTextures(scene) {
 // Texture key for a crate / drop item ({ type, key }) or a weapon config.
 export function iconKey(item) {
   if (item.type === 'throwable') return ICONS[item.key] ? `icon-${item.key}` : 'icon-grenade';
-  if (item.type === 'boost' || item.type === 'shield') return `icon-${item.key}`;
+  if (['boost', 'shield', 'health', 'armor'].includes(item.type)) return `icon-${item.key}`;
   if (item.type === 'crate') {
     const first = item.options.find(Boolean);
     return first ? iconKey({ type: 'gun', key: first }) : 'icon-melee';

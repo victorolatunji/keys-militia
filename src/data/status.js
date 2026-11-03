@@ -32,8 +32,8 @@ export const STATUS = {
   },
   dazed: {
     durationMs: 4000,
-    moveScale: 0.55,    // run, fly and float speed
-    riseScale: 0.5,     // jetpack climbs at half speed
+    moveScale: 0.35,    // run, fly and float speed: a dazed stagger
+    riseScale: 0.35,    // jetpack barely climbs
     attackScale: 1.6,   // bots take this much longer between attacks
     textColor: '#f4d35e',
     fxColor: 0xf4d35e,  // little stars over the head

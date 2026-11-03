@@ -7,7 +7,7 @@ import { GUN_SLOTS, MELEE_SLOT } from './WeaponSystem.js';
 import { iconKey } from '../ui/Icons.js';
 
 const SLOT_KEYS = { 1: 0, 2: 1 }; // number key -> gun slot index
-const ITEM_KEY = '3';             // throwables, Jet Boost, Riot Shield
+const ITEM_KEY = '3';             // throwables, Jet Boost, Riot Shield, Health Pack, Armor Vest
 
 // Get near a landed crate or a loose item: it gets a yellow outline and a
 // panel at the bottom of the screen shows what's inside (icon and name).
@@ -106,10 +106,26 @@ export default class PickupSystem {
       return { title: ITEMS.jetBoost.name.toUpperCase(), options: [{ key: ITEM_KEY, label: 'use (fuel stays full)', enabled: true }] };
     }
 
+    if (item.type === 'health') {
+      const full = this.player.hp >= this.player.stats.maxHp;
+      const cfg = ITEMS.healthPack;
+      return { title: cfg.name.toUpperCase(), options: [{ key: ITEM_KEY, label: full ? 'HP full' : `heal +${cfg.heal} HP`, enabled: !full }] };
+    }
+
+    if (item.type === 'armor') {
+      const cfg = ITEMS.armorVest;
+      const worn = this.player.armor;
+      const full = worn && worn.points >= cfg.points;
+      const label = full ? 'vest full' : worn ? `replace your vest (${Math.ceil(worn.points)}/${cfg.points})` : 'wear (stops most bullet damage)';
+      return { title: cfg.name.toUpperCase(), options: [{ key: ITEM_KEY, label, enabled: !full }] };
+    }
+
     if (item.type === 'shield') {
       const has = Boolean(this.player.shield);
+      const max = ITEMS.riotShield.hp;
+      const worn = item.hp && item.hp < max ? ` ${item.hp}/${max}` : '';
       return {
-        title: ITEMS.riotShield.name.toUpperCase(),
+        title: `${ITEMS.riotShield.name.toUpperCase()}${worn}`,
         options: [{ key: ITEM_KEY, label: has ? 'replace your shield' : 'equip (pistol, SMG or melee only)', enabled: true }],
       };
     }
@@ -138,19 +154,25 @@ export default class PickupSystem {
       return { title, options };
     }
 
-    // Throwable
+    // Throwable: two slots. Same kind: top up. A free slot: goes there.
+    // Both slots taken by other kinds: swaps with the one in your hand.
     const config = THROWABLES[item.key];
     const title = `${config.name.toUpperCase()} x${item.count}`;
-    const sameType = w.throwable.key === item.key;
-    const full = sameType && w.throwableCount >= config.maxCarry;
+    const same = w.throwSlots.find((t) => t.config?.key === item.key);
+    const free = w.throwSlots.some((t) => !t.config);
+    let label;
+    let enabled = true;
+    if (same) {
+      enabled = same.count < config.maxCarry;
+      label = enabled ? `take (you have ${same.count}/${config.maxCarry})` : `full (${same.count}/${config.maxCarry})`;
+    } else if (free) {
+      label = 'take (empty throwable slot)';
+    } else {
+      const held = w.throwSlots[w.throwActive];
+      label = `swap for ${held.config.name} x${held.count}`;
+    }
 
-    const label = full
-      ? `full (${w.throwableCount}/${config.maxCarry})`
-      : sameType
-        ? `take (you have ${w.throwableCount}/${config.maxCarry})`
-        : `swap for ${w.throwable.name} x${w.throwableCount}`;
-
-    return { title, options: [{ key: ITEM_KEY, label, enabled: !full }] };
+    return { title, options: [{ key: ITEM_KEY, label, enabled }] };
   }
 
   handleKey(event) {
@@ -165,8 +187,19 @@ export default class PickupSystem {
       this.weapons.pickBoost();
       crate.remove();
       this.picked(ITEMS.jetBoost.name);
+    } else if (item.type === 'health' && event.key === ITEM_KEY) {
+      if (this.player.hp >= this.player.stats.maxHp) return;
+      const healed = this.player.heal(ITEMS.healthPack.heal);
+      crate.remove();
+      this.picked(`${healed} HP`);
+    } else if (item.type === 'armor' && event.key === ITEM_KEY) {
+      const worn = this.player.armor;
+      if (worn && worn.points >= ITEMS.armorVest.points) return;
+      this.player.equipArmor(ITEMS.armorVest);
+      crate.remove();
+      this.picked(ITEMS.armorVest.name);
     } else if (item.type === 'shield' && event.key === ITEM_KEY) {
-      this.weapons.pickShield();
+      this.weapons.pickShield(crate.item.hp);
       crate.remove();
       this.picked(ITEMS.riotShield.name);
     } else if (item.type === 'gun' && event.key in SLOT_KEYS) {

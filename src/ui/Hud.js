@@ -17,6 +17,9 @@ export default class Hud {
   constructor(scene) {
     this.hpBar = this.makeBar(scene, 16, 16, 'HP', HP_COLOR);
     this.fuelBar = this.makeBar(scene, 16, 36, 'FUEL', FUEL_COLOR);
+    // Armor Vest points, right of the HP bar (only while you wear one).
+    this.armorBar = this.makeBar(scene, 290, 16, 'ARMOR', ITEMS.armorVest.barColor, 120);
+    this.armorBar.parts.forEach((o) => o.setVisible(false));
 
     // Weapon panel, top right.
     this.weaponText = scene.add
@@ -55,21 +58,22 @@ export default class Hud {
   }
 
   // Label + dark background + colored fill that shrinks to the left.
-  makeBar(scene, x, y, label, color) {
+  makeBar(scene, x, y, label, color, width = BAR_WIDTH) {
     const text = scene.add.text(x, y - 1, label, {
       fontFamily: 'monospace',
       fontSize: '14px',
       color: '#ffffff',
     });
+    const pad = label.length > 4 ? 58 : 48; // room for the label
     const bg = scene.add
-      .rectangle(x + 48, y, BAR_WIDTH + 4, BAR_HEIGHT + 4, 0x000000, 0.5)
+      .rectangle(x + pad, y, width + 4, BAR_HEIGHT + 4, 0x000000, 0.5)
       .setOrigin(0, 0);
     const fill = scene.add
-      .rectangle(x + 50, y + 2, BAR_WIDTH, BAR_HEIGHT, color)
+      .rectangle(x + pad + 2, y + 2, width, BAR_HEIGHT, color)
       .setOrigin(0, 0);
 
     for (const obj of [text, bg, fill]) obj.setScrollFactor(0).setDepth(100);
-    return { fill, color };
+    return { fill, color, parts: [text, bg, fill] };
   }
 
   setBar(bar, pct) {
@@ -81,6 +85,12 @@ export default class Hud {
     this.setBar(this.hpBar, player.hp / PLAYER.maxHp);
     this.setBar(this.fuelBar, player.fuel / PLAYER.fuelMax);
     if (player.boosted) this.fuelBar.fill.setFillStyle(ITEMS.jetBoost.fuelColor); // Jet Boost: gold bar
+
+    const armor = player.armor;
+    this.armorBar.parts.forEach((o) => o.setVisible(Boolean(armor)));
+    if (armor) {
+      this.armorBar.fill.scaleX = Math.max(0, armor.points) / armor.config.points;
+    }
 
     this.updateWeapons(weapons);
     this.updateTag(typing, weapons);
@@ -103,10 +113,15 @@ export default class Hud {
     } else {
       lines.push('nothing in hand');
     }
-    lines.push(`${weapons.throwable.name} x${weapons.throwableCount}`);
+    // Two throwable slots, e.g. "> T1. Frag Grenade x3" / "  T2. (empty)".
+    weapons.throwSlots.forEach((t, i) => {
+      const marker = i === weapons.throwActive ? '>' : ' ';
+      lines.push(`${marker} T${i + 1}. ${t.config ? `${t.config.name} x${t.count}` : '(empty)'}`);
+    });
     const shield = weapons.player.shield;
     if (shield) lines.push(`Riot Shield ${Math.max(0, Math.ceil(shield.hp))}/${shield.config.hp}`);
-    lines.push('Shift: switch · Space: throw');
+    lines.push('Shift: guns · Tab/wheel: throwables');
+    lines.push('Space or hold mouse: aim + throw');
     this.weaponText.setText(lines);
 
     this.updateIcon(current);

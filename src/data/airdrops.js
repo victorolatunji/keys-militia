@@ -61,11 +61,11 @@ export const CRATE_CONTENTS = {
 // Death drops: when you die, your guns and throwables fall out as loose pickups
 // (melee never drops). Anyone can grab them. Nothing drops in the void.
 export const DEATH_DROPS = {
-  lifetimeMs: 60000,     // vanish after this long
+  lifetimeMs: 30000,     // vanish after this long
   blinkBeforeMs: 5000,   // blink during the last 5s
   popSpeedX: 90,         // max sideways speed when they pop out
   popSpeedY: 220,        // upward speed when they pop out
-  maxOnMap: 8,           // oldest drop disappears past this
+  maxOnMap: 6,           // oldest drop disappears past this
 
   // Look: the item's icon on a small dark tag (also used by supply drops)
   look: {
@@ -78,32 +78,73 @@ export const DEATH_DROPS = {
   },
 };
 
-// Supply drops: loose items fall (no crate, no chute) on their own timer, at
-// a random spot with ground below. Each drop is picked at random by weight:
-// pistols often, specials and launchers rarely. Guns: keys 1/2; throwables,
-// Jet Boost and Riot Shield: key 3. A gun entry with `category` falls as a
-// random gun of that family.
+// Supply drops: loose items fall (no crate, no chute) at a random spot with
+// ground below. Two lanes, each with its own timer and its own cap, so
+// throwables never crowd out health and armor (or the other way round):
+//   throwables: frequent, small. Faster while you carry none at all.
+//   items:      health, armor, Jet Boost, shield, pistols, and the rare
+//               specials and launchers. More health packs while you're hurt.
+// Rare guard: if no special or launcher has fallen for rare.guaranteeMs,
+// the next items drop is one, so every match sees a few.
+// Litter guard: no supply drop while maxLoose loose items (supply + death
+// drops) are already lying around, and unpicked items vanish.
+//
+// The numbers, per minute of play (nothing picked up):
+//   throwables lane: 60/12 = 5 drops x 2 = 10 throwables offered
+//                    (8 drops/min while you have none)
+//   items lane:      60/20 = 3 drops: ~0.7 health, ~0.6 pistol, ~0.45 Jet
+//                    Boost, ~0.4 armor, ~0.3 shield, ~0.55 special or launcher
+//   specials: about one every 3 min; a special or launcher about every
+//   1.5-2 min, never more than 3 min apart
+//   on the ground at once: lanes cap at 2 + 2, all loose items at 6, plus
+//   up to 2 crates. Picked-up items free their spot right away.
+// Guns: keys 1/2; throwables and items: key 3. A gun entry with `category`
+// falls as a random gun of that family.
 export const SUPPLY_DROPS = {
-  firstDropMs: 8000,     // first supply drop after the match starts
-  intervalMs: 15000,     // then one every 15s
-  maxOnMap: 4,           // no new one while this many are lying around
-  lifetimeMs: 40000,     // vanishes after this long (blinks during the last 5s)
   fallSpeed: 260,        // px per second, max
   spin: 6,               // radians per second while falling
-  pool: [
-    { type: 'gun', category: 'pistol', weight: 3 },
-    { type: 'throwable', key: 'grenade', count: 2, weight: 2.5 },
-    { type: 'throwable', key: 'sticky', count: 2, weight: 1.2 },
-    { type: 'throwable', key: 'molotov', count: 2, weight: 1.2 },
-    { type: 'throwable', key: 'combatAxe', count: 2, weight: 1 },
-    { type: 'throwable', key: 'smoke', count: 2, weight: 0.8 },
-    { type: 'throwable', key: 'flashbang', count: 2, weight: 0.8 },
-    { type: 'throwable', key: 'concussion', count: 2, weight: 0.8 },
-    { type: 'throwable', key: 'emp', count: 2, weight: 0.8 },
-    { type: 'throwable', key: 'cryo', count: 2, weight: 0.8 },
-    { type: 'boost', key: 'jetBoost', weight: 2.5 },
-    { type: 'shield', key: 'riotShield', weight: 1.5 },
-    { type: 'gun', category: 'special', weight: 0.5 },
-    { type: 'gun', category: 'launcher', weight: 0.5 },
-  ],
+  maxLoose: 6,           // loose items on the ground (supply + death drops) before supply pauses
+
+  lanes: {
+    throwables: {
+      firstDropMs: 6000,
+      intervalMs: 12000,
+      hungryIntervalMs: 7500, // while both your throwable slots are empty
+      maxOnMap: 2,
+      lifetimeMs: 22000,      // vanishes after this long (blinks during the last 5s); < 2 intervals, so the cap rarely blocks
+      pool: [                 // weights add up to 100 (= % of this lane)
+        { type: 'throwable', key: 'grenade', count: 2, weight: 28 },
+        { type: 'throwable', key: 'sticky', count: 2, weight: 14 },
+        { type: 'throwable', key: 'molotov', count: 2, weight: 14 },
+        { type: 'throwable', key: 'combatAxe', count: 2, weight: 10 },
+        { type: 'throwable', key: 'smoke', count: 2, weight: 7 },
+        { type: 'throwable', key: 'flashbang', count: 2, weight: 7 },
+        { type: 'throwable', key: 'concussion', count: 2, weight: 7 },
+        { type: 'throwable', key: 'emp', count: 2, weight: 7 },
+        { type: 'throwable', key: 'cryo', count: 2, weight: 6 },
+      ],
+    },
+    items: {
+      firstDropMs: 10000,
+      intervalMs: 20000,
+      maxOnMap: 2,
+      lifetimeMs: 30000,
+      pool: [                 // weights add up to 100
+        { type: 'health', key: 'healthPack', weight: 24 },
+        { type: 'gun', category: 'pistol', weight: 22 },
+        { type: 'boost', key: 'jetBoost', weight: 16 },
+        { type: 'armor', key: 'armorVest', weight: 14 },
+        { type: 'shield', key: 'riotShield', weight: 10 },
+        { type: 'gun', category: 'special', weight: 8 },
+        { type: 'gun', category: 'launcher', weight: 6 },
+      ],
+      hurt: { below: 0.4, healthWeightScale: 3 }, // under 40% HP: health packs 3x as likely
+    },
+  },
+
+  rare: {
+    categories: ['special', 'launcher'],
+    guaranteeMs: 180000, // none for 3 min: the next items drop is one of them
+    specialShare: 0.6,   // a guaranteed one is a special 60% of the time, else a launcher
+  },
 };

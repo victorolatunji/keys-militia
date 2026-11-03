@@ -873,8 +873,9 @@ export const THROWABLES = {
       color: 0xb0b7c0,
     },
   },
-  // Flashbang: blinds everyone with a clear line to it. Up close it lasts
-  // longest. Blinded bots can't see you; blinded you gets a white screen.
+  // Flashbang: blinds everyone with a clear line to it. Up close and looking
+  // at it lasts longest. Blinded bots can't see you. You: a white burst,
+  // the last thing you saw burned in as an afterimage, then blurry vision.
   flashbang: {
     ...TACTICAL,
     key: 'flashbang',
@@ -884,6 +885,7 @@ export const THROWABLES = {
     radiusPx: 230,
     maxMs: 3500,          // blinded this long at the bang...
     minMs: 1200,          // ...down to this at the edge
+    lookAwayScale: 0.4,   // facing away from it: this share of the time and strength
   },
   // Concussion: a small shove and dazed (slow, weak jetpack, slow attacks).
   concussion: {
@@ -934,6 +936,7 @@ export const AIM = {
   minAngle: -80,
   maxAngle: 45,
   turnSpeed: 120,  // degrees per second while holding Up/Down
+  mouseLobDeg: 30, // cursor aiming: lobs this many degrees above the line to the cursor
 };
 
 // Time to swap guns. Letters are ignored meanwhile.
@@ -946,5 +949,5 @@ export const DEFAULT_LOADOUT = {
   // A random melee weapon from this list, new every time you spawn.
   // Melee weapons never drop and can't be picked up.
   melee: ['knife', 'machete', 'bat', 'spade', 'hammer', 'sword', 'axe'],
-  throwable: { key: 'cryo', count: 3 },
+  throwable: { key: 'flashbang', count: 3 },
 };

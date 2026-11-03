@@ -33,6 +33,7 @@ export default class Player extends Phaser.GameObjects.Rectangle {
     this.boostUntil = 0;      // Jet Boost: fuel stays full until then
     this.boostRise = 1;
     this.shield = null;       // Riot Shield: { config, hp, sprite }
+    this.armor = null;        // Armor Vest: { config, points }
 
     this.body.setCollideWorldBounds(true);
     this.body.setMaxVelocity(2000, this.stats.maxFallSpeed);
@@ -150,6 +151,33 @@ export default class Player extends Phaser.GameObjects.Rectangle {
 
   // ---- Health ----
 
+  // Armor Vest: takes its share of a hit (by kind) out of its points; the
+  // rest still reaches you (blunt force). Gone when its points run out.
+  // Returns the damage that gets through to your HP.
+  armorAbsorb(amount, kind) {
+    const a = this.armor;
+    if (!a) return amount;
+    const share = a.config.absorb[kind] ?? 0;
+    const soaked = Math.min(a.points, amount * share);
+    a.points -= soaked;
+    if (a.points <= 0) {
+      this.armor = null;
+      this.emit('armorBroke');
+    }
+    return amount - soaked;
+  }
+
+  equipArmor(config) {
+    this.armor = { config, points: config.points };
+  }
+
+  // Health Pack: straight back up by `amount`, never above max.
+  heal(amount) {
+    const before = this.hp;
+    this.hp = Math.min(this.stats.maxHp, this.hp + amount);
+    return Math.round(this.hp - before);
+  }
+
   // HP slowly comes back after a while without taking damage.
   regenerate(dt) {
     const { regenPerSec, regenDelayMs, maxHp } = this.stats;
@@ -158,9 +186,12 @@ export default class Player extends Phaser.GameObjects.Rectangle {
     this.hp = Math.min(maxHp, this.hp + regenPerSec * dt);
   }
 
-  takeDamage(amount, cause) {
+  // kind: what hit you, for the Armor Vest: 'bullet' (guns, pellets),
+  // 'melee', 'blast' (grenades, rockets) or 'fire' (burning: armor can't help).
+  takeDamage(amount, cause, kind = 'bullet') {
     if (!this.alive) return;
 
+    amount = this.armorAbsorb(amount, kind);
     this.lastHurtAt = this.scene.time.now;
     this.hp = Math.max(0, this.hp - amount);
     this.flash();
@@ -356,13 +387,15 @@ export default class Player extends Phaser.GameObjects.Rectangle {
     this.fuel = this.stats.fuelMax;
   }
 
-  equipShield(config) {
+  // hp: what's left of it (a shield you dropped keeps its wear).
+  equipShield(config, hp = config.hp) {
     this.dropShield();
     const sprite = this.scene.add
       .rectangle(this.x, this.y, config.width, config.height, config.color)
       .setStrokeStyle(2, config.rimColor)
       .setDepth(5);
-    this.shield = { config, hp: config.hp, sprite };
+    this.shield = { config, hp, sprite };
+    this.absorb(0); // rim colour for its wear
   }
 
   // Does a hit coming from x land on the shield (it's on the side you face)?
@@ -404,6 +437,7 @@ export default class Player extends Phaser.GameObjects.Rectangle {
     this.eye.setVisible(false);
     this.flame.setVisible(false);
     this.dropShield();
+    this.armor = null;
     this.boostUntil = 0;
   }
 
