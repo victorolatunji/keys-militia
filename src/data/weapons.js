@@ -971,12 +971,13 @@ export const GUN_SWITCH_MS = 300;
 // What you spawn with. Final default (README): one basic gun + melee;
 // two guns for now so there's plenty to test.
 export const DEFAULT_LOADOUT = {
-  // Every spawn: a random assault rifle and a random sniper rifle (weapon
-  // families, reshuffled each time). A weapon key (e.g. 'sawGun') also works,
-  // handy for testing one gun.
-  guns: ['assault', 'rifle'],
+  // Every spawn, one gun per slot, reshuffled each time (never the same gun
+  // twice in a row): slot 1 any assault rifle, slot 2 any sniper OR marksman
+  // rifle. An entry is a family, a list of families, or a weapon key
+  // (e.g. 'sawGun', handy for testing one gun).
+  guns: ['assault', ['rifle', 'marksman']],
   // A random melee weapon from this list, new every time you spawn.
   // Melee weapons never drop and can't be picked up.
   melee: ['knife', 'machete', 'bat', 'spade', 'hammer', 'sword', 'axe'],
-  throwable: { key: 'smoke', count: 3 },
+  throwable: { key: 'grenade', count: 3 },
 };

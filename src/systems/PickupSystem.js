@@ -7,6 +7,7 @@ import { GUN_SLOTS, MELEE_SLOT } from './WeaponSystem.js';
 import { iconKey } from '../ui/Icons.js';
 
 const SLOT_KEYS = { 1: 0, 2: 1 }; // number key -> gun slot index
+const AUTO_PICKUP_PX = 44;        // walk this close: health, Jet Boost, more of your throwable
 const ITEM_KEY = '3';             // throwables, Jet Boost, Riot Shield, Health Pack, Armor Vest
 
 // Get near a landed crate or a loose item: it gets a yellow outline and a
@@ -59,6 +60,7 @@ export default class PickupSystem {
   }
 
   update() {
+    this.autoPickup();
     const target = this.findTarget();
 
     // Outline what the panel is about (and restore the old outline after).
@@ -78,6 +80,36 @@ export default class PickupSystem {
 
     const { title, options } = this.describe(target.item);
     this.panel.show(title, options, iconKey(target.item));
+  }
+
+  // Walk over these and they're yours, no key needed (AUTO_PICKUP_PX):
+  //   Health Pack (only if you're hurt), Jet Boost, Armor Vest (unless yours
+  //   is full), and more of a throwable
+  //   you already carry (until that slot is full; the rest stays on the ground).
+  autoPickup() {
+    if (!this.player.alive) return;
+    for (const source of this.airdrops.pickupables) {
+      if (!source.active || !source.settled) continue;
+      const d = Phaser.Math.Distance.Between(this.player.x, this.player.y, source.x, source.y);
+      if (d > AUTO_PICKUP_PX) continue;
+      const item = source.item;
+      if (item.type === 'health' && this.player.hp < this.player.stats.maxHp) {
+        const healed = this.player.heal(ITEMS.healthPack.heal);
+        source.remove();
+        this.picked(`${healed} HP`, 'heal');
+      } else if (item.type === 'boost') {
+        this.weapons.pickBoost();
+        source.remove();
+        this.picked(ITEMS.jetBoost.name);
+      } else if (item.type === 'armor' && !(this.player.armor && this.player.armor.points >= ITEMS.armorVest.points)) {
+        this.player.equipArmor(ITEMS.armorVest);
+        source.remove();
+        this.picked(ITEMS.armorVest.name, 'armor');
+      } else if (item.type === 'throwable') {
+        const slot = this.weapons.throwSlots.find((t) => t.config?.key === item.key);
+        if (slot && slot.count < slot.config.maxCarry) this.takeThrowable(source);
+      }
+    }
   }
 
   // What the panel says for this item, given your current loadout.

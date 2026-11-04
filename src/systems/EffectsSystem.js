@@ -243,7 +243,8 @@ export default class EffectsSystem {
     const color = target.baseColor ?? target.config?.color ?? target.fillColor ?? 0xffffff;
     // Body chunks drip blood in full gore (machines and bones don't).
     const drip = mat.gibs === 'flesh' ? mat.colors[0] : null;
-    for (const shape of this.pieceShapes(mat, color, target)) this.piece(x, y, shape, blast, drip);
+    const landSound = { metal: 'landScrap', bone: 'landBone', flesh: 'landFlesh' }[mat.gibs] ?? null;
+    for (const shape of this.pieceShapes(mat, color, target)) this.piece(x, y, { ...shape, landSound }, blast, drip);
     for (let i = 0; i < lvl.gibRedBits && mat.gibs === 'flesh'; i++) {
       const size = Phaser.Math.Between(4, 7);
       const c = Phaser.Utils.Array.GetRandom(mat.colors);
@@ -291,7 +292,7 @@ export default class EffectsSystem {
       .setDepth(DEPTH - 1);
     if (shape.outline) obj.setStrokeStyle(1, 0x000000, 0.8);
     const boost = blast ? 1.4 : 1;
-    const dir = Math.random() < 0.5 ? -1 : 1;
+    const dir = shape.dir ?? (Math.random() < 0.5 ? -1 : 1);
     this.pieces.push({
       obj,
       vx: dir * Phaser.Math.Between(GIBS.speed[0], GIBS.speed[1]) * Phaser.Math.FloatBetween(0.3, 1) * boost,
@@ -300,6 +301,7 @@ export default class EffectsSystem {
       until: this.scene.time.now + (this.level.gibLifeMs ?? 2500) * Phaser.Math.FloatBetween(0.8, 1.2),
       trailAt: 0,
       blood: drip,
+      landSound: shape.landSound ?? null,
     });
   }
 
@@ -389,6 +391,10 @@ export default class EffectsSystem {
       }
       if (isSolid(this.layer, o.x, ny + o.height / 2)) {
         if (p.vy > 0) {
+          // Landing sound for a body piece (scrap, flesh, bone), first few bounces.
+          if (p.landSound && p.vy > 120 && (p.bounces = (p.bounces ?? 0) + 1) <= 2) {
+            this.scene.sfx?.play(p.landSound, o, { volume: p.bounces === 1 ? 0.8 : 0.4 });
+          }
           p.vy = -p.vy * GIBS.bounce;
           p.vx *= 0.7;
           p.spin *= 0.6;

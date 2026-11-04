@@ -5,6 +5,7 @@ const STYLE = { fontFamily: 'monospace', fontSize: '20px', fontStyle: 'bold' };
 const TYPED_COLOR = '#ffd166';
 const REST_COLOR = '#ffffff';
 const TYPO_COLOR = '#ff4d6d';
+const SMOKE_COLOR = '#9dff8a'; // words on enemies inside smoke
 const LOCK_COLOR = 0xffd166;
 const PLATE_HEIGHT = 28;
 const PLATE_PADDING = 16;
@@ -43,6 +44,20 @@ export default class WordLabel {
     this.render();
   }
 
+  // In smoke the word goes over the cloud in night-vision green on a black
+  // plate (white words would vanish into white smoke). Off: normal again.
+  setSmoke(on) {
+    if (on === this.inSmoke) return;
+    this.inSmoke = on;
+    this.restColor = on ? SMOKE_COLOR : REST_COLOR;
+    this.rest.setColor(this.restColor);
+    this.plate.setFillStyle(0x000000, on ? 0.9 : 0.75);
+    const depth = on ? 73 : 50; // over the cloud (70) and the silhouettes (72)
+    this.plate.setDepth(depth);
+    this.typed.setDepth(depth + 1);
+    this.rest.setDepth(depth + 1);
+  }
+
   setLocked(locked) {
     this.plate.isStroked = locked;
   }
@@ -73,7 +88,7 @@ export default class WordLabel {
       onComplete: () => {
         this.shakeOffset = 0;
         this.typed.setColor(TYPED_COLOR);
-        this.rest.setColor(REST_COLOR);
+        this.rest.setColor(this.restColor ?? REST_COLOR);
         this.layout();
       },
     });

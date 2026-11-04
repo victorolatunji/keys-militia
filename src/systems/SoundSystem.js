@@ -141,6 +141,8 @@ export default class SoundSystem {
 
     const place = this.place(at);
     const volume = place.volume * (opts.volume ?? 1);
+    // vary: each play a little higher or lower (no two cries the same).
+    const pitch = (opts.pitch ?? 1) * (sound.vary ? 1 + (Math.random() * 2 - 1) * sound.vary : 1);
     const out = this.ctx.createStereoPanner();
     out.pan.value = place.pan;
     let tail = out;
@@ -159,7 +161,7 @@ export default class SoundSystem {
     const t0 = this.ctx.currentTime;
     let end = t0;
     for (const layer of sound.layers) {
-      end = Math.max(end, this.layer(layer, out, t0, volume, opts.pitch ?? 1));
+      end = Math.max(end, this.layer(layer, out, t0, volume, pitch));
     }
     // Let go of the nodes once it (and its reverb send) is over.
     setTimeout(release, (end - t0) * 1000 + 200);
@@ -174,10 +176,12 @@ export default class SoundSystem {
 
     const { source, head } = this.source(l, start, stop, pitch);
 
-    // Envelope: quick rise, then fall away to silence.
+    // Envelope: quick rise, hold (voices), then fall away to silence.
     const env = ctx.createGain();
+    const peak = Math.max(0.0002, l.gain * volume);
     env.gain.setValueAtTime(0.0001, start);
-    env.gain.exponentialRampToValueAtTime(Math.max(0.0002, l.gain * volume), start + attack);
+    env.gain.exponentialRampToValueAtTime(peak, start + attack);
+    if (l.hold) env.gain.setValueAtTime(peak, start + attack + l.dur * l.hold);
     env.gain.exponentialRampToValueAtTime(0.0001, stop);
     head.connect(env);
     env.connect(out);
@@ -211,12 +215,18 @@ export default class SoundSystem {
       source = ctx.createOscillator();
       source.type = l.wave ?? 'sine';
       source.frequency.setValueAtTime(l.freq * pitch, start);
+      // Pitch contour: rise to freqMid (at midAt of the way), then to freqEnd.
+      if (l.freqMid && stop) {
+        source.frequency.linearRampToValueAtTime(l.freqMid * pitch, start + l.dur * (l.midAt ?? 0.25));
+      }
       if (l.freqEnd && stop) source.frequency.exponentialRampToValueAtTime(l.freqEnd * pitch, stop);
       head = source;
       if (l.filter) {
         const filter = ctx.createBiquadFilter();
         filter.type = l.filter;
-        filter.frequency.value = l.cutoff ?? 1000;
+        filter.frequency.setValueAtTime(l.cutoff ?? 1000, start);
+        // Mouth shape changing (vowel glide, e.g. "aah" to "uh").
+        if (l.cutoffEnd && stop) filter.frequency.linearRampToValueAtTime(l.cutoffEnd, stop);
         filter.Q.value = l.q ?? 0.7;
         source.connect(filter);
         head = filter;

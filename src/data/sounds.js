@@ -20,9 +20,9 @@ export const SOUND_SETTINGS = {
   enemyPitch: 0.85,         // ...and a bit lower, so you can tell them apart
   hurtGapMs: 140,           // per character: pain sounds at most this often
   // Room reverb on everything (sounds ring out instead of cutting off)...
-  reverb: { seconds: 1.8, decay: 3, level: 0.6, send: 0.22 },
+  reverb: { seconds: 1.4, decay: 3.5, level: 0.4, send: 0.14 },
   // ...and a far echo for big sounds (sounds with an `echo` amount).
-  echo: { delaySec: 0.32, feedback: 0.32, cutoff: 1400 },
+  echo: { delaySec: 0.3, feedback: 0.2, cutoff: 1600 },
 };
 
 // ---- Building blocks ----
@@ -58,24 +58,73 @@ const glass = [
 ];
 
 
-// A grown voice crying out (adult, not a wail): a low buzzy tone through
-// two mouth filters ("aagh"), falling in pitch, with breath and rasp.
-//   pitch: starting Hz (men ~120-220)  dur: seconds  drop: pitch at the end (share)
-//   f1, f2: mouth shape (ah ~ 700/1150, oh ~ 500/900)  vib: [rate, depth share]
-//   rasp: rough growl under it  breath: air noise  delay: start later
-function voice({ pitch, dur, gain, drop = 0.6, f1 = 700, f2 = 1150, vib = [5, 0.03], rasp = 0.2, breath = 0.35, delay = 0 }) {
-  const vibrato = { rate: vib[0], depth: pitch * vib[1] };
+// ---- Voices ----
+// A human (or creature) cry built like a real voice: a buzzing vocal source
+// shaped by three mouth resonances (formants F1, F2, F3), with breath, a
+// sharp intake at the start, a pitch that rises then falls, and the mouth
+// closing from "AAH" to "uh" as the cry dies.
+// Voice types: formants for "ah" and "uh", and a natural pitch.
+export const VOICE_TYPES = {
+  man: { pitch: 120, ah: [730, 1090, 2440], uh: [520, 1190, 2390] },
+  woman: { pitch: 210, ah: [850, 1220, 2810], uh: [600, 1300, 2700] },
+  child: { pitch: 300, ah: [1030, 1370, 3170], uh: [800, 1500, 3000] },
+  brute: { pitch: 88, ah: [600, 1000, 2300], uh: [450, 900, 2200] },   // mutant-sized chest
+  creature: { pitch: 360, ah: [1200, 2000, 3400], uh: [1000, 1800, 3200] }, // alien
+};
+
+// Your character's voice (character select can change it later: 'man',
+// 'woman' or 'child').
+export const PLAYER_VOICE = 'man';
+
+//   type: VOICE_TYPES key   pitch: override Hz   dur: seconds   gain
+//   rise: how far the cry climbs before it falls   drop: pitch at the end
+//   vib: [rate, depth share]   rasp: rough growl   breath: air in it
+//   hold: share of the cry at full strength   vowel: 'ah' or 'uh' to start with
+function voice({ type = 'man', pitch, dur, gain, rise = 1.3, drop = 0.7, vib = [5.5, 0.025], rasp = 0.05, breath = 0.3, hold = 0.35, vowel = 'ah', delay = 0 }) {
+  const t = VOICE_TYPES[type];
+  const p = pitch ?? t.pitch;
+  const from = t[vowel];
+  const to = t.uh;
+  const vibrato = { rate: vib[0], depth: p * vib[1] };
+  const tone = (i, g, q) => ({
+    wave: 'sawtooth', freq: p, freqMid: p * rise, midAt: 0.2, freqEnd: p * drop, dur, gain: g, attack: 0.03, hold,
+    filter: 'bandpass', cutoff: from[i], cutoffEnd: to[i], q, vibrato, delay,
+  });
   const layers = [
-    { wave: 'sawtooth', freq: pitch, freqEnd: pitch * drop, dur, gain, attack: 0.02, filter: 'bandpass', cutoff: f1, q: 4, vibrato, delay },
-    { wave: 'sawtooth', freq: pitch, freqEnd: pitch * drop, dur, gain: gain * 0.6, attack: 0.02, filter: 'bandpass', cutoff: f2, q: 5, vibrato, delay },
-    { noise: true, filter: 'bandpass', freq: f1 * 1.6, q: 1.2, dur: dur * 0.9, gain: gain * breath, attack: 0.02, delay },
-    { noise: true, filter: 'highpass', freq: 2500, dur: 0.05, gain: gain * 0.25, delay }, // the sharp intake at the start
+    tone(0, gain, 6),          // F1: the body of the vowel
+    tone(1, gain * 0.55, 9),   // F2: which vowel it is
+    tone(2, gain * 0.25, 12),  // F3: brightness / "human" edge
+    { noise: true, filter: 'bandpass', freq: from[1], freqEnd: to[1], q: 2, dur: dur * 0.9, gain: gain * breath, attack: 0.03, hold, delay }, // breath in the cry
+    { noise: true, filter: 'bandpass', freq: 1800, q: 1, dur: 0.07, gain: gain * 0.45, delay },                                             // the gasp before it
   ];
-  if (rasp) layers.push({ wave: 'square', freq: pitch / 2, freqEnd: (pitch * drop) / 2, dur, gain: gain * rasp, filter: 'lowpass', cutoff: 500, delay });
+  if (rasp) layers.push({ wave: 'square', freq: p / 2, freqMid: (p * rise) / 2, midAt: 0.2, freqEnd: (p * drop) / 2, dur, gain: gain * rasp, hold, filter: 'lowpass', cutoff: 450, delay });
   return layers;
 }
-const thud = (delay, gain = 0.45) => body(320, 0.25, gain, delay); // body hitting the ground
+const thud = (delay, gain = 0.3) => body(450, 0.18, gain, delay); // body hitting the ground (light, not boomy)
 const clank = (delay, gain = 0.3) => ({ wave: 'square', freq: 700, freqEnd: 300, dur: 0.12, gain, filter: 'bandpass', cutoff: 1400, q: 3, delay });
+// Metal scrap falling apart: bright, uneven metallic pings and clanks
+// (several overtones that don't line up, like real sheet metal), with a
+// scrape, spread over `span` seconds and dying away. Seeded, so it's stable.
+function metalScrap(count, span, gain, seed = 101) {
+  let r = seed;
+  const rand = () => {
+    r = (r * 16807) % 2147483647;
+    return r / 2147483647;
+  };
+  const out = [{ noise: true, filter: 'bandpass', freq: 3200, freqEnd: 1800, q: 3, dur: span * 0.6, gain: gain * 0.35 }]; // scrape
+  for (let i = 0; i < count; i++) {
+    const at = Math.pow(rand(), 1.4) * span;           // more pieces early, fewer later
+    const g = gain * (1 - (at / span) * 0.6) * (0.5 + rand() * 0.5);
+    const base = 1400 + rand() * 2600;
+    const ring = 0.06 + rand() * 0.22;
+    out.push({ noise: true, filter: 'highpass', freq: 3500, dur: 0.015, gain: g * 0.8, delay: at }); // the hit
+    out.push({ wave: 'sine', freq: base, dur: ring, gain: g * 0.5, delay: at });                    // ring
+    out.push({ wave: 'sine', freq: base * 1.47, dur: ring * 0.7, gain: g * 0.3, delay: at });
+    out.push({ wave: 'sine', freq: base * 2.09, dur: ring * 0.5, gain: g * 0.2, delay: at });
+  }
+  return out;
+}
+const fizz = (dur, gain, delay = 0) => ({ noise: true, filter: 'highpass', freq: 5000, dur, gain, delay }); // electric fizz
 const powerDown = (from, dur, gain, delay = 0) => ({ wave: 'sawtooth', freq: from, freqEnd: 50, dur, gain, filter: 'lowpass', cutoff: 2000, delay });
 
 export const SOUNDS = {
@@ -124,7 +173,7 @@ export const SOUNDS = {
 
   // ---- Bodies ----
   hurtFlesh: { gapMs: 0, layers: [{ wave: 'sawtooth', freq: 230, freqEnd: 120, dur: 0.14, gain: 0.22, filter: 'lowpass', cutoff: 900 }, body(500, 0.06, 0.3)] },
-  hurtMachine: { gapMs: 0, layers: [{ wave: 'square', freq: 1800, freqEnd: 1200, dur: 0.06, gain: 0.12 }, { noise: true, filter: 'highpass', freq: 3000, dur: 0.05, gain: 0.2 }] },
+  hurtMachine: { gapMs: 0, vary: 0.15, layers: metalScrap(1, 0.01, 0.5, 131) }, // a bullet pinging off metal
   hurtBone: { gapMs: 0, layers: [{ wave: 'square', freq: 900, dur: 0.03, gain: 0.15 }, { wave: 'square', freq: 700, dur: 0.03, gain: 0.12, delay: 0.05 }] },
   hurtStraw: { gapMs: 0, layers: [{ noise: true, filter: 'bandpass', freq: 1200, q: 0.8, dur: 0.06, gain: 0.25 }] },
   youHurt: { gapMs: 120, layers: [{ wave: 'sawtooth', freq: 190, freqEnd: 90, dur: 0.2, gain: 0.3, filter: 'lowpass', cutoff: 700 }, body(400, 0.08, 0.35)] },
@@ -132,29 +181,38 @@ export const SOUNDS = {
   // Dying: each enemy class has its own last cry (see DEATH_CRIES below),
   // then the body hitting the ground. Falling into the void plays the same
   // cry, thin and echoing away (SoundSystem.fallCry).
-  dieYou: { gapMs: 60, wet: 0.35, layers: [...voice({ pitch: 175, dur: 0.75, gain: 0.7, rasp: 0.25 }), thud(0.65)] },
-  dieSoldier: { gapMs: 60, wet: 0.35, layers: [...voice({ pitch: 190, dur: 0.55, gain: 0.7, rasp: 0.25, drop: 0.55 }), thud(0.5)] },
-  dieMercenary: { gapMs: 60, wet: 0.35, layers: [...voice({ pitch: 145, dur: 0.4, gain: 0.7, f1: 600, f2: 1000, drop: 0.75, rasp: 0.3 }), thud(0.35)] }, // a short grunt
-  dieCommando: { gapMs: 60, wet: 0.35, layers: [...voice({ pitch: 215, dur: 0.75, gain: 0.7, vib: [6, 0.05] }), thud(0.7)] },        // a long yell
-  dieTrooper: { gapMs: 60, wet: 0.35, layers: [...voice({ pitch: 115, dur: 0.85, gain: 0.75, rasp: 0.45, f1: 550, f2: 950 }), thud(0.75, 0.6), clank(0.78)] }, // heavy groan, armour clanks
-  dieInfected: { gapMs: 60, wet: 0.35, layers: [...voice({ pitch: 160, dur: 0.8, gain: 0.65, vib: [14, 0.08], breath: 0.6, rasp: 0.35 }), body(400, 0.4, 0.3, 0.2), thud(0.75)] }, // choking gurgle
-  dieZombie: { gapMs: 60, wet: 0.35, layers: [...voice({ pitch: 100, dur: 1.15, gain: 0.75, vib: [3, 0.06], rasp: 0.5, f1: 500, f2: 900, drop: 0.7 }), thud(1.0)] }, // a long rotten groan
-  dieAlien: { gapMs: 60, wet: 0.35, layers: [...voice({ pitch: 480, dur: 0.5, gain: 0.55, vib: [22, 0.1], f1: 1600, f2: 2600, rasp: 0 }), ...crackles(8, 0.45, 0.35, 4000, 71), thud(0.45, 0.35)] }, // chittering shriek
-  dieMutant: { gapMs: 60, wet: 0.4, echo: 0.3, layers: [...voice({ pitch: 80, dur: 1.2, gain: 0.85, rasp: 0.7, f1: 450, f2: 800, drop: 0.7, vib: [4, 0.05] }), thud(1.05, 0.7)] }, // a deep roar
-  dieK9: { gapMs: 60, wet: 0.35, layers: [...voice({ pitch: 700, dur: 0.18, gain: 0.9, drop: 0.5, f1: 1200, f2: 2000, rasp: 0 }), ...voice({ pitch: 560, dur: 0.35, gain: 0.75, drop: 0.45, f1: 1100, f2: 1900, rasp: 0, vib: [8, 0.05], delay: 0.22 })] }, // yelp, then a whimper
-  dieCyborg: { gapMs: 60, wet: 0.35, layers: [...voice({ pitch: 170, dur: 0.4, gain: 0.6, rasp: 0.3 }), ...crackles(10, 0.5, 0.4, 5000, 73), powerDown(800, 0.6, 0.12, 0.35), thud(0.8)] }, // cry cut off by a glitch
-  dieAndroid: { gapMs: 60, wet: 0.35, layers: [{ wave: 'square', freq: 220, dur: 0.35, gain: 0.3, filter: 'bandpass', cutoff: 1200, q: 3, vibrato: { rate: 30, depth: 40 } }, ...crackles(12, 0.5, 0.45, 5000, 79), powerDown(700, 0.7, 0.25, 0.3), clank(0.9)] }, // garbled voice, powering down
-  dieRobot: { gapMs: 60, wet: 0.4, layers: [powerDown(900, 1.0, 0.3), ...crackles(10, 0.6, 0.45, 4500, 83), clank(0.9, 0.4), thud(0.95, 0.6)] }, // winding down, crashing
-  dieDrone: { gapMs: 60, wet: 0.35, layers: [{ wave: 'sawtooth', freq: 1200, freqEnd: 180, dur: 0.8, gain: 0.22 }, ...crackles(8, 0.4, 0.4, 5000, 89), body(1500, 0.3, 0.5, 0.65), clank(0.7)] }, // rotors dying, crash
+  dieYou: { gapMs: 60, wet: 0.18, vary: 0.05, layers: [...voice({ type: PLAYER_VOICE, dur: 0.85, gain: 0.8 }), thud(0.75)] },
+  dieSoldier: { gapMs: 60, wet: 0.18, vary: 0.08, layers: [...voice({ pitch: 125, dur: 0.7, gain: 0.8 }), thud(0.6)] },
+  dieMercenary: { gapMs: 60, wet: 0.18, vary: 0.08, layers: [...voice({ pitch: 118, dur: 0.4, gain: 0.8, rise: 1.1, drop: 0.8, vowel: 'uh', rasp: 0.12 }), thud(0.35)] }, // short grunt
+  dieCommando: { gapMs: 60, wet: 0.18, vary: 0.08, layers: [...voice({ pitch: 140, dur: 1.0, gain: 0.8, rise: 1.5, hold: 0.45 }), thud(0.9)] },                            // long yell
+  dieTrooper: { gapMs: 60, wet: 0.18, vary: 0.06, layers: [...voice({ pitch: 108, dur: 0.9, gain: 0.85, rise: 1.15, rasp: 0.15, vowel: 'uh' }), thud(0.9, 0.4), clank(0.92)] }, // heavy groan, armour clank
+  dieInfected: { gapMs: 60, wet: 0.18, vary: 0.08, layers: [...voice({ pitch: 115, dur: 0.9, gain: 0.75, vib: [12, 0.07], breath: 0.6, rasp: 0.15 }), body(400, 0.4, 0.3, 0.2), thud(0.85)] }, // choking gurgle
+  dieZombie: { gapMs: 60, wet: 0.18, vary: 0.06, layers: [...voice({ pitch: 98, dur: 1.15, gain: 0.85, rise: 1.1, drop: 0.75, vowel: 'uh', vib: [3, 0.06], rasp: 0.2, hold: 0.5 }), thud(1.15)] }, // rotten groan
+  dieAlien: { gapMs: 60, wet: 0.18, vary: 0.1, layers: [...voice({ type: 'creature', dur: 0.55, gain: 0.65, vib: [22, 0.08], rasp: 0 }), ...crackles(8, 0.45, 0.35, 4000, 71), thud(0.5, 0.35)] }, // chittering shriek
+  dieMutant: { gapMs: 60, wet: 0.18, echo: 0.15, vary: 0.06, layers: [...voice({ type: 'brute', dur: 1.3, gain: 0.95, rise: 1.2, rasp: 0.15, vib: [4, 0.05], hold: 0.5 }), thud(1.15, 0.45)] }, // deep roar
+  dieK9: { gapMs: 60, wet: 0.18, vary: 0.08, layers: [...voice({ type: 'creature', pitch: 650, dur: 0.18, gain: 0.85, rise: 1.2, drop: 0.5, rasp: 0 }), ...voice({ type: 'creature', pitch: 520, dur: 0.4, gain: 0.7, rise: 1.0, drop: 0.45, rasp: 0, vib: [8, 0.05], vowel: 'uh', delay: 0.22 })] }, // yelp, whimper
+  dieCyborg: { gapMs: 60, wet: 0.18, vary: 0.06, layers: [...voice({ pitch: 120, dur: 0.35, gain: 0.6 }), fizz(0.3, 0.25, 0.25), ...metalScrap(9, 0.9, 0.32, 103)] }, // cry cut off, falls apart in scrap
+  dieAndroid: { gapMs: 60, wet: 0.18, vary: 0.08, layers: [fizz(0.25, 0.3), powerDown(600, 0.35, 0.1), ...metalScrap(12, 1.0, 0.35, 107)] }, // fizzes out, scrap clattering down
+  dieRobot: { gapMs: 60, wet: 0.18, vary: 0.06, layers: [fizz(0.2, 0.25), powerDown(700, 0.4, 0.12), ...metalScrap(15, 1.2, 0.36, 109)] }, // heavy scrap heap
+  dieDrone: { gapMs: 60, wet: 0.18, vary: 0.1, layers: [{ wave: 'sawtooth', freq: 1200, freqEnd: 300, dur: 0.35, gain: 0.12 }, fizz(0.2, 0.2), ...metalScrap(8, 0.8, 0.32, 113)] }, // rotors die, light parts rain down
   deathBone: { gapMs: 60, layers: crackles(10, 0.4, 0.4, 1200, 41) },  // bones clattering down
   deathStraw: { gapMs: 60, layers: [{ noise: true, filter: 'bandpass', freq: 1000, q: 0.7, dur: 0.3, gain: 0.35 }] },
-  deathMachine: { gapMs: 60, layers: [snap(0.5), { noise: true, filter: 'lowpass', freq: 1800, freqEnd: 200, dur: 0.6, gain: 0.7 }, { wave: 'square', freq: 1400, freqEnd: 300, dur: 0.25, gain: 0.12 }, ...crackles(10, 0.5, 0.3, 5000, 43)] },
+  deathMachine: { gapMs: 60, wet: 0.18, vary: 0.08, layers: [snap(0.4), fizz(0.25, 0.25), ...metalScrap(12, 1.0, 0.35, 127)] }, // scrap bot and other machines
 
   // On fire: a strangled cry of pain over crackling (repeats while burning).
-  burnPain: { gapMs: 250, wet: 0.3, layers: [...voice({ pitch: 230, dur: 0.45, gain: 0.5, vib: [11, 0.06], rasp: 0.3 }), ...crackles(8, 0.4, 0.4, 2800, 51)] },
-  burnPainYou: { gapMs: 250, wet: 0.3, layers: [...voice({ pitch: 200, dur: 0.5, gain: 0.55, vib: [11, 0.06], rasp: 0.3 }), ...crackles(8, 0.45, 0.4, 2800, 53)] },
+  burnPain: { gapMs: 250, wet: 0.3, vary: 0.1, layers: [...voice({ pitch: 150, dur: 0.5, gain: 0.6, rise: 1.4, vib: [11, 0.05], rasp: 0.12 }), ...crackles(8, 0.4, 0.4, 2800, 51)] },
+  burnPainYou: { gapMs: 250, wet: 0.3, vary: 0.08, layers: [...voice({ type: PLAYER_VOICE, dur: 0.55, gain: 0.65, rise: 1.4, vib: [11, 0.05], rasp: 0.12 }), ...crackles(8, 0.45, 0.4, 2800, 53)] },
   // The saw chewing into a body: wet, gritty squelch (on top of its grinding loop).
   grindFlesh: { gapMs: 140, layers: [{ noise: true, filter: 'lowpass', freq: 600, dur: 0.12, gain: 0.5 }, { noise: true, filter: 'bandpass', freq: 380, q: 3, dur: 0.15, gain: 0.45 }, ...crackles(4, 0.12, 0.35, 1500, 61)] },
+
+  // Saw biting metal (each grind tick on a machine): a scrape and a shard.
+  grindMetal: { gapMs: 140, vary: 0.2, layers: [{ noise: true, filter: 'bandpass', freq: 3500, q: 5, dur: 0.12, gain: 0.35 }, ...metalScrap(1, 0.01, 0.4, 137)] },
+  // Pieces of a body landing (they play as each piece bounces, so the
+  // death sound follows what you see): scrap, flesh, bone.
+  landScrap: { gapMs: 45, vary: 0.25, layers: metalScrap(1, 0.01, 0.45, 139) },
+  landFlesh: { gapMs: 60, vary: 0.2, layers: [{ noise: true, filter: 'lowpass', freq: 700, dur: 0.06, gain: 0.3 }, { noise: true, filter: 'bandpass', freq: 400, q: 2, dur: 0.05, gain: 0.2 }] },
+  shellTink: { gapMs: 35, vary: 0.3, wet: 0.08, layers: [{ wave: 'sine', freq: 4200, dur: 0.05, gain: 0.08 }, { wave: 'sine', freq: 6100, dur: 0.035, gain: 0.05 }, { noise: true, filter: 'highpass', freq: 5000, dur: 0.01, gain: 0.08 }] }, // brass casing
+  landBone: { gapMs: 50, vary: 0.25, layers: [{ wave: 'square', freq: 1100, dur: 0.02, gain: 0.12 }, { noise: true, filter: 'highpass', freq: 2500, dur: 0.02, gain: 0.2 }] },
 
   // ---- You and the HUD ----
   key: { gapMs: 0, layers: [{ wave: 'sine', freq: 2300, dur: 0.015, gain: 0.05 }] },
@@ -249,5 +307,5 @@ export const LOOPS = {
   // Saw Gun grinding into a body: lower, rough, wet.
   sawGrind: { gain: 0.3, layers: [{ wave: 'sawtooth', freq: 520, gain: 0.35, vibrato: { rate: 18, depth: 50 } }, { noise: true, filter: 'bandpass', freq: 1200, q: 1.5, gain: 0.8 }, { noise: 'crackle', filter: 'bandpass', freq: 900, q: 1, gain: 1 }, { noise: true, filter: 'lowpass', freq: 300, gain: 0.5 }] },
   // Saw Gun grinding metal: high scream and sparks.
-  sawGrindMetal: { gain: 0.25, layers: [{ wave: 'sawtooth', freq: 1700, gain: 0.4, vibrato: { rate: 25, depth: 60 } }, { noise: 'crackle', filter: 'highpass', freq: 4000, gain: 1 }, { noise: true, filter: 'highpass', freq: 5000, gain: 0.5 }] },
+  sawGrindMetal: { gain: 0.22, layers: [{ noise: true, filter: 'bandpass', freq: 3800, q: 6, gain: 1 }, { wave: 'sawtooth', freq: 2400, gain: 0.15, vibrato: { rate: 35, depth: 90 } }, { noise: 'crackle', filter: 'highpass', freq: 4500, gain: 0.8 }] }, // blade screeching on metal
 };

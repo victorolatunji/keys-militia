@@ -216,7 +216,7 @@ export default class BotCombat {
     );
     this.bullets.push(bullet);
     this.shotsFired += 1;
-    this.muzzleFlash(x, y);
+    this.muzzleFlash(x, y, bot.facing);
   }
 
   muzzle(bot) {
@@ -464,7 +464,8 @@ export default class BotCombat {
 
   // ---- Effects ----
 
-  muzzleFlash(x, y) {
+  muzzleFlash(x, y, dir = 0) {
+    if (dir) this.scene.blastFx?.muzzleSmoke(x, y, dir);
     const flash = this.scene.add.circle(x, y, MUZZLE_FLASH.radius, MUZZLE_FLASH.color).setDepth(41);
     this.scene.tweens.add({
       targets: flash,

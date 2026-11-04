@@ -5,7 +5,8 @@ import Saw from '../entities/Saw.js';
 import StatusSystem from './StatusSystem.js';
 import FirePatch from '../entities/FirePatch.js';
 import Cloud from '../entities/Cloud.js';
-import { FAMILY_MATERIAL, CLOUD_TINTS, BLAST_THROUGH_WALL } from '../data/effects.js';
+import { FAMILY_MATERIAL, CLOUD_TINTS, BLAST_THROUGH_WALL, JUICE } from '../data/effects.js';
+import { iconKey } from '../ui/Icons.js';
 import { TACTICAL_SOUNDS } from '../data/sounds.js';
 import { groundBelow } from './Terrain.js';
 import Bullet from '../entities/Bullet.js';
@@ -147,19 +148,25 @@ export default class WeaponSystem {
   // melee weapon.
   resetSlots() {
     const melee = Phaser.Utils.Array.GetRandom(DEFAULT_LOADOUT.melee);
-    this.slots = [...DEFAULT_LOADOUT.guns.map((g) => this.spawnGun(g)), WEAPONS[melee]];
+    this.lastSpawnGuns ??= [];
+    const guns = DEFAULT_LOADOUT.guns.map((g, i) => this.spawnGun(g, this.lastSpawnGuns[i]));
+    this.lastSpawnGuns = guns.map((w) => w?.key);
+    this.slots = [...guns, WEAPONS[melee]];
     this.ammo = this.slots.map((w) => (w ? w.ammo : 0));
     this.active = 0;
     this.belt = this.slots.map(() => 0);        // LMG bursts fired since the last reload
     this.reloadUntil = this.slots.map(() => 0); // LMG reloading until (per slot)
   }
 
-  // A weapon key gives that gun; a family name gives a random gun of it.
-  spawnGun(keyOrFamily) {
-    if (!keyOrFamily) return null;
-    if (WEAPONS[keyOrFamily]) return WEAPONS[keyOrFamily];
-    const family = Object.values(WEAPONS).filter((w) => w.category === keyOrFamily && !w.natural);
-    return Phaser.Utils.Array.GetRandom(family) ?? null;
+  // A weapon key gives that gun; a family (or list of families) gives a
+  // random gun from them, not the same as last time (avoid) if there's a choice.
+  spawnGun(entry, avoid = null) {
+    if (!entry) return null;
+    if (typeof entry === 'string' && WEAPONS[entry]) return WEAPONS[entry];
+    const families = Array.isArray(entry) ? entry : [entry];
+    let pool = Object.values(WEAPONS).filter((w) => families.includes(w.category) && !w.natural);
+    if (pool.length > 1) pool = pool.filter((w) => w.key !== avoid);
+    return Phaser.Utils.Array.GetRandom(pool) ?? null;
   }
 
   // LMG: is the gun in your hand reloading?
@@ -293,6 +300,10 @@ export default class WeaponSystem {
 
     const hits = weapon.hits ?? 1;
     const delay = weapon.hitDelayMs ?? 0;
+
+    // A kick of the screen, by how heavy the weapon is.
+    const kick = JUICE.shotShake[weapon.category] ?? 0;
+    if (kick) this.scene.cameras.main.shake(JUICE.shotShake.ms, kick);
 
     // Bullets make their sound per shot (burst); everything else here.
     const bullets = !(weapon.category === 'launcher' || weapon.saw || weapon.beam || weapon.flame || weapon.category === 'melee');
@@ -481,7 +492,8 @@ export default class WeaponSystem {
       cut: (enemy, dmg) => this.addDamage(enemy, dmg, REDUCED_COLOR),
       grind: (enemy, dmg) => {
         this.addDamage(enemy, dmg, DAMAGE_COLOR, 'melee');
-        if (this.scene.sfx?.materialOf(enemy) !== 'machine') this.scene.sfx?.play('grindFlesh', enemy);
+        const metal = this.scene.sfx?.materialOf(enemy) === 'machine';
+        this.scene.sfx?.play(metal ? 'grindMetal' : 'grindFlesh', enemy);
       },
       explode: (ex, ey) => {
         this.blastFx(ex, ey, weapon.blast.blastRadius);
@@ -512,7 +524,12 @@ export default class WeaponSystem {
       const scatter = pellets ? cone : i > 0 ? BURST_SCATTER : 0;
       const shoot = () => {
         if (!target.alive || !this.player.alive) return; // stop the burst
-        if (!pellets || i === 0) this.scene.sfx?.shot(weapon, this.player); // pellets: one bang
+        if (!pellets || i === 0) {
+          this.scene.sfx?.shot(weapon, this.player); // pellets: one bang
+          // A spent casing flips out (fast guns: not every shot).
+          const chance = JUICE.shells.chance[weapon.category] ?? 1;
+          if (Math.random() < chance) this.scene.blastFx?.shell(this.player.x + this.player.facing * 6, this.player.y - 6, this.player.facing);
+        }
         this.fireBullet(target, weapon, scatter, (t) => {
           this.addDamage(t, amount, color);
           if (weapon.pins) this.status.apply(t, 'pinned'); // Nail Gun
@@ -538,6 +555,7 @@ export default class WeaponSystem {
       new Bullet(this.scene, x, y, target, offset, style, weapon.tracerColor, weapon.tracerWidth, onArrive)
     );
     this.muzzleFlash(x, y);
+    this.scene.blastFx?.muzzleSmoke(x, y, p.facing);
   }
 
   muzzleFlash(x, y) {
@@ -1401,7 +1419,21 @@ export default class WeaponSystem {
 
   // ---- Frame update ----
 
+  // The weapon in your hand, shown at your side (the throwable while you aim).
+  updateHeldIcon() {
+    const p = this.player;
+    this.heldIcon ??= this.scene.add.image(p.x, p.y, '__DEFAULT').setScale(0.5).setDepth(1);
+    const weapon = this.current;
+    const show = p.alive && (this.aiming ? Boolean(this.throwable) : Boolean(weapon));
+    this.heldIcon.setVisible(show);
+    if (!show) return;
+    const key = this.aiming ? iconKey({ type: 'throwable', key: this.throwable.key }) : iconKey({ type: 'gun', key: weapon.key });
+    if (this.heldIcon.texture.key !== key) this.heldIcon.setTexture(key);
+    this.heldIcon.setPosition(p.x + p.facing * 14, p.y + 4).setFlipX(p.facing < 0);
+  }
+
   update(delta) {
+    this.updateHeldIcon();
     if (this.aiming) this.updateAim(delta);
 
     this.grenades = this.grenades.filter((g) => g.active);

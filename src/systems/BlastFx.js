@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import Cloud from '../entities/Cloud.js';
 import { groundBelow } from './Terrain.js';
-import { BLAST_FX, CLOUD_VISION } from '../data/effects.js';
+import { BLAST_FX, CLOUD_VISION, JUICE } from '../data/effects.js';
 
 const DEPTH = 44;
 
@@ -84,6 +84,29 @@ export default class BlastFx {
       this.scene.tweens.add({ targets: img, alpha: 0, delay: lifeMs * 0.7, duration: lifeMs * 0.3, onComplete: () => img.destroy() });
     }
     return top;
+  }
+
+  // ---- Gunfire ----
+
+  // A little smoke curling off the barrel after a shot.
+  muzzleSmoke(x, y, dir) {
+    const m = JUICE.muzzleSmoke;
+    for (let i = 0; i < m.puffs; i++) {
+      this.blob(x + dir * Phaser.Math.Between(2, 8), y + Phaser.Math.Between(-3, 3), Phaser.Math.Between(m.size[0], m.size[1]), m.color, {
+        alpha: m.alpha,
+        grow: 2.4,
+        life: Phaser.Math.Between(m.lifeMs[0], m.lifeMs[1]),
+        rise: Phaser.Math.Between(m.rise[0], m.rise[1]),
+        dx: dir * Phaser.Math.Between(6, 16),
+      });
+    }
+  }
+
+  // A spent brass casing flips out of the gun and tinks on the ground.
+  shell(x, y, dir) {
+    const s = JUICE.shells;
+    const size = Phaser.Math.Between(s.size[0], s.size[1]);
+    this.effects.piece(x - dir * 4, y - 2, { w: size, h: Math.max(2, size - 1), color: s.color, landSound: 'shellTink', dir: -dir }, false);
   }
 
   // ---- Explosions ----
@@ -258,6 +281,7 @@ export default class BlastFx {
   // see-through glowing silhouette over the cloud (night-vision style).
   // kind: 'smoke', 'gas' or null (back to normal). Colors in CLOUD_VISION.
   setHeat(target, kind) {
+    target.label?.setSmoke?.(kind === 'smoke' && target.alive);
     let mark = this.heat.get(target);
     if (!kind || !target.alive) {
       if (mark) {

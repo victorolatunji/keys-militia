@@ -4,6 +4,7 @@ import Dummy from '../entities/Dummy.js';
 import EffectsSystem from '../systems/EffectsSystem.js';
 import SoundSystem from '../systems/SoundSystem.js';
 import BlastFx from '../systems/BlastFx.js';
+import { JUICE } from '../data/effects.js';
 import Bot from '../entities/Bot.js';
 import Hud from '../ui/Hud.js';
 import VoidSystem from '../systems/VoidSystem.js';
@@ -85,7 +86,10 @@ export default class GameScene extends Phaser.Scene {
     for (const dummy of this.dummies) {
       this.typing.addTarget(dummy);
       this.collisions.addCharacter(dummy);
-      dummy.on('died', () => (this.kills += 1));
+      dummy.on('died', () => {
+        this.kills += 1;
+        this.hitStop();
+      });
     }
 
     // Enemies: one bot per spawn slot in the map config; types picked at random.
@@ -128,6 +132,21 @@ export default class GameScene extends Phaser.Scene {
       .text(16, 60, '', { fontFamily: 'monospace', fontSize: '14px', color: '#aaaacc' })
       .setScrollFactor(0)
       .setDepth(100);
+  }
+
+  // Hit-stop: everything with physics freezes for a moment when you land a
+  // kill, with a small shake, so kills feel heavy. (Real-time timer: the
+  // game's own clock keeps running so nothing else gets out of step.)
+  hitStop() {
+    const { hitStopMs, killShake } = JUICE;
+    this.cameras.main.shake(killShake.ms, killShake.power);
+    if (this.hitStopping) return;
+    this.hitStopping = true;
+    this.physics.world.pause();
+    window.setTimeout(() => {
+      this.hitStopping = false;
+      if (this.sys.isActive()) this.physics.world.resume();
+    }, hitStopMs);
   }
 
   spawnBot(slot) {
@@ -187,6 +206,7 @@ export default class GameScene extends Phaser.Scene {
   handleBotDeath(bot, cause) {
     // Your kill: you finished it, or it fell into the void soon after you hurt it.
     if (cause === 'player' || (cause === 'void' && bot.fallCredited)) this.kills += 1;
+    if (cause === 'player') this.hitStop(); // your kill: a split-second freeze
 
     // Only Military enemies (the ones that swap weapons) drop their gear,
     // like you. Everyone else vanishes with theirs: a cleaner battlefield.

@@ -160,6 +160,16 @@ export const BLAST_FX = {
 // behind a wall are this share (a weapon's blast can set its own wallFactor).
 export const BLAST_THROUGH_WALL = 0.55;
 
+// Finishing touches ("juice"): how the game reacts to your actions.
+export const JUICE = {
+  hitStopMs: 70,                 // the game freezes this long when you land a kill
+  killShake: { ms: 110, power: 0.004 },
+  // Screen kick on each of your attacks, by weapon family (0 = none).
+  shotShake: { ms: 70, pistol: 0.0015, smg: 0.001, assault: 0.002, lmg: 0.0025, shotgun: 0.006, marksman: 0.004, rifle: 0.006, launcher: 0.007, special: 0.002, melee: 0.002 },
+  muzzleSmoke: { puffs: 2, color: 0xadb5bd, alpha: 0.45, size: [10, 18], lifeMs: [500, 900], rise: [12, 28] },
+  shells: { color: 0xd4a373, size: [2, 4], chance: { smg: 0.5, lmg: 0.5 } }, // brass casings; chance < 1 thins out fast guns
+};
+
 export const GIBS = {
   maxActive: 60,         // oldest pieces go first past this
   speed: [140, 340],     // px/s outward
