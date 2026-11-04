@@ -35,6 +35,7 @@ export default class StatusSystem {
       nextTickAt: old?.nextTickAt ?? now + (config.tickMs ?? 0),
       nextFxAt: 0,
       nails: old?.nails ?? null,
+      nextPainAt: old?.nextPainAt ?? 0,
     };
     if (type === 'pinned') {
       target.pinnedUntil = now + config.durationMs;
@@ -76,6 +77,12 @@ export default class StatusSystem {
 
   burn(target, s, now) {
     const config = STATUS.burning;
+    // Crying out in pain every so often while on fire (you: crackling too).
+    if (now >= (s.nextPainAt ?? 0)) {
+      s.nextPainAt = now + (target === this.scene.player ? 1400 : 2200);
+      this.scene.sfx?.burnPain(target);
+    }
+    if (target === this.scene.player) this.scene.sfx?.hold('youBurning', 'burning');
     if (now >= s.nextTickAt) {
       s.nextTickAt = now + config.tickMs;
       const amount = Math.max(1, Math.round((config.dps * config.tickMs) / 1000));

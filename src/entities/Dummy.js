@@ -77,6 +77,7 @@ export default class Dummy extends Phaser.GameObjects.Rectangle {
 
   die() {
     this.scene.effects?.death(this, 'player');
+    this.scene.sfx?.death(this);
     this.alive = false;
     this.body.enable = false; // nothing bumps into a dead dummy
     this.setWord(null);

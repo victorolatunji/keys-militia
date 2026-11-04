@@ -297,7 +297,7 @@ export default class EffectsSystem {
       vx: dir * Phaser.Math.Between(GIBS.speed[0], GIBS.speed[1]) * Phaser.Math.FloatBetween(0.3, 1) * boost,
       vy: -Phaser.Math.Between(GIBS.lift[0], GIBS.lift[1]) * boost,
       spin: Phaser.Math.FloatBetween(-GIBS.spin, GIBS.spin),
-      until: this.scene.time.now + this.level.gibLifeMs * Phaser.Math.FloatBetween(0.8, 1.2),
+      until: this.scene.time.now + (this.level.gibLifeMs ?? 2500) * Phaser.Math.FloatBetween(0.8, 1.2),
       trailAt: 0,
       blood: drip,
     });

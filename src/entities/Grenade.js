@@ -1,7 +1,6 @@
 import Phaser from 'phaser';
 
 const BLINK_COLOR = 0xff4d6d;
-const BURST_COLOR = 0xff9f1c;
 
 // Anything thrown with Space: frag, sticky (also the trip mine), molotov,
 // combat axe, tacticals (config.kind, see THROWABLES in weapons.js).
@@ -207,21 +206,8 @@ export default class Grenade extends Phaser.GameObjects.Arc {
   // ---- Endings ----
 
   explode() {
+    // The look (fire, smoke, debris) and sound come from whoever threw it.
     const { x, y } = this;
-    const burst = this.scene.add
-      .circle(x, y, this.config.blastRadius, BURST_COLOR, 0.45)
-      .setDepth(42)
-      .setScale(0.2);
-
-    this.scene.tweens.add({
-      targets: burst,
-      scale: 1,
-      alpha: 0,
-      duration: 300,
-      onComplete: () => burst.destroy(),
-    });
-
-    this.scene.cameras.main.shake(150, 0.006);
     this.finish('explode', x, y);
   }
 

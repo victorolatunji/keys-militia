@@ -5,7 +5,7 @@ import Saw from '../entities/Saw.js';
 import StatusSystem from './StatusSystem.js';
 import FirePatch from '../entities/FirePatch.js';
 import Cloud from '../entities/Cloud.js';
-import { FAMILY_MATERIAL, CLOUD_TINTS } from '../data/effects.js';
+import { FAMILY_MATERIAL, CLOUD_TINTS, BLAST_THROUGH_WALL } from '../data/effects.js';
 import { TACTICAL_SOUNDS } from '../data/sounds.js';
 import { groundBelow } from './Terrain.js';
 import Bullet from '../entities/Bullet.js';
@@ -142,18 +142,24 @@ export default class WeaponSystem {
     return this.current?.reach ?? null;
   }
 
-  // Default guns and melee, all full.
+  // Spawn loadout, all full and reshuffled every spawn: a random gun from
+  // each family in DEFAULT_LOADOUT.guns (assault + sniper) and a random
+  // melee weapon.
   resetSlots() {
-    // A random melee weapon every time you spawn.
     const melee = Phaser.Utils.Array.GetRandom(DEFAULT_LOADOUT.melee);
-    this.slots = [
-      ...DEFAULT_LOADOUT.guns.map((key) => (key ? WEAPONS[key] : null)),
-      WEAPONS[melee],
-    ];
+    this.slots = [...DEFAULT_LOADOUT.guns.map((g) => this.spawnGun(g)), WEAPONS[melee]];
     this.ammo = this.slots.map((w) => (w ? w.ammo : 0));
     this.active = 0;
     this.belt = this.slots.map(() => 0);        // LMG bursts fired since the last reload
     this.reloadUntil = this.slots.map(() => 0); // LMG reloading until (per slot)
+  }
+
+  // A weapon key gives that gun; a family name gives a random gun of it.
+  spawnGun(keyOrFamily) {
+    if (!keyOrFamily) return null;
+    if (WEAPONS[keyOrFamily]) return WEAPONS[keyOrFamily];
+    const family = Object.values(WEAPONS).filter((w) => w.category === keyOrFamily && !w.natural);
+    return Phaser.Utils.Array.GetRandom(family) ?? null;
   }
 
   // LMG: is the gun in your hand reloading?
@@ -473,7 +479,10 @@ export default class WeaponSystem {
     const y = p.y - 6;
     const saw = new Saw(this.scene, x, y, target, weapon.saw, this.typing.targets, this.groundLayer, {
       cut: (enemy, dmg) => this.addDamage(enemy, dmg, REDUCED_COLOR),
-      grind: (enemy, dmg) => this.addDamage(enemy, dmg, DAMAGE_COLOR, 'melee'),
+      grind: (enemy, dmg) => {
+        this.addDamage(enemy, dmg, DAMAGE_COLOR, 'melee');
+        if (this.scene.sfx?.materialOf(enemy) !== 'machine') this.scene.sfx?.play('grindFlesh', enemy);
+      },
       explode: (ex, ey) => {
         this.blastFx(ex, ey, weapon.blast.blastRadius);
         this.explode(ex, ey, weapon.blast);
@@ -484,21 +493,9 @@ export default class WeaponSystem {
   }
 
   // Orange flash and a little camera shake.
-  blastFx(x, y, radius) {
-    const burst = this.scene.add
-      .circle(x, y, radius, 0xff9f1c, 0.45)
-      .setDepth(42)
-      .setScale(0.2);
-
-    this.scene.tweens.add({
-      targets: burst,
-      scale: 1,
-      alpha: 0,
-      duration: 300,
-      onComplete: () => burst.destroy(),
-    });
-    this.scene.cameras.main.shake(140, 0.005);
-  }
+  // Old circle burst: explosions now draw themselves in explode() / blast()
+  // (BlastFx), so this does nothing. Kept so older calls still work.
+  blastFx() {}
 
   // Split damage over several hits, delay ms apart. Stops if the target dies.
   // Fire `hits` bullets that share the damage. delay > 0: one after another;
@@ -922,6 +919,8 @@ export default class WeaponSystem {
   // Full damage up close, falling to 0 at the edge. Walls block it.
   explode(x, y, config) {
     this.scene.sfx?.play('explosion', { x, y });
+    const style = config.kind === 'sticky' ? 'sticky' : config.kind === 'frag' ? 'frag' : 'rocket';
+    this.scene.blastFx?.explosion(x, y, config.blastRadius, style);
     this.chainReaction(x, y, config.blastRadius);
     for (const target of this.typing.targets) {
       this.applyBlast(x, y, config, target, 1);
@@ -969,7 +968,10 @@ export default class WeaponSystem {
     const victims = [...this.typing.targets, this.player].filter((v) => {
       if (!v.alive) return false;
       const d = Phaser.Math.Distance.Between(x, y, v.x, v.y);
-      return d <= config.radiusPx && hasLineOfSight(this.groundLayer, x, y - 4, v.x, v.y);
+      if (d > config.radiusPx) return false;
+      // Light and frost need a clear line; a shockwave and an EMP pass walls.
+      const needsSight = config.effect === 'flash' || config.effect === 'cryo';
+      return !needsSight || hasLineOfSight(this.groundLayer, x, y - 4, v.x, v.y);
     });
 
     for (const v of victims) {
@@ -1006,6 +1008,11 @@ export default class WeaponSystem {
 
   // The bang itself: a ring in the tactical's colour.
   tacticalFx(x, y, config) {
+    this.scene.blastFx?.tactical(x, y, config.effect, config.radiusPx);
+  }
+
+  // (old ring look, unused)
+  tacticalRing(x, y, config) {
     const color = config.effect === 'flash' ? 0xffffff : config.color;
     const ring = this.scene.add
       .circle(x, y, config.radiusPx, color, config.effect === 'flash' ? 0.6 : 0.25)
@@ -1203,30 +1210,35 @@ export default class WeaponSystem {
     }
   }
 
-  // Anyone in smoke glows orange-red; anyone choking in gas pulses
-  // blue-purple and bleeds. Back to normal once they're out.
+  // Seen through clouds (CLOUD_VISION): in smoke, only the thrower's ENEMIES
+  // show as a see-through night-vision silhouette (the thrower and teammates
+  // are left alone: it's their smoke). In gas, anyone choking shows as a hot
+  // orange silhouette, bleeds, and you gasp for air. Normal once they're out.
   updateCloudTints(now) {
     const gasTint = CLOUD_TINTS.gas;
-    const smokeTint = CLOUD_TINTS.smoke;
     for (const v of [...this.typing.targets, this.player]) {
       if (!v.setEnvTint) continue;
+      const heat = this.scene.blastFx;
       if (!v.alive) {
-        v.setEnvTint(null);
+        heat?.setHeat(v, null);
         continue;
       }
       const gas = this.gasAt(v.x, v.y);
+      const inEnemySmoke = this.clouds.some(
+        (c) => c.active && c.kind === 'smoke' && c.covers(v.x, v.y) && !this.seesThrough(v, c.owner)
+      );
       if (gas && this.breathes(v, gas.throwable)) {
-        const k = (Math.sin((now / gasTint.pulseMs) * Math.PI * 2) + 1) / 2;
-        const [a, b] = gasTint.colors;
-        v.setEnvTint(k < 0.5 ? a : b, gasTint.strength);
+        // Choking: heat vision (gas colors), bleeding, and you gasp for air.
+        heat?.setHeat(v, 'gas');
         if (now >= (v.nextBleedAt ?? 0)) {
           v.nextBleedAt = now + gasTint.bleedEveryMs;
           this.scene.effects?.bleed(v);
         }
-      } else if (this.clouds.some((c) => c.active && c.kind === 'smoke' && c.covers(v.x, v.y))) {
-        v.setEnvTint(smokeTint.color, smokeTint.strength);
+        if (v === this.player) this.scene.sfx?.hold('youGas', 'gasBreath');
+      } else if (inEnemySmoke) {
+        heat?.setHeat(v, 'smoke');
       } else {
-        v.setEnvTint(null);
+        heat?.setHeat(v, null);
       }
     }
   }
@@ -1256,9 +1268,12 @@ export default class WeaponSystem {
 
     const dist = Phaser.Math.Distance.Between(x, y, victim.x, victim.y);
     if (dist > config.blastRadius) return;
-    if (!hasLineOfSight(this.groundLayer, x, y - 4, victim.x, victim.y)) return;
+    // Behind a wall it still reaches you, weaker (blasts go round corners).
+    const wall = hasLineOfSight(this.groundLayer, x, y - 4, victim.x, victim.y)
+      ? 1
+      : config.wallFactor ?? BLAST_THROUGH_WALL;
 
-    const damage = Math.round(this.blastDamage(dist, config) * multiplier);
+    const damage = Math.round(this.blastDamage(dist, config) * multiplier * wall);
     if (damage <= 0) return;
 
     // Explosions knock a Riot Shield out of your hands.
@@ -1400,12 +1415,24 @@ export default class WeaponSystem {
 
     this.saws = this.saws.filter((s) => s.active);
     for (const saw of this.saws) saw.update(delta);
+    // Saw Gun: a whining blade, a rough grind once it bites (metal screams).
+    for (const saw of this.saws) {
+      const sfx = this.scene.sfx;
+      if (!sfx || !saw.active) continue;
+      const metal = saw.stuckIn && sfx.materialOf(saw.stuckIn) === 'machine';
+      sfx.hold(sfx.idFor(saw, 'saw'), saw.stuckIn ? (metal ? 'sawGrindMetal' : 'sawGrind') : 'sawWhine', saw);
+    }
 
     this.fires = this.fires.filter((f) => f.active);
     for (const fire of this.fires) fire.update();
 
     this.clouds = this.clouds.filter((c) => c.active);
-    for (const cloud of this.clouds) cloud.update();
+    for (const cloud of this.clouds) {
+      cloud.update();
+      // Air hissing out of the canister until the cloud is gone.
+      const sfx = this.scene.sfx;
+      if (sfx && cloud.active) sfx.hold(sfx.idFor(cloud, 'cloud'), 'cloudHiss', cloud, Math.max(0.15, cloud.strength));
+    }
     this.updateGas(this.scene.time.now);
     this.updateCloudTints(this.scene.time.now);
 

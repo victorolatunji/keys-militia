@@ -36,6 +36,13 @@ export default class FirePatch {
       return;
     }
 
+    // Crackling fire for as long as it burns, quieter as it dies down.
+    const sfx = this.scene.sfx;
+    if (sfx) {
+      const level = Math.min(1, ((this.endsAt - now) / this.fire.durationMs) * 1.5);
+      sfx.hold(sfx.idFor(this, 'fire'), 'fire', { x: this.area.centerX, y: this.area.bottom }, level);
+    }
+
     if (now >= this.nextTickAt) {
       this.nextTickAt = now + this.fire.tickMs;
       for (const v of this.victims()) {

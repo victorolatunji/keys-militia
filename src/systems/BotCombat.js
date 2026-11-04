@@ -441,6 +441,8 @@ export default class BotCombat {
   // (at selfDamage strength). A bot killed by a bot's blast isn't your kill.
   blast(bot, x, y, config, scale) {
     this.scene.sfx?.play('explosion', { x, y });
+    const style = config.kind === 'frag' ? 'frag' : config === bot.config.bomb ? 'bomb' : 'rocket';
+    this.scene.blastFx?.explosion(x, y, config.blastRadius, style);
     this.weapons.chainReaction(x, y, config.blastRadius);
     if (this.player.alive && this.inBlast(x, y, config, this.player)) {
       this.player.lastAttacker = bot;
@@ -457,7 +459,7 @@ export default class BotCombat {
 
   inBlast(x, y, config, victim) {
     const d = Phaser.Math.Distance.Between(x, y, victim.x, victim.y);
-    return d <= config.blastRadius && hasLineOfSight(this.groundLayer, x, y - 4, victim.x, victim.y);
+    return d <= config.blastRadius; // walls only weaken it (WeaponSystem.applyBlast)
   }
 
   // ---- Effects ----

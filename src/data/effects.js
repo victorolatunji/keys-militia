@@ -111,6 +111,55 @@ export const CLOUD_TINTS = {
   },
 };
 
+// Seen through a cloud: a character keeps its exact shape but shows as a
+// see-through, glowing silhouette (night-vision style), drawn over the cloud.
+//   smoke: night-vision green, and ONLY on enemies of whoever threw it
+//          (the thrower and teammates aren't marked: it's their smoke)
+//   gas:   hot orange, on anyone choking in it (gas hurts its thrower too)
+// fill: inside of the shape (fillAlpha: how see-through), edge: the outline,
+// flicker: how much it shimmers, scanlines: night-vision lines across it.
+export const CLOUD_VISION = {
+  smoke: { fill: 0x1b5e20, fillAlpha: 0.45, edge: 0x9dff8a, edgeWidth: 2, flicker: 0.15, scanlines: true },
+  gas: { fill: 0x7a2e00, fillAlpha: 0.4, edge: 0xffb703, edgeWidth: 2, flicker: 0.2, scanlines: false },
+};
+
+// How each explosion looks (BlastFx): no circles, just fire, smoke, sparks,
+// debris and a scorch mark. size scales everything (radius 120 = 1).
+export const BLAST_FX = {
+  frag: {
+    size: 1, fireballs: 9, smoke: 7, sparks: 16, debris: 8,
+    fireColors: [0xff9f1c, 0xff6b00, 0xffd166, 0xe85d04],
+    smokeColors: [0x343a40, 0x495057, 0x212529],
+    debrisColors: [0x6c584c, 0x495057, 0x3d3d3d],
+    scorchMs: 9000, shake: 0.008, shakeMs: 220,
+  },
+  sticky: {
+    size: 0.9, fireballs: 7, smoke: 5, sparks: 14, debris: 6,
+    fireColors: [0xff9f1c, 0xffd166, 0xe85d04],
+    smokeColors: [0x343a40, 0x495057],
+    debrisColors: [0x6a994e, 0x495057, 0x3d3d3d],
+    scorchMs: 8000, shake: 0.007, shakeMs: 200,
+  },
+  rocket: {
+    size: 1.25, fireballs: 12, smoke: 10, sparks: 22, debris: 10,
+    fireColors: [0xff9f1c, 0xff6b00, 0xffd166, 0xd00000],
+    smokeColors: [0x212529, 0x343a40, 0x495057],
+    debrisColors: [0x6c584c, 0x495057, 0x3d3d3d],
+    scorchMs: 12000, shake: 0.011, shakeMs: 280,
+  },
+  bomb: {
+    size: 1.1, fireballs: 10, smoke: 9, sparks: 20, debris: 10,
+    fireColors: [0xff9f1c, 0xffd166, 0xe85d04],
+    smokeColors: [0x161a1d, 0x343a40],
+    debrisColors: [0x495057, 0xadb5bd, 0xb08968],
+    scorchMs: 10000, shake: 0.01, shakeMs: 260,
+  },
+};
+
+// Blasts reach round corners and through thin walls, weaker: damage and push
+// behind a wall are this share (a weapon's blast can set its own wallFactor).
+export const BLAST_THROUGH_WALL = 0.55;
+
 export const GIBS = {
   maxActive: 60,         // oldest pieces go first past this
   speed: [140, 340],     // px/s outward

@@ -236,7 +236,8 @@ export default class Player extends Phaser.GameObjects.Rectangle {
   kill(cause) {
     if (!this.alive) return;
     this.scene.effects?.death(this, cause); // gibs (nothing for the void)
-    if (cause !== 'void') this.scene.sfx?.death(this);
+    if (cause === 'void') this.scene.sfx?.fallCry(this); // thin, echoing away below
+    else this.scene.sfx?.death(this);
     this.die();
     this.emit('died', cause);
   }
