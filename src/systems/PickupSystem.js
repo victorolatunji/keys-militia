@@ -191,13 +191,13 @@ export default class PickupSystem {
       if (this.player.hp >= this.player.stats.maxHp) return;
       const healed = this.player.heal(ITEMS.healthPack.heal);
       crate.remove();
-      this.picked(`${healed} HP`);
+      this.picked(`${healed} HP`, 'heal');
     } else if (item.type === 'armor' && event.key === ITEM_KEY) {
       const worn = this.player.armor;
       if (worn && worn.points >= ITEMS.armorVest.points) return;
       this.player.equipArmor(ITEMS.armorVest);
       crate.remove();
-      this.picked(ITEMS.armorVest.name);
+      this.picked(ITEMS.armorVest.name, 'armor');
     } else if (item.type === 'shield' && event.key === ITEM_KEY) {
       this.weapons.pickShield(crate.item.hp);
       crate.remove();
@@ -298,8 +298,10 @@ export default class PickupSystem {
   }
 
   // Floating "+ Sniper" above the player.
-  picked(label) {
+  // sound: which pickup sound to play (default 'pickup').
+  picked(label, sound = 'pickup') {
     this.pickups += 1;
+    this.scene.sfx?.play(sound);
 
     const text = this.scene.add
       .text(this.player.x, this.player.y - 40, `+ ${label}`, {

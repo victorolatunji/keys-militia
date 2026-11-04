@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { PLAYER } from '../data/player.js';
 import { STATUS } from '../data/status.js';
+import { blendColor } from '../ui/color.js';
 
 const SMOKE_COLOR = 0x9a9a9a;
 const HIT_FLASH_MS = 80;
@@ -20,6 +21,7 @@ export default class Player extends Phaser.GameObjects.Rectangle {
     scene.physics.add.existing(this);
 
     this.baseColor = color;
+    this.team = 'players';    // smoke: you and teammates see through your side's smoke
     this.spawnPoint = { x, y };
     this.facing = 1;          // 1 = right, -1 = left
     this.hp = this.stats.maxHp;
@@ -195,6 +197,7 @@ export default class Player extends Phaser.GameObjects.Rectangle {
     this.lastHurtAt = this.scene.time.now;
     this.lastHitKind = kind;
     this.scene.effects?.hit(this, amount, kind); // blood, sparks or ash
+    this.scene.sfx?.hurt(this, kind);
     this.hp = Math.max(0, this.hp - amount);
     this.flash();
 
@@ -202,8 +205,21 @@ export default class Player extends Phaser.GameObjects.Rectangle {
   }
 
   flash() {
+    this.flashing = true;
     this.setFillStyle(0xffffff);
-    this.scene.time.delayedCall(HIT_FLASH_MS, () => this.setFillStyle(this.baseColor));
+    this.scene.time.delayedCall(HIT_FLASH_MS, () => {
+      this.flashing = false;
+      this.setFillStyle(this.displayColor ?? this.baseColor);
+    });
+  }
+
+  // A cloud tints the body while you're in it (smoke: orange-red, gas: a
+  // choking blue-purple). null = back to your own color. strength 0..1.
+  setEnvTint(color, strength = 0.7) {
+    const shown = color == null ? this.baseColor : blendColor(this.baseColor, color, strength);
+    if (shown === this.displayColor) return;
+    this.displayColor = shown;
+    if (!this.flashing) this.setFillStyle(shown);
   }
 
   // Blast push (WeaponSystem decides direction and strength).
@@ -220,6 +236,7 @@ export default class Player extends Phaser.GameObjects.Rectangle {
   kill(cause) {
     if (!this.alive) return;
     this.scene.effects?.death(this, cause); // gibs (nothing for the void)
+    if (cause !== 'void') this.scene.sfx?.death(this);
     this.die();
     this.emit('died', cause);
   }
@@ -454,6 +471,7 @@ export default class Player extends Phaser.GameObjects.Rectangle {
     this.alive = true;
     this.staggerUntil = 0;
     this.body.setAllowGravity(true);
+    this.displayColor = this.baseColor;
     this.setFillStyle(this.baseColor);
     this.setVisible(true);
     this.eye.setVisible(true);

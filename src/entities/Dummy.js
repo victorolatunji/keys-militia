@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import WordLabel from '../ui/WordLabel.js';
 import { ENEMIES } from '../data/enemies.js';
+import { blendColor } from '../ui/color.js';
 
 const HP_WIDTH = 40;
 const HP_HEIGHT = 6;
@@ -49,6 +50,7 @@ export default class Dummy extends Phaser.GameObjects.Rectangle {
 
     this.lastHitKind = kind;
     this.scene.effects?.hit(this, amount, kind);
+    this.scene.sfx?.hurt(this, kind);
     this.hp = Math.max(0, this.hp - amount);
     this.flash();
     this.layout();
@@ -57,8 +59,20 @@ export default class Dummy extends Phaser.GameObjects.Rectangle {
   }
 
   flash() {
+    this.flashing = true;
     this.setFillStyle(0xffffff);
-    this.scene.time.delayedCall(HIT_FLASH_MS, () => this.setFillStyle(this.config.color));
+    this.scene.time.delayedCall(HIT_FLASH_MS, () => {
+      this.flashing = false;
+      this.setFillStyle(this.displayColor ?? this.config.color);
+    });
+  }
+
+  // Same as Player.setEnvTint (smoke and gas clouds tint whoever is inside).
+  setEnvTint(color, strength = 0.7) {
+    const shown = color == null ? this.config.color : blendColor(this.config.color, color, strength);
+    if (shown === this.displayColor) return;
+    this.displayColor = shown;
+    if (!this.flashing) this.setFillStyle(shown);
   }
 
   die() {

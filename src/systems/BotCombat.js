@@ -194,6 +194,7 @@ export default class BotCombat {
       const shoot = () => {
         if (!bot.alive || bot.staggered) return; // a dead or stunned bot stops shooting
         const fan = pellets ? Phaser.Math.FloatBetween(-PELLET_SPREAD_DEG, PELLET_SPREAD_DEG) : 0;
+        if (!pellets || i === 0) this.scene.sfx?.shot(gun, bot, true);
         this.fireBullet(bot, target, gun, amount, fan);
       };
 
@@ -254,6 +255,7 @@ export default class BotCombat {
     if (victim.shieldCovers?.(bot.x)) {
       victim.absorb(damage);
       this.floatText(victim, 'blocked', NOTE_COLOR);
+      this.scene.sfx?.play('block', victim);
       return;
     }
     this.damage(bot, victim, damage);
@@ -296,6 +298,8 @@ export default class BotCombat {
     if (weapon.knockback && target.applyKnockback) {
       target.applyKnockback(bot.facing * weapon.knockback, -weapon.knockback * 0.4);
     }
+    this.scene.sfx?.play('swing', bot, { volume: 0.7 });
+    this.scene.sfx?.play('meleeHit', target);
     this.damage(bot, target, Math.max(1, Math.round(weapon.damage * this.scale(bot))), 'melee');
 
     // Hit and run (Zombie K9): back off for a moment after each bite.
@@ -312,6 +316,7 @@ export default class BotCombat {
     for (let i = 0; i < count; i++) {
       const fireOne = () => {
         if (!bot.alive) return;
+        this.scene.sfx?.shot(weapon, bot, true);
         this.spawnRound(bot, target, weapon, i > 0 ? spec.spread ?? 0 : 0);
       };
       if (i === 0) fireOne();
@@ -435,6 +440,7 @@ export default class BotCombat {
   // A bot's blast hurts everyone caught in it: you, other bots, and itself
   // (at selfDamage strength). A bot killed by a bot's blast isn't your kill.
   blast(bot, x, y, config, scale) {
+    this.scene.sfx?.play('explosion', { x, y });
     this.weapons.chainReaction(x, y, config.blastRadius);
     if (this.player.alive && this.inBlast(x, y, config, this.player)) {
       this.player.lastAttacker = bot;

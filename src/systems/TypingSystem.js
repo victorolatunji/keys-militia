@@ -186,6 +186,7 @@ export default class TypingSystem {
 
     this.progress += 1;
     this.lock.label.setProgress(this.progress);
+    if (this.progress < word.length) this.scene.sfx?.play('key');
     this.player.faceToward(this.lock.x);
 
     if (this.progress === word.length) this.fire();
@@ -208,6 +209,7 @@ export default class TypingSystem {
     if (target) target.label.shake();
 
     this.block(PLAYER.typoJamMs, 'jam');
+    this.scene.sfx?.play('jam');
     this.typos += 1;
     this.player.jamPuff();
   }

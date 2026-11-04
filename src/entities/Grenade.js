@@ -144,6 +144,7 @@ export default class Grenade extends Phaser.GameObjects.Arc {
 
   // Stop dead against the wall or floor it hit.
   plant() {
+    if (this.kind === 'sticky') this.scene.sfx?.play('stick', this);
     this.planted = true;
     this.body.stop();
     this.body.setAllowGravity(false);
@@ -183,6 +184,7 @@ export default class Grenade extends Phaser.GameObjects.Arc {
   setOff(delayMs = 120) {
     if (this.done || this.settingOff) return;
     this.settingOff = true;
+    this.scene.sfx?.play('beep', this);
     this.blowAt = this.scene.time.now + delayMs;
   }
 

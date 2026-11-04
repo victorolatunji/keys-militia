@@ -97,6 +97,20 @@ export const HIT_SPRAY = {
   gas: { ash: true, color: 0x9ef01a }, // no blood: green cough puffs
 };
 
+// Characters inside a cloud change color until they're out.
+//   smoke: a hot orange-red, so whoever threw it can pick them out
+//   gas:   a choking blue-purple that pulses, and they bleed (blood loss,
+//          not shown with gore off)
+export const CLOUD_TINTS = {
+  smoke: { color: 0xff6d2e, strength: 0.65 },
+  gas: {
+    colors: [0x7b2cbf, 0x4361ee], // pulses between these
+    pulseMs: 700,
+    strength: 0.6,
+    bleedEveryMs: 300,            // a drop or two of blood this often
+  },
+};
+
 export const GIBS = {
   maxActive: 60,         // oldest pieces go first past this
   speed: [140, 340],     // px/s outward

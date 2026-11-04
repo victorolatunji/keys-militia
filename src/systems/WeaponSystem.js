@@ -5,7 +5,8 @@ import Saw from '../entities/Saw.js';
 import StatusSystem from './StatusSystem.js';
 import FirePatch from '../entities/FirePatch.js';
 import Cloud from '../entities/Cloud.js';
-import { FAMILY_MATERIAL } from '../data/effects.js';
+import { FAMILY_MATERIAL, CLOUD_TINTS } from '../data/effects.js';
+import { TACTICAL_SOUNDS } from '../data/sounds.js';
 import { groundBelow } from './Terrain.js';
 import Bullet from '../entities/Bullet.js';
 import { hasLineOfSight } from './LineOfSight.js';
@@ -205,6 +206,7 @@ export default class WeaponSystem {
         this.active = next;
         this.typing.onWeaponChanged(GUN_SWITCH_MS);
         this.blockIfReloading();
+        this.scene.sfx?.play('switch');
         return;
       }
     }
@@ -260,6 +262,7 @@ export default class WeaponSystem {
     this.belt[this.active] = 0;
     this.reloadUntil[this.active] = 0;
     this.floatText(this.player, `${gun.name} empty`, EMPTY_COLOR);
+    this.scene.sfx?.play('empty');
 
     const next = this.slots.findIndex((w) => this.usable(w));
     if (next !== -1) this.active = next;
@@ -284,6 +287,11 @@ export default class WeaponSystem {
 
     const hits = weapon.hits ?? 1;
     const delay = weapon.hitDelayMs ?? 0;
+
+    // Bullets make their sound per shot (burst); everything else here.
+    const bullets = !(weapon.category === 'launcher' || weapon.saw || weapon.beam || weapon.flame || weapon.category === 'melee');
+    if (!bullets) this.scene.sfx?.shot(weapon, p);
+    if (weapon.category === 'melee') this.scene.sfx?.play('meleeHit', target);
 
     if (weapon.category === 'launcher') {
       this.launch(target, weapon); // the round does the damage when it explodes
@@ -507,6 +515,7 @@ export default class WeaponSystem {
       const scatter = pellets ? cone : i > 0 ? BURST_SCATTER : 0;
       const shoot = () => {
         if (!target.alive || !this.player.alive) return; // stop the burst
+        if (!pellets || i === 0) this.scene.sfx?.shot(weapon, this.player); // pellets: one bang
         this.fireBullet(target, weapon, scatter, (t) => {
           this.addDamage(t, amount, color);
           if (weapon.pins) this.status.apply(t, 'pinned'); // Nail Gun
@@ -774,6 +783,7 @@ export default class WeaponSystem {
     if (slot === this.active || !this.usable(this.slots[slot])) return;
     if (this.shockedNote()) return;
     this.active = slot;
+    this.scene.sfx?.play('switch');
     this.typing.onWeaponChanged(GUN_SWITCH_MS);
     this.blockIfReloading();
   }
@@ -856,6 +866,7 @@ export default class WeaponSystem {
     // Throwing takes your free hand: a Riot Shield is put down where you
     // stand (it keeps its wear; press 3 on it to pick it back up).
     this.putDownShield();
+    this.scene.sfx?.play('throw');
 
     const grenade = new Grenade(
       this.scene, origin.x, origin.y, config, this.groundLayer, this.worldHeight, this.player,
@@ -882,6 +893,7 @@ export default class WeaponSystem {
 
   // Combat Axe: a heavy hit and a shove, no blast.
   axeHit(enemy, config, axe) {
+    this.scene.sfx?.play('meleeHit', enemy);
     this.addDamage(enemy, config.damage, DAMAGE_COLOR, 'melee');
     if (enemy.applyKnockback) {
       const dir = Math.sign(axe.body.velocity.x) || this.player.facing;
@@ -893,6 +905,7 @@ export default class WeaponSystem {
   // it broke over the void). It burns everyone standing in it, you too.
   // source: 'player' or 'bot' (attacker: the bot that threw it).
   spawnFire(x, y, config, source, attacker = null) {
+    this.scene.sfx?.play('molotov', { x, y });
     const below = groundBelow(this.groundLayer, x, y - 8);
     if (below === null || below > 220) return;
     const surfaceY = Math.floor((y - 8 + below) / 32) * 32; // top of that tile row
@@ -908,6 +921,7 @@ export default class WeaponSystem {
   // Shared blast for every explosive throwable.
   // Full damage up close, falling to 0 at the edge. Walls block it.
   explode(x, y, config) {
+    this.scene.sfx?.play('explosion', { x, y });
     this.chainReaction(x, y, config.blastRadius);
     for (const target of this.typing.targets) {
       this.applyBlast(x, y, config, target, 1);
@@ -940,6 +954,7 @@ export default class WeaponSystem {
   // A tactical went off. Smoke and gas leave a cloud (no bang); the others
   // reach everyone in radiusPx with a clear line to the bang (enemies and you).
   tactical(x, y, config) {
+    this.scene.sfx?.play(TACTICAL_SOUNDS[config.effect], { x, y });
     if (config.cloud) {
       const cloud = new Cloud(this.scene, x, y - 20, config.effect, config.cloud, this.player, this.player);
       cloud.config = { ...config.cloud };
@@ -1151,11 +1166,23 @@ export default class WeaponSystem {
   }
 
   // Is the line between two points (or either end) in smoke? viewer: who's
-  // looking. Your own smoke never blocks you (you see through it, thinly).
+  // looking. Your own smoke never blocks you (you see through it, thinly),
+  // and neither does a teammate's (team modes later: same `team` value).
+  // So in smoke only the thrower's side sees words on the enemies inside;
+  // enemies can't see the thrower, or the words over the thrower's head.
   smokeBlocks(x1, y1, x2, y2, viewer = null) {
     return this.clouds.some(
-      (c) => c.active && c.kind === 'smoke' && c.owner !== viewer && c.blocksLine(x1, y1, x2, y2)
+      (c) =>
+        c.active &&
+        c.kind === 'smoke' &&
+        !this.seesThrough(viewer, c.owner) &&
+        c.blocksLine(x1, y1, x2, y2)
     );
+  }
+
+  seesThrough(viewer, owner) {
+    if (!viewer) return false;
+    return viewer === owner || (viewer.team != null && viewer.team === owner?.team);
   }
 
   // Gas: every tickMs, everyone breathing inside a gas cloud takes damage
@@ -1172,6 +1199,34 @@ export default class WeaponSystem {
         this.status.apply(v, 'gassed', 'player');
         if (v === this.player) v.takeDamage(amount, 'self', 'gas');
         else this.addDamage(v, amount, GAS_COLOR, 'gas');
+      }
+    }
+  }
+
+  // Anyone in smoke glows orange-red; anyone choking in gas pulses
+  // blue-purple and bleeds. Back to normal once they're out.
+  updateCloudTints(now) {
+    const gasTint = CLOUD_TINTS.gas;
+    const smokeTint = CLOUD_TINTS.smoke;
+    for (const v of [...this.typing.targets, this.player]) {
+      if (!v.setEnvTint) continue;
+      if (!v.alive) {
+        v.setEnvTint(null);
+        continue;
+      }
+      const gas = this.gasAt(v.x, v.y);
+      if (gas && this.breathes(v, gas.throwable)) {
+        const k = (Math.sin((now / gasTint.pulseMs) * Math.PI * 2) + 1) / 2;
+        const [a, b] = gasTint.colors;
+        v.setEnvTint(k < 0.5 ? a : b, gasTint.strength);
+        if (now >= (v.nextBleedAt ?? 0)) {
+          v.nextBleedAt = now + gasTint.bleedEveryMs;
+          this.scene.effects?.bleed(v);
+        }
+      } else if (this.clouds.some((c) => c.active && c.kind === 'smoke' && c.covers(v.x, v.y))) {
+        v.setEnvTint(smokeTint.color, smokeTint.strength);
+      } else {
+        v.setEnvTint(null);
       }
     }
   }
@@ -1352,6 +1407,7 @@ export default class WeaponSystem {
     this.clouds = this.clouds.filter((c) => c.active);
     for (const cloud of this.clouds) cloud.update();
     this.updateGas(this.scene.time.now);
+    this.updateCloudTints(this.scene.time.now);
 
     this.status.update();
 
@@ -1369,6 +1425,7 @@ export default class WeaponSystem {
     this.reloadUntil[this.active] = this.scene.time.now + weapon.reloadMs;
     this.typing.block(weapon.reloadMs, 'reload');
     this.floatText(this.player, 'reloading', RELOAD_COLOR);
+    this.scene.sfx?.play('reload');
   }
 
   // A spinning ring around you that fills up while the LMG reloads.

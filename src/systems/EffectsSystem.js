@@ -202,6 +202,19 @@ export default class EffectsSystem {
     }
   }
 
+  // Blood loss (choking in gas): a drop or two running down the body.
+  bleed(target) {
+    const lvl = this.level;
+    if (!lvl.blood || !target.alive) return;
+    const mat = this.material(target);
+    const count = Phaser.Math.Between(1, 2);
+    for (let i = 0; i < count; i++) {
+      const x = target.x + Phaser.Math.Between(-target.width / 3, target.width / 3);
+      const y = target.y + Phaser.Math.Between(-target.height / 4, target.height / 4);
+      this.drop(x, y, Phaser.Math.Between(-20, 20), Phaser.Math.Between(0, 40), mat.colors[0], mat.splat);
+    }
+  }
+
   // ---- Deaths ----
 
   // cause: 'void' (fell: nothing to show), or anything else.

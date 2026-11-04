@@ -25,6 +25,7 @@ export default class Bot extends Player {
   constructor(scene, x, y, config, groundLayer, getTarget, slot = 'main') {
     super(scene, x, y, config.color, Bot.statsFor(config));
     this.slot = slot;
+    this.team = 'enemies';
     this.kills = 0;           // times it killed you
     this.spottedAt = 0;       // when it last started seeing you (BotCombat)
     this.nextShotAt = 0;
@@ -54,6 +55,7 @@ export default class Bot extends Player {
     this.config = config;
     this.stats = Bot.statsFor(config);
     this.baseColor = config.color;
+    this.displayColor = config.color;
     this.setFillStyle(config.color);
     this.maxHp = config.hp;
     this.hp = config.hp;
