@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import Player from '../entities/Player.js';
 import Dummy from '../entities/Dummy.js';
+import EffectsSystem from '../systems/EffectsSystem.js';
 import Bot from '../entities/Bot.js';
 import Hud from '../ui/Hud.js';
 import VoidSystem from '../systems/VoidSystem.js';
@@ -49,6 +50,9 @@ export default class GameScene extends Phaser.Scene {
     this.player = new Player(this, spawn.x, spawn.y);
     this.physics.add.collider(this.player, this.groundLayer);
     this.player.on('died', (cause) => this.handlePlayerDeath(cause));
+
+    // Blood, sparks, splats and gibs (looks only). F2 cycles the gore level.
+    this.effects = new EffectsSystem(this, this.groundLayer);
 
     // Object-vs-object collisions (characters, crates, grenades).
     this.collisions = new CollisionSystem(this);
@@ -261,6 +265,7 @@ export default class GameScene extends Phaser.Scene {
     this.weapons.update(delta);
     this.airdrops.update(delta);
     this.pickups.update();
+    this.effects.update(delta);
     this.voidSystem.update(this.player);
     for (const bot of this.bots) this.voidSystem.update(bot);
     this.hud.update(this.player, this.typing, this.weapons);

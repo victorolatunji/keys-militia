@@ -193,6 +193,8 @@ export default class Player extends Phaser.GameObjects.Rectangle {
 
     amount = this.armorAbsorb(amount, kind);
     this.lastHurtAt = this.scene.time.now;
+    this.lastHitKind = kind;
+    this.scene.effects?.hit(this, amount, kind); // blood, sparks or ash
     this.hp = Math.max(0, this.hp - amount);
     this.flash();
 
@@ -217,6 +219,7 @@ export default class Player extends Phaser.GameObjects.Rectangle {
   // Any death goes through here, so the scene hears about it once.
   kill(cause) {
     if (!this.alive) return;
+    this.scene.effects?.death(this, cause); // gibs (nothing for the void)
     this.die();
     this.emit('died', cause);
   }

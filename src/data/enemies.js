@@ -174,6 +174,7 @@ export const BOTS = {
   skeleton: {
     name: 'Skeleton',
     family: 'undead',
+    material: 'bone', // hit and death effects (effects.js)
     role: 'main',
     color: 0xe9ecef,
     hp: 30,
@@ -312,6 +313,7 @@ export const BOTS = {
   cyborg: {
     name: 'Cyborg',
     family: 'scifi',
+    material: 'cyborg', // hit and death effects (effects.js)
     role: 'main',
     color: 0x5e60ce,
     hp: 90,
@@ -329,6 +331,7 @@ export const BOTS = {
   mutant: {
     name: 'Mutant',
     family: 'scifi',
+    material: 'mutant', // hit and death effects (effects.js)
     role: 'main',
     color: 0x9c6644,
     hp: 110,

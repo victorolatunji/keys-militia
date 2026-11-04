@@ -43,9 +43,12 @@ export default class Dummy extends Phaser.GameObjects.Rectangle {
     this.layout();
   }
 
-  takeDamage(amount) {
+  // cause is unused (dummies only get hit by you); kind shapes the hit effect.
+  takeDamage(amount, cause, kind = 'bullet') {
     if (!this.alive) return;
 
+    this.lastHitKind = kind;
+    this.scene.effects?.hit(this, amount, kind);
     this.hp = Math.max(0, this.hp - amount);
     this.flash();
     this.layout();
@@ -59,6 +62,7 @@ export default class Dummy extends Phaser.GameObjects.Rectangle {
   }
 
   die() {
+    this.scene.effects?.death(this, 'player');
     this.alive = false;
     this.body.enable = false; // nothing bumps into a dead dummy
     this.setWord(null);

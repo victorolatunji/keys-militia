@@ -73,7 +73,7 @@ export default class WeaponSystem {
     // Your effects count as your hits; a bot's would count as theirs.
     this.status = new StatusSystem(scene, (target, amount, source) => {
       if (source === 'player' && target === this.player) target.takeDamage(amount, 'self', 'fire'); // your own fire
-      else if (source === 'player') this.addDamage(target, amount, BURN_COLOR);
+      else if (source === 'player') this.addDamage(target, amount, BURN_COLOR, 'fire');
       else target.takeDamage(amount, source, 'fire');
     });
     this.fires = [];       // molotov fire patches
@@ -431,7 +431,7 @@ export default class WeaponSystem {
       const off = Math.abs(Phaser.Math.Angle.Wrap(Phaser.Math.Angle.Between(x, y, t.x, t.y) - angle));
       const inCone = d <= weapon.reach + t.width / 2 && off <= half && hasLineOfSight(this.groundLayer, x, y, t.x, t.y);
       if (t !== target && !inCone) continue;
-      this.addDamage(t, damage, BURN_COLOR);
+      this.addDamage(t, damage, BURN_COLOR, 'fire');
       this.status.apply(t, 'burning');
     }
 
@@ -463,7 +463,7 @@ export default class WeaponSystem {
     const y = p.y - 6;
     const saw = new Saw(this.scene, x, y, target, weapon.saw, this.typing.targets, this.groundLayer, {
       cut: (enemy, dmg) => this.addDamage(enemy, dmg, REDUCED_COLOR),
-      grind: (enemy, dmg) => this.addDamage(enemy, dmg, DAMAGE_COLOR),
+      grind: (enemy, dmg) => this.addDamage(enemy, dmg, DAMAGE_COLOR, 'melee'),
       explode: (ex, ey) => {
         this.blastFx(ex, ey, weapon.blast.blastRadius);
         this.explode(ex, ey, weapon.blast);
@@ -547,8 +547,9 @@ export default class WeaponSystem {
 
   // A bullet landed: damage, and one damage number per target that counts up
   // while a burst keeps hitting (instead of a pile of small numbers).
-  addDamage(target, amount, color) {
-    target.takeDamage(amount);
+  // kind: 'bullet', 'melee', 'blast' or 'fire' (armor and hit effects use it).
+  addDamage(target, amount, color, kind = 'bullet') {
+    target.takeDamage(amount, undefined, kind);
 
     const now = this.scene.time.now;
     let counter = this.counters.get(target);
@@ -584,7 +585,7 @@ export default class WeaponSystem {
   }
 
   hit(target, amount, color) {
-    target.takeDamage(amount);
+    target.takeDamage(amount, undefined, 'melee');
     this.showDamage(target, amount, color);
   }
 
@@ -879,7 +880,7 @@ export default class WeaponSystem {
 
   // Combat Axe: a heavy hit and a shove, no blast.
   axeHit(enemy, config, axe) {
-    this.addDamage(enemy, config.damage, DAMAGE_COLOR);
+    this.addDamage(enemy, config.damage, DAMAGE_COLOR, 'melee');
     if (enemy.applyKnockback) {
       const dir = Math.sign(axe.body.velocity.x) || this.player.facing;
       enemy.applyKnockback(dir * config.knockback, -config.knockback * 0.4);
