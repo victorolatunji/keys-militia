@@ -110,7 +110,8 @@ export default class TypingSystem {
     if (!hasLineOfSight(this.groundLayer, this.player.x, eyeY, target.x, target.y)) return false;
 
     // Smoke in the way (or around either of you): no word.
-    return !this.scene.weapons?.smokeBlocks(this.player.x, eyeY, target.x, target.y);
+    // (your own smoke doesn't: you see through it, thinly)
+    return !this.scene.weapons?.smokeBlocks(this.player.x, eyeY, target.x, target.y, this.player);
   }
 
   // Runs every frame: show, hide and refresh words.

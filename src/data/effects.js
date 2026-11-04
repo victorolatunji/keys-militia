@@ -94,6 +94,7 @@ export const HIT_SPRAY = {
   melee: { spreadDeg: 100, speed: [100, 240], countScale: 1.5 },
   blast: { spreadDeg: 360, speed: [150, 360], countScale: 2 },
   fire: { ash: true }, // no blood: a few grey ash puffs
+  gas: { ash: true, color: 0x9ef01a }, // no blood: green cough puffs
 };
 
 export const GIBS = {

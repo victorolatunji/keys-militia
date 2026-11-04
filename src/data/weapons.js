@@ -855,8 +855,9 @@ export const THROWABLES = {
   },
 
   // ---- Tacticals (no frag damage; they mess with whoever is caught) ----
-  // Smoke: a cloud nobody sees through. Enemies inside or behind it lose
-  // their words; bots can't see you inside or behind it either.
+  // Smoke: a drifting cloud. Enemies inside it are blind until they get
+  // out, and nobody sees through it, except you (it's your smoke): you see
+  // it thinner, so you can still pick out words on enemies inside it.
   smoke: {
     ...TACTICAL,
     key: 'smoke',
@@ -864,14 +865,39 @@ export const THROWABLES = {
     effect: 'smoke',
     color: 0x8d99ae,
     fuseMs: 1200,
-    smoke: {
-      radiusPx: 120,
+    cloud: {
+      radiusPx: 130,
       durationMs: 9000,
-      growMs: 700,        // swells out
-      fadeMs: 1500,       // thins away at the end
-      puffs: 16,
-      color: 0xb0b7c0,
+      growMs: 1200,       // billows out (no bang)
+      fadeMs: 2000,       // thins away at the end
+      puffs: 26,
+      color: 0xc9ced6,
+      alpha: 0.85,        // how thick it looks to everyone else
+      ownerAlpha: 0.4,    // how thick it looks to whoever threw it
     },
+  },
+  // Gas: a green cloud that hurts anyone breathing inside it, you included.
+  // Armor doesn't help. Machines and cyborgs don't breathe, so it can't
+  // hurt them (immuneMaterials, see effects.js). Enemies try to get out.
+  gas: {
+    ...TACTICAL,
+    key: 'gas',
+    name: 'Gas Grenade',
+    effect: 'gas',
+    color: 0x80b918,
+    fuseMs: 1200,
+    cloud: {
+      radiusPx: 115,
+      durationMs: 8000,
+      growMs: 1200,
+      fadeMs: 1800,
+      puffs: 22,
+      color: 0x8ac926,
+      alpha: 0.32,
+    },
+    dps: 20,              // ~5s in the middle kills you from full HP (armor or not)
+    tickMs: 500,
+    immuneMaterials: ['machine', 'cyborg'],
   },
   // Flashbang: blinds everyone with a clear line to it. Up close and looking
   // at it lasts longest. Blinded bots can't see you. You: a white burst,

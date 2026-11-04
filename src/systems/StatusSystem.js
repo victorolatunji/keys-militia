@@ -64,6 +64,7 @@ export default class StatusSystem {
         else if (type === 'dazed') this.every(s, now, 160, () => this.star(target));
         else if (type === 'shocked') this.every(s, now, 90, () => this.spark(target));
         else if (type === 'blinded') this.every(s, now, 200, () => this.glare(target));
+        else if (type === 'gassed') this.every(s, now, 180, () => this.cough(target));
         else if (type === 'frozen') this.ice(target, s);
         if (s.nails) {
           for (const n of s.nails) n.img.setPosition(target.x + n.dx, target.y + n.dy);
@@ -117,6 +118,22 @@ export default class StatusSystem {
       .setLineWidth(2)
       .setDepth(44);
     this.scene.time.delayedCall(80, () => sp.destroy());
+  }
+
+  // Gassed: little green puffs coughed out of the face.
+  cough(target) {
+    const x = target.x + (target.facing ?? 1) * 8;
+    const y = target.y - target.height / 2 + 12;
+    const c = this.scene.add.circle(x, y, Phaser.Math.Between(2, 4), STATUS.gassed.fxColor, 0.8).setDepth(44);
+    this.scene.tweens.add({
+      targets: c,
+      x: x + (target.facing ?? 1) * Phaser.Math.Between(6, 14),
+      y: y - Phaser.Math.Between(4, 12),
+      scale: 2,
+      alpha: 0,
+      duration: 450,
+      onComplete: () => c.destroy(),
+    });
   }
 
   // Blinded (bots): a white glare over the eyes.

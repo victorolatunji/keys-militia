@@ -113,15 +113,16 @@ export const SUPPLY_DROPS = {
       maxOnMap: 2,
       lifetimeMs: 22000,      // vanishes after this long (blinks during the last 5s); < 2 intervals, so the cap rarely blocks
       pool: [                 // weights add up to 100 (= % of this lane)
-        { type: 'throwable', key: 'grenade', count: 2, weight: 28 },
-        { type: 'throwable', key: 'sticky', count: 2, weight: 14 },
-        { type: 'throwable', key: 'molotov', count: 2, weight: 14 },
-        { type: 'throwable', key: 'combatAxe', count: 2, weight: 10 },
+        { type: 'throwable', key: 'grenade', count: 2, weight: 26 },
+        { type: 'throwable', key: 'sticky', count: 2, weight: 13 },
+        { type: 'throwable', key: 'molotov', count: 2, weight: 13 },
+        { type: 'throwable', key: 'combatAxe', count: 2, weight: 9 },
         { type: 'throwable', key: 'smoke', count: 2, weight: 7 },
+        { type: 'throwable', key: 'gas', count: 2, weight: 6 },
         { type: 'throwable', key: 'flashbang', count: 2, weight: 7 },
         { type: 'throwable', key: 'concussion', count: 2, weight: 7 },
         { type: 'throwable', key: 'emp', count: 2, weight: 7 },
-        { type: 'throwable', key: 'cryo', count: 2, weight: 6 },
+        { type: 'throwable', key: 'cryo', count: 2, weight: 5 },
       ],
     },
     items: {

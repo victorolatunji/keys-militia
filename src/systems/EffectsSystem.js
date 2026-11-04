@@ -110,7 +110,7 @@ export default class EffectsSystem {
     const y = target.y + Phaser.Math.Between(-target.height / 4, target.height / 6);
 
     if (spray.ash) {
-      this.ash(x, y);
+      this.ash(x, y, spray.color);
       return;
     }
 
@@ -189,9 +189,9 @@ export default class EffectsSystem {
   }
 
   // Fire damage: grey ash rising (no blood at any level).
-  ash(x, y) {
+  ash(x, y, color = 0x6c757d) {
     for (let i = 0; i < 2; i++) {
-      const a = this.scene.add.circle(x + Phaser.Math.Between(-8, 8), y, Phaser.Math.Between(2, 4), 0x6c757d, 0.8).setDepth(DEPTH);
+      const a = this.scene.add.circle(x + Phaser.Math.Between(-8, 8), y, Phaser.Math.Between(2, 4), color, 0.8).setDepth(DEPTH);
       this.scene.tweens.add({
         targets: a,
         y: a.y - Phaser.Math.Between(16, 30),

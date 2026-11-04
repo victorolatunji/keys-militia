@@ -11,6 +11,7 @@ export const ICON_COLORS = {
   red: 0xe63946,
   gold: 0xffd166,
   glass: 0x48cae4,
+  toxic: 0x9ef01a,
   outline: 0x000000,
 };
 
@@ -94,5 +95,6 @@ export const ICONS = {
   flashbang: [[9, 2, 6, 10, 'steel'], [10, 0, 4, 2, 'metal'], [9, 5, 6, 2, 'gold'], [14, 0, 4, 1, 'metal']],
   concussion: [[9, 2, 6, 10, 'olive'], [10, 0, 4, 2, 'metal'], [9, 5, 6, 2, 'steel'], [14, 0, 4, 1, 'metal']],
   emp: [[9, 2, 6, 10, 'metal'], [10, 0, 4, 2, 'steel'], [9, 5, 6, 2, 'glass'], [14, 0, 4, 1, 'steel'], [7, 3, 2, 1, 'glass'], [15, 8, 2, 1, 'glass']],
+  gas: [[9, 2, 6, 10, 'metal'], [10, 0, 4, 2, 'steel'], [9, 5, 6, 2, 'toxic'], [14, 0, 4, 1, 'steel'], [16, 1, 2, 2, 'toxic'], [18, 0, 2, 2, 'toxic']],
   cryo: [[9, 2, 6, 10, 'glass'], [10, 0, 4, 2, 'metal'], [9, 5, 6, 2, 'steel'], [14, 0, 4, 1, 'metal']],
 };

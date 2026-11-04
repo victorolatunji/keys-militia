@@ -4,7 +4,8 @@ import Projectile from '../entities/Projectile.js';
 import Saw from '../entities/Saw.js';
 import StatusSystem from './StatusSystem.js';
 import FirePatch from '../entities/FirePatch.js';
-import SmokeCloud from '../entities/SmokeCloud.js';
+import Cloud from '../entities/Cloud.js';
+import { FAMILY_MATERIAL } from '../data/effects.js';
 import { groundBelow } from './Terrain.js';
 import Bullet from '../entities/Bullet.js';
 import { hasLineOfSight } from './LineOfSight.js';
@@ -21,6 +22,7 @@ import { BULLETS, BULLET_DEFAULT, MUZZLE_FLASH, DAMAGE_MERGE_MS } from '../data/
 const DAMAGE_COLOR = '#ff9f1c';  // full-damage hit
 const REDUCED_COLOR = '#ffe8b0'; // hit weakened by range falloff
 const BURN_COLOR = '#e5383b';    // burning damage ticks
+const GAS_COLOR = '#9ef01a';     // gas damage ticks
 const EMPTY_COLOR = '#c9c9c9';   // "Pistol empty"
 const SWING_FADE_MS = 160;
 const RELOAD_COLOR = '#ffd166';  // LMG "reloading"
@@ -78,7 +80,7 @@ export default class WeaponSystem {
     });
     this.fires = [];       // molotov fire patches
     this.stickies = [];    // your planted/flying stickies (they double as trip mines)
-    this.smokes = [];      // smoke clouds (nobody sees through them)
+    this.clouds = [];      // smoke and gas clouds
     this.bullets = [];     // gun bullets in flight
     this.counters = new Map(); // target -> its running damage number
     this.thrown = 0;
@@ -935,11 +937,15 @@ export default class WeaponSystem {
 
   // ---- Tacticals ----
 
-  // A tactical went off. Smoke leaves a cloud; the others reach everyone in
-  // radiusPx with a clear line to the bang (enemies and you).
+  // A tactical went off. Smoke and gas leave a cloud (no bang); the others
+  // reach everyone in radiusPx with a clear line to the bang (enemies and you).
   tactical(x, y, config) {
-    if (config.effect === 'smoke') {
-      this.smokes.push(new SmokeCloud(this.scene, x, y - 10, config.smoke));
+    if (config.cloud) {
+      const cloud = new Cloud(this.scene, x, y - 20, config.effect, config.cloud, this.player, this.player);
+      cloud.config = { ...config.cloud };
+      cloud.throwable = config;
+      cloud.nextTickAt = this.scene.time.now + (config.tickMs ?? 0);
+      this.clouds.push(cloud);
       return;
     }
     this.tacticalFx(x, y, config);
@@ -1144,9 +1150,42 @@ export default class WeaponSystem {
     this.whiteRect = null;
   }
 
-  // Is the line between two points (or either end) in smoke?
-  smokeBlocks(x1, y1, x2, y2) {
-    return this.smokes.some((c) => c.active && c.blocksLine(x1, y1, x2, y2));
+  // Is the line between two points (or either end) in smoke? viewer: who's
+  // looking. Your own smoke never blocks you (you see through it, thinly).
+  smokeBlocks(x1, y1, x2, y2, viewer = null) {
+    return this.clouds.some(
+      (c) => c.active && c.kind === 'smoke' && c.owner !== viewer && c.blocksLine(x1, y1, x2, y2)
+    );
+  }
+
+  // Gas: every tickMs, everyone breathing inside a gas cloud takes damage
+  // (armor doesn't help; machines and cyborgs are immune). Your gas kills
+  // enemies for you, and you too if you stay in it.
+  updateGas(now) {
+    for (const cloud of this.clouds) {
+      if (!cloud.active || cloud.kind !== 'gas' || now < cloud.nextTickAt) continue;
+      const t = cloud.throwable;
+      cloud.nextTickAt = now + t.tickMs;
+      const amount = Math.max(1, Math.round((t.dps * t.tickMs) / 1000));
+      for (const v of [...this.typing.targets, this.player]) {
+        if (!v.alive || !cloud.covers(v.x, v.y) || !this.breathes(v, t)) continue;
+        this.status.apply(v, 'gassed', 'player');
+        if (v === this.player) v.takeDamage(amount, 'self', 'gas');
+        else this.addDamage(v, amount, GAS_COLOR, 'gas');
+      }
+    }
+  }
+
+  breathes(v, gas) {
+    if (v === this.player) return true;
+    const c = v.config ?? {};
+    const material = c.material ?? FAMILY_MATERIAL[c.family] ?? 'flesh';
+    return !gas.immuneMaterials.includes(material);
+  }
+
+  // The gas cloud a point is in (for bots running out of it), or null.
+  gasAt(x, y) {
+    return this.clouds.find((c) => c.active && c.kind === 'gas' && c.covers(x, y)) ?? null;
   }
 
   // Any blast (yours, a bot's, an EMP) sets off stickies caught in it.
@@ -1310,8 +1349,9 @@ export default class WeaponSystem {
     this.fires = this.fires.filter((f) => f.active);
     for (const fire of this.fires) fire.update();
 
-    this.smokes = this.smokes.filter((c) => c.active);
-    for (const cloud of this.smokes) cloud.update();
+    this.clouds = this.clouds.filter((c) => c.active);
+    for (const cloud of this.clouds) cloud.update();
+    this.updateGas(this.scene.time.now);
 
     this.status.update();
 

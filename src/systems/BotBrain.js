@@ -86,10 +86,16 @@ export default class BotBrain {
       this.sees = hasLineOfSight(this.layer, bot.x, bot.y + EYE_OFFSET_Y, t.x, t.y + EYE_OFFSET_Y);
       // Blinded by a flashbang, or smoke in the way: it can't see you.
       if (bot.hasStatus('blinded')) this.sees = false;
-      else if (this.sees && bot.scene.weapons?.smokeBlocks(bot.x, bot.y + EYE_OFFSET_Y, t.x, t.y + EYE_OFFSET_Y)) {
+      else if (this.sees && bot.scene.weapons?.smokeBlocks(bot.x, bot.y + EYE_OFFSET_Y, t.x, t.y + EYE_OFFSET_Y, bot)) {
         this.sees = false;
       }
       if (this.sees) this.lastSeen = { x: t.x, y: t.y, at: now };
+    }
+
+    // In a gas cloud it can breathe? Get out of it (away from its middle).
+    const gas = bot.scene.weapons?.gasAt(bot.x, bot.y);
+    if (gas && !this.retreating && bot.scene.weapons.breathes(bot, gas.throwable)) {
+      this.retreat(gas, gas.config.radiusPx + 60, 1500);
     }
 
     if (this.retreating) {

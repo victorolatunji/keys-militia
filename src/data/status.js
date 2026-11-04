@@ -9,6 +9,7 @@
 //   shocked: EMP. Jetpack and Jet Boost dead (you fall), no gun switching.
 //            Drones drop out of the sky. Machines also take EMP damage.
 //   frozen:  Cryo. Very slow, jetpack frozen, slower attacks.
+//   gassed:  Gas Grenade. Shown while you breathe it (the cloud does the damage).
 // Tacticals affect anyone in range they can reach, you included.
 export const STATUS = {
   burning: {
@@ -24,6 +25,11 @@ export const STATUS = {
     textColor: '#c9c9c9',
     nailColor: 0xadb5bd,
     nails: 3,           // nails drawn sticking out of a pinned character
+  },
+  gassed: {
+    durationMs: 1200,   // coughing a moment after you get out (damage is from the cloud)
+    textColor: '#9ef01a',
+    fxColor: 0x9ef01a,
   },
   blinded: {
     durationMs: 3000,   // flashbang sets its own (longer up close)
