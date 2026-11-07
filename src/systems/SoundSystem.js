@@ -31,6 +31,9 @@ export default class SoundSystem {
     scene.events.once('shutdown', () => {
       kb.off(`keydown-${SOUND_SETTINGS.toggleKey}`, toggle);
       for (const id of [...this.loops.keys()]) this.stopLoop(id);
+      // Switching maps restarts the scene: let this scene's sounds ring out, then unplug them.
+      const master = this.master;
+      if (master) window.setTimeout(() => master.disconnect(), 2000);
     });
   }
 
@@ -393,6 +396,11 @@ export default class SoundSystem {
       return;
     }
     if (kind === 'fire') return; // burning has its own cries (burnPain)
+    if (kind === 'bleed') return; // blood loss is quiet (the axe hit was the loud part)
+    if (kind === 'drown') {
+      this.play('gurgle', target);
+      return;
+    }
     if (target === this.scene.player) {
       this.play('youHurt');
       return;

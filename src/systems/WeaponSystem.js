@@ -75,10 +75,12 @@ export default class WeaponSystem {
 
     // Burning, pinned (and later shocked, dazed...): ticks and damage.
     // Your effects count as your hits; a bot's would count as theirs.
-    this.status = new StatusSystem(scene, (target, amount, source) => {
-      if (source === 'player' && target === this.player) target.takeDamage(amount, 'self', 'fire'); // your own fire
-      else if (source === 'player') this.addDamage(target, amount, BURN_COLOR, 'fire');
-      else target.takeDamage(amount, source, 'fire');
+    // kind: 'fire' (burning) or 'bleed' (an axe wound).
+    this.status = new StatusSystem(scene, (target, amount, source, kind = 'fire') => {
+      const color = kind === 'bleed' ? DAMAGE_COLOR : BURN_COLOR;
+      if (source === 'player' && target === this.player) target.takeDamage(amount, 'self', kind); // your own fire
+      else if (source === 'player') this.addDamage(target, amount, color, kind);
+      else target.takeDamage(amount, source, kind);
     });
     this.fires = [];       // molotov fire patches
     this.stickies = [];    // your planted/flying stickies (they double as trip mines)
@@ -296,6 +298,7 @@ export default class WeaponSystem {
     const color = multiplier < 1 ? REDUCED_COLOR : DAMAGE_COLOR;
 
     this.shots += 1;
+    p.lastAttackAt = this.scene.time.now; // shooting gives away a hiding spot
     this.lastShot = { distance: Math.round(distance), multiplier };
 
     const hits = weapon.hits ?? 1;
@@ -906,14 +909,14 @@ export default class WeaponSystem {
     }
   }
 
-  // Combat Axe: a heavy hit and a shove, no blast.
+  // Combat Axe: a heavy hit and a shove, no blast. The axe stays stuck in
+  // them for a while and the wound bleeds (blood loss, no pin).
   axeHit(enemy, config, axe) {
-    this.scene.sfx?.play('meleeHit', enemy);
+    this.scene.sfx?.play('axeHit', enemy);
+    const dir = Math.sign(axe.body.velocity.x) || this.player.facing;
     this.addDamage(enemy, config.damage, DAMAGE_COLOR, 'melee');
-    if (enemy.applyKnockback) {
-      const dir = Math.sign(axe.body.velocity.x) || this.player.facing;
-      enemy.applyKnockback(dir * config.knockback, -config.knockback * 0.4);
-    }
+    if (enemy.applyKnockback) enemy.applyKnockback(dir * config.knockback, -config.knockback * 0.4);
+    this.status.apply(enemy, 'bleeding', 'player', null, { dir });
   }
 
   // Molotov: a patch of fire on the ground below where it broke (nothing if
@@ -936,7 +939,7 @@ export default class WeaponSystem {
   // Shared blast for every explosive throwable.
   // Full damage up close, falling to 0 at the edge. Walls block it.
   explode(x, y, config) {
-    this.scene.sfx?.play('explosion', { x, y });
+    this.scene.sfx?.play(this.scene.hazards?.blastSound(x, y) ?? 'explosion', { x, y }); // muffled under water
     const style = config.kind === 'sticky' ? 'sticky' : config.kind === 'frag' ? 'frag' : 'rocket';
     this.scene.blastFx?.explosion(x, y, config.blastRadius, style);
     this.chainReaction(x, y, config.blastRadius);
@@ -1022,6 +1025,8 @@ export default class WeaponSystem {
           break;
       }
     }
+    // Cryo freezes water (and crusts lava) it reaches; EMP shocks the water.
+    this.scene.hazards?.onTactical(x, y, config);
   }
 
   // The bang itself: a ring in the tactical's colour.
@@ -1291,7 +1296,10 @@ export default class WeaponSystem {
       ? 1
       : config.wallFactor ?? BLAST_THROUGH_WALL;
 
-    const damage = Math.round(this.blastDamage(dist, config) * multiplier * wall);
+    // Water: a blast under water rocks everyone in it and barely reaches
+    // anyone outside; one in the air barely reaches anyone under water.
+    const water = this.scene.hazards?.blastFactor(x, y, victim) ?? 1;
+    const damage = Math.round(this.blastDamage(dist, config) * multiplier * wall * water);
     if (damage <= 0) return;
 
     // Explosions knock a Riot Shield out of your hands.
@@ -1429,7 +1437,7 @@ export default class WeaponSystem {
     if (!show) return;
     const key = this.aiming ? iconKey({ type: 'throwable', key: this.throwable.key }) : iconKey({ type: 'gun', key: weapon.key });
     if (this.heldIcon.texture.key !== key) this.heldIcon.setTexture(key);
-    this.heldIcon.setPosition(p.x + p.facing * 14, p.y + 4).setFlipX(p.facing < 0);
+    this.heldIcon.setPosition(p.x + p.facing * 14, p.y + 4).setFlipX(p.facing < 0).setAlpha(p.alpha); // see-through with you when hidden
   }
 
   update(delta) {

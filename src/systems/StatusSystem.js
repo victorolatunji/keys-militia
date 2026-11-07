@@ -6,6 +6,8 @@ import { STATUS } from '../data/status.js';
 //   burning: damage every tickMs until it runs out, little flames rising
 //   pinned:  sets character.pinnedUntil (Player/Bot movement checks it) and
 //            draws nails sticking out of the character
+//   bleeding: an axe stuck in the body (follows it), blood loss ticks and
+//            drips; when it runs out the axe drops out and falls away
 //   blinded, dazed, shocked, frozen: Player/Bot read them through
 //            hasStatus() (movement, jetpack, sight, attacks); drawn here
 // damage(target, amount, source) is given by WeaponSystem so damage
@@ -19,7 +21,9 @@ export default class StatusSystem {
 
   // Start (or refresh) an effect. source: 'player' or 'bot'.
   // durationMs: optional, overrides the default (a flashbang up close lasts longer).
-  apply(target, type, source = 'player', durationMs = null) {
+  // opts.dir: bleeding only, the way the axe was flying (-1 / 1), so it
+  // sticks in the side it hit.
+  apply(target, type, source = 'player', durationMs = null, opts = {}) {
     if (!target.alive) return;
     const config = STATUS[type];
     const now = this.scene.time.now;
@@ -35,14 +39,27 @@ export default class StatusSystem {
       nextTickAt: old?.nextTickAt ?? now + (config.tickMs ?? 0),
       nextFxAt: 0,
       nails: old?.nails ?? null,
+      axes: old?.axes ?? null,
       nextPainAt: old?.nextPainAt ?? 0,
+      nextDripAt: 0,
     };
     if (type === 'pinned') {
       target.pinnedUntil = now + config.durationMs;
       target.statuses.pinned.nails ??= this.makeNails(target, config);
     }
+    if (type === 'bleeding') {
+      const axes = (target.statuses.bleeding.axes ??= []);
+      axes.push(this.makeAxe(target, config, opts.dir ?? 1));
+      while (axes.length > config.maxAxes) this.dropAxe(axes.shift(), target);
+    }
     if (fresh) this.label(target, type);
     this.affected.add(target);
+  }
+
+  // End an effect now (water puts out burning).
+  clear(target, type) {
+    const s = target.statuses?.[type];
+    if (s) s.until = 0;
   }
 
   has(target, type) {
@@ -56,12 +73,14 @@ export default class StatusSystem {
       for (const [type, s] of Object.entries(statuses)) {
         if (!target.alive || now >= s.until) {
           if (s.nails) s.nails.forEach((n) => n.img.destroy());
+          if (s.axes) s.axes.forEach((a) => this.dropAxe(a, target));
           if (s.overlay) s.overlay.destroy();
           if (type === 'pinned') target.pinnedUntil = 0;
           delete statuses[type];
           continue;
         }
         if (type === 'burning') this.burn(target, s, now);
+        else if (type === 'bleeding') this.bleed(target, s, now);
         else if (type === 'dazed') this.every(s, now, 160, () => this.star(target));
         else if (type === 'shocked') this.every(s, now, 90, () => this.spark(target));
         else if (type === 'blinded') this.every(s, now, 200, () => this.glare(target));
@@ -69,6 +88,9 @@ export default class StatusSystem {
         else if (type === 'frozen') this.ice(target, s);
         if (s.nails) {
           for (const n of s.nails) n.img.setPosition(target.x + n.dx, target.y + n.dy);
+        }
+        if (s.axes) {
+          for (const a of s.axes) a.img.setPosition(target.x + a.dx, target.y + a.dy).setVisible(target.visible);
         }
       }
       if (Object.keys(statuses).length === 0) this.affected.delete(target);
@@ -91,6 +113,23 @@ export default class StatusSystem {
     if (now >= s.nextFxAt) {
       s.nextFxAt = now + 70;
       this.flame(target, Math.random() < 0.7 ? config.flameColor : config.flameCoreColor);
+    }
+  }
+
+  // Axe wound: blood loss in small ticks (counts as the thrower's damage)
+  // and a steady drip of blood (oil for machines; nothing with gore off).
+  bleed(target, s, now) {
+    const config = STATUS.bleeding;
+    // (catch up if frames were slow, so the total stays dps x time)
+    for (let n = 0; n < 3 && now >= s.nextTickAt && target.alive; n++) {
+      s.nextTickAt += config.tickMs;
+      const amount = Math.max(1, Math.round((config.dps * config.tickMs) / 1000));
+      this.damage(target, amount, s.source, 'bleed');
+    }
+    if (now >= s.nextTickAt) s.nextTickAt = now + config.tickMs;
+    if (now >= s.nextDripAt) {
+      s.nextDripAt = now + config.dripMs;
+      this.scene.effects?.bleed(target);
     }
   }
 
@@ -176,6 +215,38 @@ export default class StatusSystem {
       nails.push({ img, dx, dy });
     }
     return nails;
+  }
+
+  // An axe buried in the side it hit: blade in the body, handle sticking
+  // out the way it came from, at a slight random tilt.
+  makeAxe(target, config, dir) {
+    const dx = -dir * Phaser.Math.Between(2, Math.max(3, Math.floor(target.width / 3)));
+    const dy = Phaser.Math.Between(-target.height / 3, target.height / 5);
+    const img = this.scene.add
+      .image(target.x + dx, target.y + dy, 'icon-combatAxe')
+      .setScale(config.axeScale)
+      .setOrigin(0.88, 0.5)          // the blade edge sits on the hit point
+      .setFlipX(dir < 0)
+      .setRotation(Phaser.Math.FloatBetween(-0.5, 0.5))
+      .setDepth(44);
+    if (dir < 0) img.setOrigin(0.12, 0.5);
+    return { img, dx, dy };
+  }
+
+  // The axe drops out of the wound and tumbles away.
+  dropAxe(axe, target) {
+    const img = axe.img;
+    if (!img.active) return;
+    this.scene.tweens.add({
+      targets: img,
+      y: img.y + 60,
+      x: img.x + (img.flipX ? 14 : -14),
+      angle: img.angle + (img.flipX ? 160 : -160),
+      alpha: 0,
+      duration: 650,
+      ease: 'Quad.easeIn',
+      onComplete: () => img.destroy(),
+    });
   }
 
   // A small flame that rises off a burning character.

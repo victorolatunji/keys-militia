@@ -95,6 +95,8 @@ export const HIT_SPRAY = {
   blast: { spreadDeg: 360, speed: [150, 360], countScale: 2 },
   fire: { ash: true }, // no blood: a few grey ash puffs
   gas: { ash: true, color: 0x9ef01a }, // no blood: green cough puffs
+  bleed: { drip: true },               // blood loss (axe wound): a few drops, no spray
+  drown: { bubbles: true },            // out of breath underwater: bubbles, no blood
 };
 
 // Characters inside a cloud change color until they're out.

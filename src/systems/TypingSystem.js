@@ -95,6 +95,7 @@ export default class TypingSystem {
 
   canSee(target) {
     if (!this.player.alive) return false;
+    if (target.hidden) return false; // under water or in a bush (HazardSystem)
 
     const view = this.scene.cameras.main.worldView;
     if (!view.contains(target.x, target.y)) return false; // off screen

@@ -429,6 +429,8 @@ export const BOT_AI = {
   returnMarginFuel: 15,   // and this much left over on arrival
   landInsetPx: 24,        // lands this far in from an edge, not right on it
   stuckMs: 600,           // not moving while trying to: hop up to get unstuck
+  progressMs: 2500,       // chasing but no closer after this long (wedged under a
+  wanderMs: 2000,         // ledge, at a water edge...): go the other way this long
 
   // Attack turns: at most `max` bots shoot at you at the same time. A bot
   // keeps its turn for holdMs (or until it loses sight), then rests for

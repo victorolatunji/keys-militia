@@ -1,10 +1,10 @@
 # Keys Militia
 *A VAO game. Living plan book: update it whenever the plan changes.*
 
-**Version:** 0.14
+**Version:** 0.15
 **Owner:** Victor Olatunji / VAO
 **Budget:** $0, free tools and free assets only
-**Status:** Phase 6 (Effects) complete. Phase 7 (Maps) next.
+**Status:** Phase 7 (Maps) in progress: Forest and Hell done, the other launch maps next.
 **Live build:** https://victorolatunji.github.io/keys-militia/
 
 ---
@@ -35,6 +35,7 @@ A 2D arena shooter **influenced by Mini Militia**, but its own game: **typing is
 | Pick a loose item | Walk over Health Packs (when hurt), Jet Boosts, Armor Vests and more of a throwable you carry: picked up automatically. Others: 1 / 2 (gun into that slot, or refill a gun you hold), 3 (new throwable, Riot Shield) |
 | Gore level | F2 (Off / Cartoon / Full, remembered in your browser) |
 | Sound on/off | F4 (remembered in your browser) |
+| Next map (testing) | F6 (Forest → Hell → Test, remembered in your browser), or open the game with `?map=forest`, `?map=hell` or `?map=test` |
 | Alt movement (setting) | Hold right-click to fly toward the cursor |
 
 **Move or type rule:**
@@ -78,6 +79,7 @@ A 2D arena shooter **influenced by Mini Militia**, but its own game: **typing is
 |---|---|---|
 | Burning | Flamethrower, Molotov fire | 6 damage per second for 5s, red flames |
 | Pinned | Nail Gun | 4s: no running, jumping or flying; in the air you drop and stay put |
+| Bleeding | Combat Axe | 5s: the axe stays stuck in the body and the wound bleeds (4 per second, blood dripping); no pin, they can still move. Up to 3 axes at once, then it drops out |
 | Blinded | Flashbang | Enemies can't see you (no shooting). You: a white glare around the bang, a faint afterimage and blurry vision that clears. Longer up close; looking away cuts it to 40% |
 | Dazed | Concussion | 4s: about a third of normal speed, jetpack barely lifts, enemies attack slower |
 | Shocked | EMP | 4s: no jetpack or Jet Boost (you fall), no gun switching, drones drop |
@@ -89,6 +91,8 @@ A 2D arena shooter **influenced by Mini Militia**, but its own game: **typing is
 - **Blast knockback:** survivors get pushed away from the blast and up a little, stronger with more damage (full push at `knockbackFullAt`). Right after a push you have no control for a moment (`knockbackStaggerMs` in `player.js`), so a blast near the edge can throw you into the void. Stationary dummies don't move; bots do (heavy enemies less: `knockbackScale`).
 - **Hit effects (0.14):** blood sprays away from the shot (narrow for bullets, wide for melee, every way for blasts) in the color of what it hit: red, rotten green-brown (undead), green (aliens), purple (mutant), bone dust, oil and sparks (machines), straw (dummies). Fire gives ash, gas gives green coughs. Drops splat on the ground and fade.
 - **Deaths (0.14):** the body breaks into pieces that bounce and fade (machines into metal plates and bolts, skeletons into bones); each piece makes a sound as it lands. Falling into the void leaves nothing.
+- **Liquids (0.15):** a frag, sticky or rocket going off **under water** makes no fire: a muffled boom, bubbles and a tall column of water. It hits everyone in that water harder (110%) and anyone outside it at 35%; a blast in the air only reaches someone fully under water at 35%. Blasts just above a surface throw up spray; blasts in lava fling lava. Throwables sink slowly in water and **cook off** in lava; a molotov on water just hisses into steam. Rockets go off when they hit the surface. Enemy bullets only travel a short way into water, so diving protects you. Items and body parts sink (or burn up in lava), blood thins out in water. **Cryo** freezes water it reaches into a sheet of ice you can stand on (anyone under it is frozen and trapped until it cracks and breaks, 8s); on lava it cools a walkable crust (6s). **EMP** shocks everyone in the water it touches (10 damage), you too.
+- **Debris (0.15):** bullets that hit a wall knock off chips in that wall's color with a puff of dust; explosions throw chunks of the ground they went off against.
 - **Gore toggle (F2):** Off (white impact flakes, bodies vanish in a puff) / Cartoon (default) / Full (more and darker blood, red bits, longer splats). Moves to the Settings menu in Phase 9.
 - **Explosions (0.14):** no shapes, just a white-hot flash, rolling fireballs, rising smoke, sparks, bouncing debris, dust along the ground and a scorch mark (frag, sticky, rocket and Scrap Bot each look different). Tacticals have their own look: flashbang star and glitter, concussion dust shockwave, EMP crawling lightning, cryo frost and ice shards.
 - **Finishing touches (0.14):** the gun (or throwable) in your hand shows at your side; a split-second freeze and shake when you land a kill; the screen kicks by weapon weight; smoke curls from the barrel and brass casings flip out and tink on the ground (`JUICE` in `effects.js`).
@@ -155,7 +159,7 @@ A 2D arena shooter **influenced by Mini Militia**, but its own game: **typing is
 | Frag Grenade | arc, bounces | Explodes on its fuse |
 | Sticky Grenade | straight, 120–320px | Explodes on impact with an enemy. On a floor, wall or crate it sticks and becomes a **trip mine**: arms after 1s (red ring shows its 90px zone), then goes off when **anyone** comes close, enemies or you. Beeps for a quarter second first. Max 3 planted, fizzles after 30s |
 | Molotov | arc | Breaks into a 150px fire patch for 5s that sets anyone in it burning, you too |
-| Combat Axe | straight, spins | 60 damage and a shove to the first enemy; no blast |
+| Combat Axe | straight, spins end over end | 60 damage and a shove to the first enemy, then it **stays stuck in the body** and they bleed (section 4); no blast. Bots' axes do the same to you |
 | Smoke Grenade | arc | Hisses out a drifting 9s cloud: enemies inside are blind and show to you as night-vision outlines (section 4) |
 | Gas Grenade | arc | Hisses out a green 8s cloud: anyone breathing it chokes and bleeds (20/s, armor doesn't help), you too; machines and cyborgs are immune; enemies run out of it |
 | Flashbang | arc | Blinded (see section 4) |
@@ -185,7 +189,7 @@ Stats live in `src/data/weapons.js` (guns, specials, throwables), `src/data/item
 - **Jetpack** for players and most enemies, with a **fuel bar** that refills on the ground only (also while typing on the ground).
 - **Jetpack feel:** thrust builds speed (acceleration), capped rise speed, release Up and you arc back down. Down in the air falls faster.
 - **Escape move:** pressing Up while typing mid-air exits typing and fires the jetpack instantly.
-- **Jet Boost** pickup: 20s of floating. Gravity is off and you sink slowly; arrows glide you in any direction (eased, quick enough to dodge bullets), let go and you drift to a stop and keep sinking. Blue flame, gold fuel bar. An EMP, a Cryo Bomb, a nail pin or a blast still wins.
+- **Jet Boost** pickup: 20s of floating. Gravity is off and you sink slowly; arrows glide you in any direction (eased, quick enough to dodge bullets), let go and you drift to a stop and keep sinking. Blue flame, gold fuel bar. An EMP, a Cryo Bomb, a nail pin or a blast still wins. On water you **float on the surface**: you can't go under until the boost runs out.
 - **Status slowdowns:** dazed and frozen slow your running, flying and floating; shocked and frozen stop the jetpack (section 4).
 - **Run out of fuel over the void, and you fall.**
 - **Knocked back by a blast:** no control for a short stagger (also while typing), then normal rules again.
@@ -251,18 +255,32 @@ Stats live in `src/data/weapons.js` (guns, specials, throwables), `src/data/item
 ## 8. Maps
 **Shared rules:**
 - Every map floats over a **void**. Fall in and you die.
-- **The void** is drawn as a dark gradient with rising mist (map config: void top, death line, colors). Falling past the death line kills you, clears your half-typed text, and you drop back in from the sky after a short delay.
+- **The void** is drawn as a dark gradient with rising mist (map config: void top, death line, colors). Falling past the death line kills you, clears your half-typed text, and you drop back in from the sky after a short delay. Hell's void is a **lava sea** ("Fell into the lava").
 - Maps are either **open sky** (limitless upward) or **enclosed** (dome or roof).
-- Each map has **one hazard and one advantage**.
+- **Every map has its own layout, rules, hazards, landscape and advantages.** No shared template.
+- **Tall maps (0.15):** lots of open air above (islands and platforms to fight on), the main level, **openings** (shafts, gaps, tunnels) to drop through, and open air **under the map** with hanging rock and low islands, so you can fight above, on and under the map and fly back up through the gaps.
+- **Map hazards are slow on purpose:** they wear you down, they don't kill you as fast as an enemy does. A bot you hurt badly that then dies to the map (void, lava, drowning, a geyser) still counts as your kill.
+- **Hiding:** fully under water or inside a bush you're hidden. No word shows on you, enemies lose sight of you (one that bumps into you finds you anyway) and you turn see-through. Attacking gives you away for 1 second. The same goes for enemies you can't see.
+- **Bots** stay out of water and lava (they treat them like the void), and a bot that's chasing you but getting no closer tries another way round. Crates never land in water or lava.
 - **Typeable hazards:** some hazards show a word, and typing it triggers the trap on enemies.
-- Each map is a **config** (tileset, background, sky type, hazard, advantage, spawn points), so new maps are cheap to add.
-- **Maps are built in Tiled:** 32×32 tiles, tile layer `ground` (every painted tile is solid), object layer `spawns` with a point named `player`. Tileset embedded in the map, tile layer format CSV, saved as `.json`. The config in `maps.js` points at the Tiled file and holds everything else (void, background, hazards).
+- Each map is a **config** in `maps.js` (Tiled file, sky, colors, void, enemies); how hazards behave is shared in `src/data/hazards.js`.
+- **Maps are built in Tiled:** 32×32 tiles, tile layer `ground` (every painted tile is solid), object layer `spawns` (points `player`, `bot`, optional `dummy`), optional object layers `hazards` (`water` and `lava` rectangles, `geyser` and `vent` points, `waterfall` and `lavafall` rectangles) and `decor` (`tree`, `rock`, `mushroom`, `spire`, `bones` points; `bush`, `bigtree`, `chain`, `cave`, `fireflies` rectangles). Tileset embedded in the map, saved as `.json`. Forest and Hell are made by `tools/make-maps.mjs` (`node tools/make-maps.mjs`), with placeholder tilesets drawn in code (rounded edges, grass, rocks), and can then be edited in Tiled.
+
+**Forest ("Riverbend"), done in 0.15:** sky blue, greens and sand. A cliff with a cave tunnel and a waterfall pouring into a deep lake, a rolling meadow with boulders and a treehouse, a chasm, a rocky highland with a pond, root caverns, islands and a hidden pond under the map, grassy islands in the sky. Birds that chirp, drifting clouds and leaves, fish jumping in the lake, fireflies under the map, trees, bushes, mushrooms, rocks and grass.
+- **Water:** partly in it just slows you (no damage). Fully under: hidden, 5s of breath (a bar over your head), then drowning at 8 HP/s until you come up. Water puts out fire.
+- **Waterfall:** pushes you down while you're in it.
+- **Advantage:** hide under water or in bushes.
+
+**Hell ("Inferno"), done in 0.15:** a red sky with jagged peaks, smoke and embers. A spiked basalt plateau with a lava pit and a shaft, a volcano with a lava crater and a tunnel through its base, floating rock steps with an iron bridge and a hot spring, a lava fall into the sea, rocks hanging on chains in the sky, broken islands over a **lava sea**. Spires, rocks and old bones.
+- **Lava:** touching it sets you burning (6/s). Fully in it you have 2.5s (an orange bar) before you start melting (10/s on top of the burn): like drowning, only faster and on fire.
+- **Fire geysers:** rumble and smoke, then blast a column of fire that burns you and throws you up (6 per hit plus burning).
+- **Advantage:** heat vents (glowing grates) lift you and refill your jetpack fast. Hide in the hot spring like the lake.
 
 **Map list (draft, tune while prototyping):**
 | Map | Sky | Hazard | Advantage |
 |---|---|---|---|
-| Forest | Open | Water drains HP over time | Hide in water or bushes (no word shows on you) |
-| Hell | Open | Lava below, fire geysers | Heat vents refill jetpack fuel |
+| Forest ✅ | Open | Water: stay fully under too long and you drown (partly in is safe); waterfall pushes you down | Hide under water or in bushes (no word shows on you) |
+| Hell ✅ | Open | Lava (pit, crater, the sea below), fire geysers | Heat vents refill jetpack fuel; hide in the hot spring |
 | Glacier | Open | Slippery ice | Type a word on an icicle to drop it on enemies |
 | Catacombs | Enclosed | Darkness, limited vision | Tight tunnels for ambushes, torches reveal enemies |
 | City | Open | Live power lines | Tall buildings for cover and height |
@@ -393,13 +411,13 @@ keys-militia/
 │   ├── scenes/                  # Boot ✅ (loads maps, builds icons), Game ✅, Menu, Lobby, GameOver, Settings
 │   ├── entities/                # Player ✅, Dummy ✅, Bot ✅, Grenade ✅ (every throwable), Crate ✅, Pickup ✅, Projectile ✅ (launcher rounds), Bullet ✅, EnemyBullet ✅, Saw ✅, FirePatch ✅, Cloud ✅ (smoke and gas)
 │   ├── systems/
-│   │   ├── VoidSystem.js        ✅ void visuals, fall detection
+│   │   ├── VoidSystem.js        ✅ void visuals (Hell: lava sea), fall detection
 │   │   ├── TypingSystem.js      ✅ typing state, words, lock-on, typos, word refresh
 │   │   ├── wordPicker.js        ✅ unique-first-letter word picks
 │   │   ├── LineOfSight.js       ✅ tile raycast: which enemies get words, which blasts land
 │   │   ├── WeaponSystem.js      ✅ gun + melee slots, ammo, bullets and bursts, LMG belts, launchers, specials, damage + range falloff, two throwable slots, mouse aim, blasts, chain reactions, tacticals, Jet Boost / shield pickups
-│   │   ├── StatusSystem.js      ✅ burning, pinned, blinded, dazed, shocked, frozen, gassed (you and bots)
-│   │   ├── EffectsSystem.js     ✅ blood, sparks, splats, gibs, gore toggle
+│   │   ├── StatusSystem.js      ✅ burning, pinned, bleeding (stuck axes), blinded, dazed, shocked, frozen, gassed (you and bots)
+│   │   ├── EffectsSystem.js     ✅ blood, sparks, splats, gibs, wall chips, bubbles, gore toggle
 │   │   ├── BlastFx.js           ✅ explosions, tactical bursts, muzzle smoke, shells, night-vision outlines in clouds
 │   │   ├── SoundSystem.js       ✅ sounds made in code: reverb, echo, loops, voices
 │   │   ├── AirdropSystem.js     ✅ parachute crates, supply-drop lanes, rare guarantee, death drops
@@ -410,7 +428,8 @@ keys-militia/
 │   │   ├── BotCombat.js         ✅ bots attacking: turns, reaction, typing time, aim error, bullets, melee, launchers, grenades, bombers
 │   │   ├── BotGear.js           ✅ what a bot carries: loadout, ammo, gun choice, loot, drops
 │   │   ├── EnemySpawner.js      ✅ spawn slots, random types, family rotation
-│   │   ├── HazardSystem.js      # map hazards and advantages
+│   │   ├── HazardSystem.js      ✅ water, lava, geysers, vents, bushes, falls, hiding, breath, splashes, blasts and throwables in liquids, ice and crust
+│   │   ├── BackdropSystem.js    ✅ sky, sun, clouds, parallax hills/spires, birds, leaves, embers, fireflies, trees, rocks, caves, grass
 │   │   └── ScoreSystem.js       # kills, assists, fall credit, MVP
 │   ├── ui/
 │   │   ├── Hud.js               ✅ HP, fuel and armor bars, weapon panel + icon, throwable slots, state tag
@@ -420,7 +439,8 @@ keys-militia/
 │   │   └── WordLabel.js         ✅ word plates above targets
 │   └── data/
 │       ├── player.js            ✅ movement, HP, regen, typing and knockback tuning (bots scale it)
-│       ├── maps.js              ✅ map configs (test map, its enemy slots and families)
+│       ├── maps.js              ✅ map configs (Forest, Hell, test), map select (F6), tile palettes
+│       ├── hazards.js           ✅ hiding, water, lava, falls, freeze, geysers, vents, decor tuning
 │       ├── words.js             ✅ word lists by length, refresh timer
 │       ├── weapons.js           ✅ weapon categories, guns, launchers, specials, melee, throwables, aim, loadout
 │       ├── items.js             ✅ Jet Boost, Riot Shield, Health Pack, Armor Vest
@@ -433,8 +453,10 @@ keys-militia/
 │       ├── airdrops.js          ✅ crate timing and contents, parachute, tipping, pickup radius, supply-drop lanes, death drops
 │       └── characters.js
 ├── public/assets/
-│   ├── maps/                    # Tiled maps (.json) — test.json ✅
-│   └── tilesets/                # tile images — placeholder-tiles.png ✅
+│   ├── maps/                    # Tiled maps (.json): test.json ✅, forest.json ✅, hell.json ✅
+│   └── tilesets/                # tile images: placeholder-tiles.png ✅, forest-tiles.png ✅, hell-tiles.png ✅
+├── tools/
+│   └── make-maps.mjs            ✅ builds the Forest and Hell maps and tilesets (no packages)
 ├── README.md                    ✅ this plan book
 └── CREDITS.md                   ✅ asset licenses
 ```
@@ -453,7 +475,7 @@ keys-militia/
 | 5 | Enemies | Enemy roster with jetpack, walker, leaper and flyer movement; shooters, rushers and a bomber; smart Military gear; spawn slots; attack turns, flinch, regen | ✅ |
 | 5.5 | Arsenal II | Status effects, saw gun, nail gun, laser, flamethrower, sticky grenade (also the trip mine), molotov, combat axe, smoke, flashbang, concussion, EMP, cryo bomb, Jet Boost, riot shield, health pack, armor vest, mouse aiming, two throwable slots, crates and supply lanes | ✅ |
 | 6 | Effects | Blood, gibs, gore toggle, explosions, smoke/gas clouds with night vision, sounds made in code (shots, explosions, loops, voices, death cries), finishing touches | ✅ |
-| 7 | Maps | All launch maps with hazards and advantages, open and enclosed | ⏭️ next |
+| 7 | Maps | All launch maps with hazards and advantages, open and enclosed | 🔄 Forest ✅ Hell ✅, 8 to go |
 | 8 | Offline modes | You vs Military, Zombies, Endless vs Enemies, scoring, awards | |
 | 9 | Menus and guest | Menu, settings, name and character select, local saves | |
 | 9.5 | Art pass | Replace placeholders with final sprites, tiles, backgrounds and effects | |
@@ -464,7 +486,9 @@ keys-militia/
 ---
 
 ## 17. Open decisions
-- [ ] Final hazard and advantage behavior per map (test in prototype)
+- [ ] Final hazard and advantage behavior per map (Forest and Hell starting values in `hazards.js`)
+- [ ] Remaining maps: Glacier, Catacombs, City, Desert, Factory, Sky Islands, Space Station, Graveyard (each its own layout and rules)
+- [ ] Map art: code-drawn placeholders for now (rounded edges, rocks, decor); final tiles in the art pass (9.5)
 - [ ] Match length and kill targets (starting values in section 10; measure the real kill pace)
 - [ ] Exact weapon stats (damage, word length, range falloff)
 - [ ] Blast knockback strength and stagger time (starting values 520 px/s, 220 lift, 350ms)
@@ -473,15 +497,16 @@ keys-militia/
 - [ ] Effects and sound tuning: gore amounts, blast looks, hit-stop length (70ms), shake, volumes, reverb and echo (starting values in `effects.js`, `sounds.js`)
 - [ ] Ammo per weapon (starting rule: shots = 600 / damage), burst sizes and bullet speeds, launcher blast and self-damage (starting 0.5)
 - [ ] Enemy tuning per character: HP, speed, aim, typing speed, damage share (starting values in `enemies.js`). Difficulty (Phase 9) will scale damage, aim and attack turns
-- [ ] Maps need routes for walkers (Phase 7): on the test map's islands they can only reach you on your own platform
+- [ ] Bot routes on the new maps: bots now try another way when they can't get closer; real routing through tunnels and shafts if they still get stuck
 - [ ] Mouse movement details
 - [ ] Slow-fall speed while typing (starting value 60 px/s in `player.js`)
 - [ ] Final movement tuning (starting values in `src/data/player.js`)
-- [ ] Respawn delay and spawn points per map (starting value 1.5s, one spawn point)
+- [ ] Respawn delay and spawn points per map (starting value 1.5s; bots drop in at one of the 3 `bot` points farthest from you)
 
 ---
 
 ## 18. Changelog
+- **0.15:** Phase 7 (Maps) part 1: Forest and Hell. Two tall maps with their own layouts, rules, hazards and advantages: air above, openings to drop through and a whole fight zone under the map. Forest: cave tunnel, waterfall and lake, treehouse, boulders, pond, root caverns, birds, fish, leaves and fireflies; water slows you, hides you fully under and drowns you slowly; bushes hide you. Hell: volcano with a lava crater and tunnel, lava pit, hot spring, lava fall into a lava sea, fire geysers, heat vents that refuel you. Hazards wear you down instead of killing fast (lava now melts you like drowning, a bit faster). Liquids change combat: muffled underwater blasts with water columns, water shielding you from blasts and bullets, grenades sinking or cooking off, molotovs steaming, splashes for everything that falls in, Jet Boost floats you, Cryo freezes water into ice you can stand on (or crusts lava), EMP shocks the water. Bullet chips and blast chunks off walls. Combat Axe now looks like an axe, sticks in the body and makes it bleed. Code-drawn tiles with rounded edges and rocks. Bots try another way when stuck. Map select (F6 or `?map=`). Test dummies removed from the new maps.
 - **0.14:** Phase 6 (Effects) done. Blood, splats and body pieces by what each enemy is made of, with a gore toggle (F2). Explosions rebuilt from fire, smoke, sparks, debris and scorch, and each tactical has its own look. New Gas Grenade (choking, bleeding, machines immune). Smoke rework: a drifting cloud only the thrower's side sees through, with enemies shown as night-vision outlines and green words. Blasts now reach behind walls at 55%. Every sound made in code with Web Audio: guns by family, bangs with echo, crackling fire, saw grinding, hissing clouds, gasping, death cries per enemy class, metal scrap for machines, void falls echoing away; sound toggle (F4). Finishing touches: gun in your hand, hit-stop on kills, screen kick, muzzle smoke, brass casings. Auto pickup for health, Jet Boost, armor and your throwables. Spawn loadout reshuffles every spawn (assault + sniper/marksman + melee).
 - **0.13:** Phase 5.5 (Arsenal II) done. Four player-only specials: Saw Gun, Nail Gun, Laser Gun, Flamethrower. Nine throwables: frag, sticky grenade (also a trip mine anyone can set off), molotov, combat axe, smoke, flashbang, concussion, EMP and cryo, with chain reactions. A shared status system: burning, pinned, blinded, dazed, shocked, frozen. Two throwable slots (Tab or wheel) and mouse aiming (hold left click, release to throw). Jet Boost (floating), Riot Shield, Health Pack and Armor Vest that soaks hits realistically. Crates now offer 6 guns (take 2); loose supply drops come in two lanes (throwables, items) with a guaranteed special every few minutes and caps against litter. Random melee at every spawn (all 40 damage), LMG belts with reloads, shotgun pellet cones. Military throw frags only and are the only enemies that drop gear.
 - **0.12:** Phase 5 (Enemies) done. 15 enemy characters in 5 families (Military, Undead, Machines, Sci-fi, Animals) whose type sets looks, behavior, speed and HP. Bots move with your physics through a virtual controller, with jetpack, walker, leaper and flyer movement, and stay out of the void. They hunt you, keep their range, and shoot back with real bullets that can miss, at a typist's pace and with softer damage. Military characters loot, swap guns and throw grenades; others keep the weapon they spawn with. Scrap Bots explode, the Zombie K9 bites and backs off. Up to 4 enemies at once (2 main, 1 machine, 1 animal) with a rotating family. Playable under pressure: attack turns, hit flinch and health regen. Modes list updated (3 offline, 10 online).

@@ -16,10 +16,13 @@ import PickupSystem from '../systems/PickupSystem.js';
 import BotCombat from '../systems/BotCombat.js';
 import EnemySpawner from '../systems/EnemySpawner.js';
 import { isSolid, groundBelow } from '../systems/Terrain.js';
-import { MAPS } from '../data/maps.js';
+import HazardSystem from '../systems/HazardSystem.js';
+import BackdropSystem from '../systems/BackdropSystem.js';
+import { MAPS, MAP_SELECT } from '../data/maps.js';
 import { PLAYER } from '../data/player.js';
 
-const BOT_DROP_Y = 40; // bots drop in from just under the top of the map
+const BOT_DROP_Y = 40;     // bots drop in from no higher than this...
+const BOT_DROP_PX = 600;   // ...and at most this far above their spawn point
 const WALKER_MIN_GAP = 220; // walkers drop in at least this far from you
 const WALKER_DROP_PX = 120; // ...from this high above the ground
 
@@ -27,7 +30,15 @@ const WALKER_DROP_PX = 120; // ...from this high above the ground
 const DEATH_MESSAGES = {
   void: 'Fell into the void',
   self: 'Blew yourself up',
+  lava: 'Melted in lava',
+  drown: 'Drowned',
+  geyser: 'Caught by a fire geyser',
+  env: 'Burned to death',
 };
+
+// Deaths to the map itself (not a weapon). A bot you hurt badly just before
+// counts as your kill, like a fall into the void.
+const MAP_DEATHS = new Set(['void', 'lava', 'drown', 'geyser', 'env']);
 
 export default class GameScene extends Phaser.Scene {
   constructor() {
@@ -35,7 +46,7 @@ export default class GameScene extends Phaser.Scene {
   }
 
   init(data) {
-    this.map = MAPS[data.mapKey ?? 'test'];
+    this.map = MAPS[data.mapKey] ?? MAPS[MAP_SELECT.default];
     this.deaths = 0;
     this.suicides = 0;
     this.kills = 0;
@@ -44,8 +55,14 @@ export default class GameScene extends Phaser.Scene {
   create() {
     this.cameras.main.setBackgroundColor(this.map.background);
 
-    const { width, height, spawn, dummySpawns } = this.buildTilemap();
-    this.spawnPoints = [spawn, ...dummySpawns]; // bots drop in above one of these
+    const { width, height, spawn, dummySpawns, botSpawns } = this.buildTilemap();
+    this.spawnPoints = [spawn, ...dummySpawns, ...botSpawns]; // bots drop in above one of these
+
+    // Water, lava, geysers, vents, bushes (before bots and crates: they keep
+    // out of water and lava), and the sky, hills and decor behind it all.
+    this.hazards = new HazardSystem(this, this.tilemap, this.map, this.groundLayer);
+    this.backdrop = new BackdropSystem(this, this.map, this.tilemap, this.groundLayer, { width, height });
+    this.input.keyboard.on(`keydown-${MAP_SELECT.key}`, () => this.nextMap());
 
     // World bounds: walls left, right and top. No floor: below is the void.
     this.physics.world.setBounds(0, 0, width, height, true, true, true, false);
@@ -161,7 +178,7 @@ export default class GameScene extends Phaser.Scene {
     return bot;
   }
 
-  // Drop in above the spawn point farthest from you. Walkers can't fly across
+  // Drop in above a spawn point far from you. Walkers can't fly across
   // gaps, so they drop onto the ground you're on, at its far end.
   botSpawnPoint(config) {
     const walks = config && (config.movement === 'walker' || config.movement === 'leaper');
@@ -170,11 +187,33 @@ export default class GameScene extends Phaser.Scene {
       if (point) return point;
     }
 
-    let best = this.spawnPoints[0];
-    for (const p of this.spawnPoints) {
-      if (Math.abs(p.x - this.player.x) > Math.abs(best.x - this.player.x)) best = p;
+    // One of the three points farthest from you, at random (so they don't
+    // all pile in at the same spot).
+    const far = (p) => Phaser.Math.Distance.Between(p.x, p.y, this.player.x, this.player.y);
+    const farthest = [...this.spawnPoints].sort((a, b) => far(b) - far(a)).slice(0, 3);
+    const best = Phaser.Utils.Array.GetRandom(farthest);
+    return { x: best.x, y: this.dropY(best) };
+  }
+
+  // How high above a spawn point a bot drops in from: up to BOT_DROP_PX,
+  // but never through a ceiling (points under the map drop from just under it).
+  dropY(p) {
+    const step = this.groundLayer.tilemap.tileHeight / 2;
+    let y = p.y - 40;
+    while (y - step > Math.max(BOT_DROP_Y, p.y - BOT_DROP_PX) && !isSolid(this.groundLayer, p.x, y - step - 24)) y -= step;
+    return y;
+  }
+
+  // F6 (testing): the next map in MAP_SELECT.order, remembered in this browser.
+  nextMap() {
+    const order = MAP_SELECT.order;
+    const next = order[(order.indexOf(this.map.key) + 1) % order.length];
+    try {
+      window.localStorage.setItem(MAP_SELECT.storageKey, next);
+    } catch {
+      // storage blocked: still switch, just not remembered
     }
-    return { x: best.x, y: BOT_DROP_Y };
+    this.scene.restart({ mapKey: next });
   }
 
   // The far end of the ground under you that it can walk to you from
@@ -205,12 +244,12 @@ export default class GameScene extends Phaser.Scene {
 
   handleBotDeath(bot, cause) {
     // Your kill: you finished it, or it fell into the void soon after you hurt it.
-    if (cause === 'player' || (cause === 'void' && bot.fallCredited)) this.kills += 1;
+    if (cause === 'player' || (MAP_DEATHS.has(cause) && bot.fallCredited)) this.kills += 1;
     if (cause === 'player') this.hitStop(); // your kill: a split-second freeze
 
     // Only Military enemies (the ones that swap weapons) drop their gear,
     // like you. Everyone else vanishes with theirs: a cleaner battlefield.
-    if (cause !== 'void' && bot.gear.smart && bot.config.dropsGear !== false) {
+    if (cause !== 'void' && cause !== 'lava' && bot.gear.smart && bot.config.dropsGear !== false) {
       this.airdrops.dropItems(bot.x, bot.y, bot.gear.items());
     }
 
@@ -228,6 +267,7 @@ export default class GameScene extends Phaser.Scene {
     const { key, tilemapKey, tilesetName, tilesetKey } = this.map;
 
     const tilemap = this.make.tilemap({ key: tilemapKey });
+    this.tilemap = tilemap;
     const tileset = tilemap.addTilesetImage(tilesetName, tilesetKey);
 
     this.groundLayer = tilemap.createLayer('ground', tileset, 0, 0);
@@ -242,12 +282,14 @@ export default class GameScene extends Phaser.Scene {
     }
 
     const dummySpawns = tilemap.filterObjects('spawns', (obj) => obj.name === 'dummy') ?? [];
+    const botSpawns = tilemap.filterObjects('spawns', (obj) => obj.name === 'bot') ?? [];
 
     return {
       width: tilemap.widthInPixels,
       height: tilemap.heightInPixels,
       spawn: { x: spawn.x, y: spawn.y },
       dummySpawns: dummySpawns.map((obj) => ({ x: obj.x, y: obj.y })),
+      botSpawns: botSpawns.map((obj) => ({ x: obj.x, y: obj.y })),
     };
   }
 
@@ -257,7 +299,7 @@ export default class GameScene extends Phaser.Scene {
     this.weapons.cancelAim(); // and any throw in progress
 
     // Your gear spills out where you died (not in the void: it would just fall).
-    if (cause !== 'void') {
+    if (cause !== 'void' && cause !== 'lava') {
       this.airdrops.dropItems(this.player.x, this.player.y, this.weapons.loadoutItems());
     }
     this.deaths += 1;
@@ -266,7 +308,7 @@ export default class GameScene extends Phaser.Scene {
     this.cameras.main.shake(250, 0.01);
     this.cameras.main.flash(250, 120, 0, 40);
 
-    let message = DEATH_MESSAGES[cause] ?? 'You died';
+    let message = (cause === 'void' && this.map.void.deathMessage) || DEATH_MESSAGES[cause] || 'You died';
     const attacker = this.player.lastAttacker;
     if (cause === 'bot' && attacker) {
       attacker.kills += 1;
@@ -286,6 +328,8 @@ export default class GameScene extends Phaser.Scene {
     for (const dummy of this.dummies) dummy.update();
     this.spawner.update();
     for (const bot of this.bots) bot.update(delta);
+    this.hazards.update(); // after everyone moved: water slows, lava burns
+    this.backdrop.update(delta);
     this.botCombat.update(delta);
     this.typing.update();
     this.weapons.update(delta);
@@ -302,7 +346,7 @@ export default class GameScene extends Phaser.Scene {
     const lock = this.typing.lock;
     const shot = this.weapons.lastShot;
     this.debugText.setText([
-      `x: ${Math.round(this.player.x)}  y: ${Math.round(this.player.y)}`,
+      `map: ${this.map.name} (F6 next)  x: ${Math.round(this.player.x)}  y: ${Math.round(this.player.y)}  ${this.player.hidden ? 'HIDDEN' : ''}${this.player.submerged ? ` breath ${Math.ceil(this.player.hazard.breath / 1000)}s` : ''}`,
       `vx: ${Math.round(b.velocity.x)}  vy: ${Math.round(b.velocity.y)}`,
       `onGround: ${this.player.onGround}  fuel: ${Math.round(this.player.fuel)}  hp: ${Math.round(this.player.hp)}`,
       `alive: ${this.player.alive}  deaths: ${this.deaths}  suicides: ${this.suicides}`,

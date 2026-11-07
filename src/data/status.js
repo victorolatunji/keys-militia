@@ -9,6 +9,9 @@
 //   shocked: EMP. Jetpack and Jet Boost dead (you fall), no gun switching.
 //            Drones drop out of the sky. Machines also take EMP damage.
 //   frozen:  Cryo. Very slow, jetpack frozen, slower attacks.
+//   bleeding: Combat Axe. The axe stays stuck in the body for a while and
+//            the wound bleeds (damage over time, blood dripping). No pin:
+//            they can still move. More axes = more axes stuck in them.
 //   gassed:  Gas Grenade. Shown while you breathe it (the cloud does the damage).
 // Tacticals affect anyone in range they can reach, you included.
 export const STATUS = {
@@ -25,6 +28,15 @@ export const STATUS = {
     textColor: '#c9c9c9',
     nailColor: 0xadb5bd,
     nails: 3,           // nails drawn sticking out of a pinned character
+  },
+  bleeding: {
+    durationMs: 5000,   // the axe falls out after this (a new axe restarts it)
+    dps: 4,             // blood loss per second while it's stuck (20 over 5s)
+    tickMs: 500,
+    dripMs: 160,        // a drop of blood this often
+    maxAxes: 3,         // axes drawn stuck in one body at once
+    axeScale: 0.85,     // size of the stuck axe (its icon)
+    textColor: '#e01e37',
   },
   gassed: {
     durationMs: 1200,   // coughing a moment after you get out (damage is from the cloud)

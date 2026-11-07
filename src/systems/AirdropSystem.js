@@ -11,6 +11,13 @@ import { WEAPONS } from '../data/weapons.js';
 // the other), each with its own timer and cap,
 // and spills loose pickups when someone dies (death drops).
 // PickupSystem handles the 1/2/3/4 panel for all of them.
+// Melee weapons only come with your spawn (random each time); they never
+// drop on their own: not in crates, supply drops or when anyone dies.
+function isMelee(item) {
+  if (item.type === 'melee') return true;
+  return item.type === 'gun' && WEAPONS[item.key]?.category === 'melee';
+}
+
 export default class AirdropSystem {
   constructor(scene, groundLayer, worldSize, collisions) {
     this.scene = scene;
@@ -113,6 +120,7 @@ export default class AirdropSystem {
   dropSupply(lane = this.lanes[0]) {
     const item = this.supplyItem(lane);
 
+    if (isMelee(item)) return; // melee only comes with your spawn, never loose
     const supply = new Pickup(
       this.scene,
       this.findDropX(),
@@ -135,7 +143,7 @@ export default class AirdropSystem {
 
   // Spill items at a spot (a death). items: [{ type, key, count? }]
   dropItems(x, y, items) {
-    for (const item of items) {
+    for (const item of items.filter((i) => !isMelee(i))) {
       this.drops.push(new Pickup(this.scene, x, y, item, this.groundLayer, this.height));
     }
 
@@ -162,6 +170,7 @@ export default class AirdropSystem {
   hasGroundBelow(x) {
     const tileSize = this.groundLayer.tilemap.tileHeight;
     for (let y = 0; y < this.height; y += tileSize) {
+      if (this.groundLayer.unsafeAt?.(x, y)) return false; // not into water or lava
       const tile = this.groundLayer.getTileAtWorldXY(x, y);
       if (tile && tile.collides) return true;
     }
@@ -172,7 +181,7 @@ export default class AirdropSystem {
   crateItem() {
     return {
       type: 'crate',
-      options: CRATE_CONTENTS.families.map((family) => this.randomGun(family)),
+      options: CRATE_CONTENTS.families.filter((f) => f !== 'melee').map((family) => this.randomGun(family)),
       picksLeft: CRATE_CONTENTS.picks,
     };
   }

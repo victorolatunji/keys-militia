@@ -152,6 +152,23 @@ export const SOUNDS = {
   // ---- Melee: a heavy punch/beating thud ----
   swing: { gapMs: 60, layers: [{ noise: true, filter: 'bandpass', freq: 700, freqEnd: 2200, q: 1.2, dur: 0.14, gain: 0.28, attack: 0.03 }] },
   meleeHit: { gapMs: 50, layers: [thump(95, 42, 0.16, 0.85), body(450, 0.09, 0.7), crack(1100, 0.04, 0.35), body(250, 0.14, 0.3, 0.02)] },
+  // Combat Axe biting in: a heavy chop, a wet crunch and a short steel ring.
+  axeHit: { gapMs: 50, layers: [thump(110, 45, 0.18, 0.9), crack(900, 0.05, 0.5), body(700, 0.12, 0.55, 0.01), { wave: 'triangle', freq: 2300, freqEnd: 2150, dur: 0.25, gain: 0.07, delay: 0.01 }, ...crackles(4, 0.08, 0.2, 1800, 17)] },
+
+  // ---- Maps (Phase 7) ----
+  splash: { gapMs: 90, layers: [{ noise: true, filter: 'lowpass', freq: 1800, freqEnd: 500, dur: 0.35, gain: 0.9 }, thump(90, 50, 0.2, 0.3), { noise: true, filter: 'bandpass', freq: 3000, q: 1, dur: 0.2, gain: 0.45, delay: 0.03 }, ...crackles(8, 0.4, 0.3, 2500, 23)] }, // falling in water
+  splashSmall: { gapMs: 90, layers: [{ noise: true, filter: 'bandpass', freq: 1600, q: 1.2, dur: 0.15, gain: 0.6 }, ...crackles(4, 0.18, 0.25, 2800, 29)] }, // climbing out, a throwable landing in water
+  gurgle: { gapMs: 300, layers: [{ wave: 'sine', freq: 260, freqEnd: 520, dur: 0.08, gain: 0.25 }, { wave: 'sine', freq: 300, freqEnd: 600, dur: 0.07, gain: 0.2, delay: 0.12 }, { wave: 'sine', freq: 220, freqEnd: 480, dur: 0.09, gain: 0.2, delay: 0.22 }, body(400, 0.3, 0.15)] }, // out of breath underwater
+  gasp: { gapMs: 300, layers: [{ noise: true, filter: 'bandpass', freq: 1400, freqEnd: 900, q: 2, dur: 0.35, gain: 0.8, attack: 0.05 }] }, // coming up for air
+  lavaSizzle: { gapMs: 150, layers: [{ noise: true, filter: 'highpass', freq: 3000, dur: 0.5, gain: 0.4, attack: 0.02 }, ...crackles(10, 0.5, 0.2, 3200, 31)] }, // touching lava
+  geyserWarn: { gapMs: 200, layers: [{ noise: true, filter: 'lowpass', freq: 300, dur: 0.9, gain: 0.9, attack: 0.5 }, thump(55, 40, 0.9, 0.25), ...crackles(6, 0.9, 0.25, 1200, 37)] }, // rumbling before it blows
+  geyser: { gapMs: 200, echo: 0.3, layers: [{ noise: true, filter: 'lowpass', freq: 900, freqEnd: 400, dur: 1.2, gain: 0.6, attack: 0.04 }, { noise: true, filter: 'bandpass', freq: 2200, q: 0.8, dur: 0.9, gain: 0.3 }, thump(70, 35, 0.4, 0.6), ...crackles(16, 1.1, 0.2, 2600, 41)] }, // a fire geyser erupting
+  waterBlast: { gapMs: 80, echo: 0.2, layers: [thump(70, 30, 0.5, 0.9), body(300, 0.5, 0.6), { noise: true, filter: 'lowpass', freq: 1500, freqEnd: 400, dur: 0.7, gain: 0.7, delay: 0.08 }, ...crackles(14, 0.8, 0.25, 2200, 43).map((l) => ({ ...l, delay: l.delay + 0.1 }))] }, // a muffled boom, then the water column crashing down
+  iceForm: { gapMs: 150, layers: [{ noise: true, filter: 'highpass', freq: 3000, freqEnd: 6000, dur: 0.5, gain: 0.35, attack: 0.05 }, ...crackles(12, 0.5, 0.25, 4500, 47), { wave: 'sine', freq: 2600, freqEnd: 1800, dur: 0.3, gain: 0.06, delay: 0.1 }] }, // water freezing over
+  iceCrack: { gapMs: 200, layers: [snap(0.5), ...crackles(8, 0.25, 0.35, 3800, 53)] },
+  iceBreak: { gapMs: 200, layers: [...glass, body(500, 0.2, 0.3)] },
+  steam: { gapMs: 150, layers: [{ noise: true, filter: 'highpass', freq: 2500, dur: 0.8, gain: 0.45, attack: 0.03 }] }, // fire hitting water
+  chirp: { gapMs: 250, vary: 0.15, layers: [{ wave: 'sine', freq: 3200, freqEnd: 4200, dur: 0.06, gain: 0.14 }, { wave: 'sine', freq: 3600, freqEnd: 4600, dur: 0.05, gain: 0.11, delay: 0.09 }] }, // a bird overhead
 
   // ---- Explosives and throwables ----
   // A real bang: sharp crack, then a deep boom and rumble.
@@ -307,5 +324,9 @@ export const LOOPS = {
   // Saw Gun grinding into a body: lower, rough, wet.
   sawGrind: { gain: 0.3, layers: [{ wave: 'sawtooth', freq: 520, gain: 0.35, vibrato: { rate: 18, depth: 50 } }, { noise: true, filter: 'bandpass', freq: 1200, q: 1.5, gain: 0.8 }, { noise: 'crackle', filter: 'bandpass', freq: 900, q: 1, gain: 1 }, { noise: true, filter: 'lowpass', freq: 300, gain: 0.5 }] },
   // Saw Gun grinding metal: high scream and sparks.
+  // Maps: a waterfall's steady roar, lava bubbling, a heat vent's hot breath.
+  waterfall: { gain: 0.3, layers: [{ noise: true, filter: 'lowpass', freq: 1200, gain: 1 }, { noise: true, filter: 'bandpass', freq: 3000, q: 0.6, gain: 0.35 }] },
+  lava: { gain: 0.35, pulse: { rate: 0.7, depth: 0.5 }, layers: [{ noise: true, filter: 'lowpass', freq: 220, gain: 1 }, { noise: 'crackle', filter: 'bandpass', freq: 700, q: 1, gain: 0.6 }] },
+  vent: { gain: 0.18, layers: [{ noise: true, filter: 'bandpass', freq: 700, q: 0.8, gain: 1 }] },
   sawGrindMetal: { gain: 0.22, layers: [{ noise: true, filter: 'bandpass', freq: 3800, q: 6, gain: 1 }, { wave: 'sawtooth', freq: 2400, gain: 0.15, vibrato: { rate: 35, depth: 90 } }, { noise: 'crackle', filter: 'highpass', freq: 4500, gain: 0.8 }] }, // blade screeching on metal
 };

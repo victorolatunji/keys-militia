@@ -4,6 +4,7 @@ import { isSolid, groundBelow, nearestGroundX, groundAhead } from './Terrain.js'
 import { BOT_AI } from '../data/enemies.js';
 import { AIRDROPS } from '../data/airdrops.js';
 import { GUN_SWITCH_MS } from '../data/weapons.js';
+import { HIDING } from '../data/hazards.js';
 
 const EYE_OFFSET_Y = -8;
 
@@ -86,6 +87,8 @@ export default class BotBrain {
       this.sees = hasLineOfSight(this.layer, bot.x, bot.y + EYE_OFFSET_Y, t.x, t.y + EYE_OFFSET_Y);
       // Blinded by a flashbang, or smoke in the way: it can't see you.
       if (bot.hasStatus('blinded')) this.sees = false;
+      // Hiding under water or in a bush: lost, unless it bumps right into you.
+      else if (t.hidden && Phaser.Math.Distance.Between(bot.x, bot.y, t.x, t.y) > HIDING.closePx) this.sees = false;
       else if (this.sees && bot.scene.weapons?.smokeBlocks(bot.x, bot.y + EYE_OFFSET_Y, t.x, t.y + EYE_OFFSET_Y, bot)) {
         this.sees = false;
       }
@@ -339,6 +342,22 @@ export default class BotBrain {
 
     let dir = Math.abs(this.goalX - bot.x) > BOT_AI.arrivePx ? Math.sign(this.goalX - bot.x) : 0;
     let up = false;
+
+    // Chasing but getting no closer for a while (wedged under a ledge, at the
+    // edge of a lake or a gap it can't cross): go the other way for a bit to
+    // find another route, swapping sides each time. The checks below still
+    // keep it out of the void, water and lava.
+    if (now >= (this.progressAt ?? 0)) {
+      const d = Math.hypot(this.goalX - bot.x, (this.goalY ?? bot.y) - bot.y);
+      const chasing = this.mode === 'approach' || this.mode === 'hunt' || this.mode === 'loot';
+      if (chasing && this.lastGoalDist !== undefined && d > 140 && d > this.lastGoalDist - 40) {
+        this.wanderDir = this.wanderDir ? -this.wanderDir : -(Math.sign(this.goalX - bot.x) || 1);
+        this.wanderUntil = now + BOT_AI.wanderMs;
+      }
+      this.lastGoalDist = d;
+      this.progressAt = now + BOT_AI.progressMs;
+    }
+    if (now < (this.wanderUntil ?? 0)) dir = this.wanderDir;
 
     const below = groundBelow(layer, bot.x, feetY); // null = the void is under me
 

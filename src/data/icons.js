@@ -89,7 +89,13 @@ export const ICONS = {
   grenade: [[8, 3, 8, 8, 'olive'], [10, 1, 4, 2, 'metal'], [14, 1, 4, 1, 'metal'], [9, 6, 6, 1, 'metal']],
   sticky: [[8, 3, 8, 8, 'olive'], [10, 1, 4, 2, 'metal'], [7, 6, 10, 2, 'gold'], [11, 10, 2, 2, 'gold']],
   molotov: [[10, 4, 5, 8, 'wood'], [11, 2, 3, 2, 'glass'], [11, 0, 3, 2, 'red'], [12, 0, 1, 1, 'gold']],
-  combatAxe: [[3, 5, 13, 2, 'metal'], [15, 2, 5, 7, 'steel'], [20, 3, 1, 5, 'steel'], [3, 4, 2, 4, 'red']],
+  // Combat Axe: a wooden handle with a steel head, blade flaring out at the
+  // top and bottom (facing right, so the edge is on the right).
+  combatAxe: [
+    [0, 5, 16, 2, 'wood'], [0, 4, 2, 4, 'metal'], [4, 5, 3, 2, 'red'],
+    [14, 3, 4, 6, 'metal'], [18, 2, 2, 8, 'steel'], [20, 1, 2, 10, 'steel'], [22, 2, 1, 8, 'steel'],
+    [12, 4, 2, 4, 'metal'],
+  ],
   // Tacticals: canisters, colour band says which
   smoke: [[9, 2, 6, 10, 'steel'], [10, 0, 4, 2, 'metal'], [9, 5, 6, 2, 'metal'], [14, 0, 4, 1, 'metal']],
   flashbang: [[9, 2, 6, 10, 'steel'], [10, 0, 4, 2, 'metal'], [9, 5, 6, 2, 'gold'], [14, 0, 4, 1, 'metal']],

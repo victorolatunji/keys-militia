@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { isSolid } from './Terrain.js';
+import { TILE_FAMILY } from '../data/maps.js';
 import {
   GORE,
   GORE_LEVELS,
@@ -113,6 +114,14 @@ export default class EffectsSystem {
       this.ash(x, y, spray.color);
       return;
     }
+    if (spray.drip) {
+      this.bleed(target);
+      return;
+    }
+    if (spray.bubbles) {
+      this.bubbles(target.x, target.y - target.height / 3, 4);
+      return;
+    }
 
     // Spray away from whoever hit it (blasts: every way).
     const from = this.source(target);
@@ -215,11 +224,82 @@ export default class EffectsSystem {
     }
   }
 
+  // ---- Terrain chips ----
+
+  // The color of the ground tile at a point (from the map palette), or null.
+  tileColor(x, y) {
+    const tile = this.layer.getTileAtWorldXY(x, y);
+    if (!tile || !tile.collides) return null;
+    const palette = this.scene.map?.palette;
+    const family = TILE_FAMILY[tile.index];
+    return (palette && family && palette[family]) || 0x6c757d;
+  }
+
+  // Colors of the ground around a point (for blast debris), or null.
+  terrainColors(x, y, r) {
+    const colors = [];
+    for (const [dx, dy] of [[0, 0], [0, r], [r, 0], [-r, 0], [0, -r], [r * 0.7, r * 0.7], [-r * 0.7, r * 0.7]]) {
+      const c = this.tileColor(x + dx, y + dy);
+      if (c !== null) colors.push(c);
+    }
+    return colors.length ? colors : null;
+  }
+
+  // Bits knocked off a wall where a bullet hit it, thrown back the way the
+  // bullet came (angle: the direction it was flying), with a puff of dust.
+  chips(x, y, angle) {
+    // Step back out of the wall to where it hit the surface.
+    let color = null;
+    for (let i = 0; i < 12 && isSolid(this.layer, x, y); i++) {
+      color = this.tileColor(x, y);
+      x -= Math.cos(angle) * 4;
+      y -= Math.sin(angle) * 4;
+    }
+    color ??= this.tileColor(x + Math.cos(angle) * 6, y + Math.sin(angle) * 6);
+    if (color === null) return;
+    const back = angle + Math.PI;
+    for (let i = 0; i < 4; i++) {
+      const a = back + Phaser.Math.FloatBetween(-0.9, 0.9);
+      const size = Phaser.Math.Between(2, 4);
+      this.piece(x, y, { w: size, h: size, color, angle: a, speed: Phaser.Math.Between(80, 200), lifeMs: 900 }, false);
+    }
+    const puff = this.scene.add.circle(x, y, 5, color, 0.5).setDepth(DEPTH);
+    this.scene.tweens.add({ targets: puff, scale: 2.5, alpha: 0, y: y - 8, duration: 400, onComplete: () => puff.destroy() });
+  }
+
+  // Air bubbles rising out of someone underwater (drowning, splashes).
+  bubbles(x, y, count = 3) {
+    for (let i = 0; i < count; i++) {
+      const b = this.scene.add
+        .circle(x + Phaser.Math.Between(-6, 6), y, Phaser.Math.FloatBetween(1.5, 3.5))
+        .setStrokeStyle(1, 0xe0fbfc, 0.9)
+        .setDepth(46);
+      this.scene.tweens.add({
+        targets: b,
+        y: y - Phaser.Math.Between(20, 50),
+        x: b.x + Phaser.Math.Between(-6, 6),
+        alpha: 0,
+        duration: Phaser.Math.Between(500, 900),
+        delay: i * 60,
+        onComplete: () => b.destroy(),
+      });
+    }
+  }
+
   // ---- Deaths ----
 
   // cause: 'void' (fell: nothing to show), or anything else.
   death(target, cause) {
     if (!target || cause === 'void') return;
+    // Melted in lava: a burst of ash. Drowned: a last rush of bubbles.
+    if (cause === 'lava') {
+      for (let i = 0; i < 5; i++) this.ash(target.x, target.y - i * 6, 0x495057);
+      return;
+    }
+    if (cause === 'drown') {
+      this.bubbles(target.x, target.y, 10);
+      return;
+    }
     const mat = this.material(target);
     const lvl = this.level;
     const x = target.x;
@@ -287,18 +367,22 @@ export default class EffectsSystem {
   // drip: color the piece leaves behind as it flies (full gore), or null.
   piece(x, y, shape, blast, drip = null) {
     if (this.pieces.length >= GIBS.maxActive) this.pieces.shift().obj.destroy();
+    // shape.angle + shape.speed: thrown that exact way (wall chips);
+    // otherwise flung out sideways and up (body parts, blast debris).
+    const aimed = shape.angle !== undefined;
+    const jitter = aimed ? 0 : 1;
     const obj = this.scene.add
-      .rectangle(x + Phaser.Math.Between(-8, 8), y + Phaser.Math.Between(-12, 8), shape.w, shape.h, shape.color)
+      .rectangle(x + Phaser.Math.Between(-8, 8) * jitter, y + Phaser.Math.Between(-12, 8) * jitter, shape.w, shape.h, shape.color)
       .setDepth(DEPTH - 1);
     if (shape.outline) obj.setStrokeStyle(1, 0x000000, 0.8);
     const boost = blast ? 1.4 : 1;
     const dir = shape.dir ?? (Math.random() < 0.5 ? -1 : 1);
     this.pieces.push({
       obj,
-      vx: dir * Phaser.Math.Between(GIBS.speed[0], GIBS.speed[1]) * Phaser.Math.FloatBetween(0.3, 1) * boost,
-      vy: -Phaser.Math.Between(GIBS.lift[0], GIBS.lift[1]) * boost,
+      vx: aimed ? Math.cos(shape.angle) * shape.speed : dir * Phaser.Math.Between(GIBS.speed[0], GIBS.speed[1]) * Phaser.Math.FloatBetween(0.3, 1) * boost,
+      vy: aimed ? Math.sin(shape.angle) * shape.speed - 60 : -Phaser.Math.Between(GIBS.lift[0], GIBS.lift[1]) * boost,
       spin: Phaser.Math.FloatBetween(-GIBS.spin, GIBS.spin),
-      until: this.scene.time.now + (this.level.gibLifeMs ?? 2500) * Phaser.Math.FloatBetween(0.8, 1.2),
+      until: this.scene.time.now + (shape.lifeMs ?? (this.level.gibLifeMs ?? 2500) * Phaser.Math.FloatBetween(0.8, 1.2)),
       trailAt: 0,
       blood: drip,
       landSound: shape.landSound ?? null,

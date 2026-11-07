@@ -6,12 +6,14 @@ export function isSolid(layer, x, y) {
 }
 
 // Distance in px from (x, y) straight down to the first solid tile,
-// or null if there's nothing below (the void).
+// or null if there's nothing below (the void). Water and lava count as
+// nothing too (layer.unsafeAt, set by HazardSystem): bots stay out of them.
 export function groundBelow(layer, x, y) {
   const step = layer.tilemap.tileHeight / 2;
   const bottom = layer.tilemap.heightInPixels;
 
   for (let d = 0; y + d < bottom; d += step) {
+    if (layer.unsafeAt?.(x, y + d)) return null;
     if (isSolid(layer, x, y + d)) return d;
   }
   return null;

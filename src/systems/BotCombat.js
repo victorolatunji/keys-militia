@@ -195,6 +195,7 @@ export default class BotCombat {
         if (!bot.alive || bot.staggered) return; // a dead or stunned bot stops shooting
         const fan = pellets ? Phaser.Math.FloatBetween(-PELLET_SPREAD_DEG, PELLET_SPREAD_DEG) : 0;
         if (!pellets || i === 0) this.scene.sfx?.shot(gun, bot, true);
+        bot.lastAttackAt = this.scene.time.now; // shooting gives away a hiding spot
         this.fireBullet(bot, target, gun, amount, fan);
       };
 
@@ -317,6 +318,7 @@ export default class BotCombat {
       const fireOne = () => {
         if (!bot.alive) return;
         this.scene.sfx?.shot(weapon, bot, true);
+        bot.lastAttackAt = this.scene.time.now;
         this.spawnRound(bot, target, weapon, i > 0 ? spec.spread ?? 0 : 0);
       };
       if (i === 0) fireOne();
@@ -430,7 +432,12 @@ export default class BotCombat {
     this.collisions.addGrenade(grenade);
     grenade.on('explode', (ex, ey) => this.blast(bot, ex, ey, config, this.scale(bot)));
     grenade.on('ignite', (ex, ey) => this.weapons.spawnFire(ex, ey, config, 'bot', bot));
-    grenade.on('strike', (victim) => this.damage(bot, victim, Math.round(config.damage * this.scale(bot))));
+    grenade.on('strike', (victim) => {
+      // A bot's axe sticks in you and bleeds too.
+      const dir = Math.sign(grenade.body.velocity.x) || bot.facing || 1;
+      this.damage(bot, victim, Math.round(config.damage * this.scale(bot)), 'melee');
+      if (victim.alive) this.weapons.status.apply(victim, 'bleeding', 'bot', null, { dir });
+    });
     this.thrown.push(grenade);
 
     bot.gear.throwableCount -= 1;
@@ -440,7 +447,7 @@ export default class BotCombat {
   // A bot's blast hurts everyone caught in it: you, other bots, and itself
   // (at selfDamage strength). A bot killed by a bot's blast isn't your kill.
   blast(bot, x, y, config, scale) {
-    this.scene.sfx?.play('explosion', { x, y });
+    this.scene.sfx?.play(this.scene.hazards?.blastSound(x, y) ?? 'explosion', { x, y }); // muffled under water
     const style = config.kind === 'frag' ? 'frag' : config === bot.config.bomb ? 'bomb' : 'rocket';
     this.scene.blastFx?.explosion(x, y, config.blastRadius, style);
     this.weapons.chainReaction(x, y, config.blastRadius);

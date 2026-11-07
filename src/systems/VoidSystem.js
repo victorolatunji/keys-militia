@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 
 // The void under every map: draws the darkness and mist, and detects falls.
+// void.lava (Hell): a glowing lava sea instead of the darkness.
 export default class VoidSystem {
   constructor(scene, map, worldSize, onFall) {
     this.scene = scene;
@@ -11,7 +12,47 @@ export default class VoidSystem {
     this.onFall = onFall;
 
     this.drawDarkness();
+    if (map.void.lava) this.drawLavaSea();
     this.drawMist();
+  }
+
+  // Hell: the glow gets brighter toward a rolling lava surface just above
+  // the death line, solid lava below it.
+  drawLavaSea() {
+    const surfaceY = this.deathY - 40;
+    this.lavaY = surfaceY;
+    this.scene.add
+      .rectangle(0, surfaceY - 220, this.width, 220, 0xff5400, 0.12)
+      .setOrigin(0, 0)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(10);
+    this.scene.add
+      .rectangle(0, surfaceY, this.width, this.height - surfaceY, 0xe85d04)
+      .setOrigin(0, 0)
+      .setDepth(10);
+    this.scene.add
+      .rectangle(0, surfaceY + 50, this.width, this.height - surfaceY, 0x9d0208)
+      .setOrigin(0, 0)
+      .setDepth(10);
+    this.lavaSurface = this.scene.add.graphics().setDepth(10);
+  }
+
+  drawLavaSurface(now) {
+    const g = this.lavaSurface;
+    if (!g) return;
+    const cam = this.scene.cameras.main;
+    const x0 = Math.max(0, Math.floor(cam.scrollX / 16) * 16 - 16);
+    const x1 = Math.min(this.width, cam.scrollX + cam.width + 32);
+    g.clear();
+    g.fillStyle(0xffba08, 1);
+    g.beginPath();
+    g.moveTo(x0, this.lavaY + 14);
+    for (let x = x0; x <= x1; x += 16) {
+      g.lineTo(x, this.lavaY + Math.sin(x / 70 + now / 700) * 6 + Math.sin(x / 23 - now / 400) * 2);
+    }
+    g.lineTo(x1, this.lavaY + 14);
+    g.closePath();
+    g.fillPath();
   }
 
   drawDarkness() {
@@ -71,7 +112,9 @@ export default class VoidSystem {
   }
 
   update(player) {
+    if (player === this.scene.player) this.drawLavaSurface(this.scene.time.now);
     if (player.alive && player.y > this.deathY) {
+      if (this.map.void.lava) this.scene.sfx?.play('lavaSizzle', player);
       this.onFall(player);
     }
   }

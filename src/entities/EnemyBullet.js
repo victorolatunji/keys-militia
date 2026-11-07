@@ -47,6 +47,8 @@ export default class EnemyBullet extends Phaser.GameObjects.Rectangle {
     // Hit a wall?
     if (!hasLineOfSight(this.groundLayer, fromX, fromY, toX, toY)) {
       this.spark();
+      // Bits of the wall knocked off where it hit.
+      this.scene.effects?.chips(toX, toY, Math.atan2(this.vy, this.vx));
       this.destroy();
       return;
     }

@@ -51,6 +51,20 @@ export default class Grenade extends Phaser.GameObjects.Arc {
     this.body.setCollideWorldBounds(true); // walls and top; no floor (the void)
 
     this.collider = scene.physics.add.collider(this, groundLayer);
+
+    // Combat Axe: drawn as an axe (its icon) spinning over the hit circle.
+    if (this.kind === 'axe') {
+      this.setVisible(false);
+      this.look = scene.add.image(x, y, 'icon-combatAxe').setScale(0.8).setDepth(41);
+      this.spinDir = 1;
+    }
+  }
+
+  // The axe picture follows the (hidden) circle that does the physics.
+  syncLook() {
+    if (!this.look) return;
+    this.look.setPosition(this.x, this.y).setRotation(this.rotation);
+    this.look.setFlipX(this.spinDir < 0);
   }
 
   update() {
@@ -79,7 +93,11 @@ export default class Grenade extends Phaser.GameObjects.Arc {
       }
     }
 
-    if (this.kind === 'axe' && !this.planted) this.rotation += 0.35; // spins in flight
+    if (this.kind === 'axe' && !this.planted) {
+      this.spinDir = Math.sign(this.body.velocity.x) || this.spinDir;
+      this.rotation += 0.35 * this.spinDir; // spins in flight, end over end
+    }
+    this.syncLook();
 
     const b = this.body;
     const hitTerrain = b.enable && (b.blocked.up || b.blocked.down || b.blocked.left || b.blocked.right);
@@ -220,6 +238,7 @@ export default class Grenade extends Phaser.GameObjects.Arc {
 
   remove() {
     this.done = true;
+    this.look?.destroy();
     this.ring?.destroy();
     this.collider.destroy();
     this.destroy();

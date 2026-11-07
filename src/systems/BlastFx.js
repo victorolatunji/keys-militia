@@ -116,6 +116,17 @@ export default class BlastFx {
     const fx = BLAST_FX[style] ?? BLAST_FX.frag;
     const k = (radius / 120) * fx.size;
 
+    // Under water: no fire at all, a column of water instead. In lava: lava
+    // flies everywhere. Just above a surface: spray.
+    const hz = this.scene.hazards;
+    const pool = hz?.poolAt(x, y);
+    if (pool?.kind === 'water') {
+      hz.waterBlast(x, y, radius, pool);
+      return;
+    }
+    if (pool?.kind === 'lava') hz.lavaBlast(x, y, pool);
+    else hz?.surfaceSplash(x, y, radius);
+
     // A white-hot flash at the heart of it.
     this.blob(x, y, 90 * k, 0xfff3c4, { alpha: 1, grow: 1.6, life: 140, add: true, depth: DEPTH + 2 });
 
@@ -141,10 +152,13 @@ export default class BlastFx {
     // Sparks and burning bits flying out.
     this.streaks(x, y, fx.sparks, [0xffd166, 0xff9f1c, 0xffffff], [200, 520], 380, { gravity: 600 });
 
-    // Dirt and shrapnel thrown about (they bounce on the ground).
-    for (let i = 0; i < fx.debris; i++) {
+    // Dirt and shrapnel thrown about (they bounce on the ground): chunks of
+    // whatever ground it went off against, else grey shrapnel.
+    const ground = this.effects.terrainColors(x, y, radius * 0.5);
+    for (let i = 0; i < fx.debris + (ground ? 4 : 0); i++) {
       const size = Phaser.Math.Between(3, 6);
-      this.effects.piece(x, y, { w: size, h: size, color: Phaser.Utils.Array.GetRandom(fx.debrisColors) }, true);
+      const colors = ground && i % 3 !== 0 ? ground : fx.debrisColors;
+      this.effects.piece(x, y, { w: size, h: size, color: Phaser.Utils.Array.GetRandom(colors) }, true);
     }
 
     // Dust kicked up along the ground, and a scorch mark.
