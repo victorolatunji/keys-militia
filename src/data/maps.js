@@ -18,12 +18,17 @@ export const TILE_FAMILY = {
   5: 'plank',
   6: 'under', 17: 'under', 18: 'under', 19: 'under',
   7: 'rock', 11: 'rock', 12: 'rock', 13: 'rock',
+  20: 'ice', 21: 'ice', 22: 'ice', 23: 'ice',
+  24: 'thin',
 };
 
+// Tile families you slide on (see ICE in hazards.js).
+export const SLIPPERY = new Set(['ice', 'thin']);
+
 // Testing: F6 switches to the next map (remembered in this browser), or
-// open the game with ?map=forest / ?map=hell / ?map=test.
+// open the game with ?map=forest / hell / glacier / desert / test.
 export const MAP_SELECT = {
-  order: ['forest', 'hell', 'test'],
+  order: ['forest', 'hell', 'glacier', 'desert', 'test'],
   default: 'forest',
   key: 'F6',
   storageKey: 'keys-militia.map',
@@ -122,7 +127,7 @@ export const MAPS = {
     sky: {
       colors: [0x0b0203, 0x2b0a0a, 0x6a040f, 0x9d0208, 0xdc2f02],
       sun: null,
-      clouds: { count: 6, color: 0x3d0c0c }, // smoke drifting
+      clouds: { count: 7, color: 0x7d7d7d }, // smoke drifting (darkened white)
       ridges: [
         { color: 0x370617, factor: 0.1, height: 260, rough: 1, spiky: true },
         { color: 0x1a0505, factor: 0.22, height: 200, rough: 1.2, spiky: true },
@@ -139,6 +144,98 @@ export const MAPS = {
       glowColor: 0xff5400,
       lava: true,                    // a lava sea instead of darkness
       deathMessage: 'Fell into the lava',
+    },
+  },
+  // Glacier ("Frostbite"): no void. The whole glacier floats on an endless
+  // icy sea. A snowy peak with an icicle cave and a sea cave, a frozen lake
+  // with thin spots, a chasm with floes, a slippery glacier with crevasses
+  // down to the sea, a grotto, an icicle overhang, igloos, penguins.
+  // Rules: ice is slippery; thin spots break under anyone (and blasts smash
+  // them) into freezing water. The sea: swim, but sink too deep and you die.
+  // Advantage: icicles (type the word to drop one); hide in an igloo.
+  glacier: {
+    key: 'glacier',
+    name: 'Glacier',
+    background: '#bde0fe',
+    tilemapKey: 'map-glacier',
+    tilemapFile: 'assets/maps/glacier.json',
+    tilesetName: 'glacier-tiles',
+    tilesetKey: 'tiles-glacier',
+    tilesetFile: 'assets/tilesets/glacier-tiles.png',
+    enemies: {
+      slots: { main: 2, machine: 1, animal: 1 },
+      families: ['scifi', 'military', 'undead'],
+    },
+    sky: {
+      colors: [0x1d3557, 0x457b9d, 0xa8dadc, 0xe0fbfc, 0x8ecae6],
+      sun: { color: 0xfffbe6, x: 0.2, y: 0.14 },
+      clouds: { count: 8, color: 0xf8f9fa },
+      ridges: [
+        { color: 0xc8d6e5, factor: 0.1, height: 280, rough: 1, spiky: true, snowCaps: true },
+        { color: 0x8da9c4, factor: 0.22, height: 210, rough: 1.1, spiky: true, snowCaps: true },
+      ],
+      aurora: true,       // green lights waving high up
+      snow: true,         // snow falling
+      bergs: true,        // icebergs on the far sea, whales spouting
+      horizonY: 1152,
+    },
+    water: { color: 0x48cae4, deepColor: 0x0077b6, surfaceColor: 0xe0fbfc, freezing: true },
+    critters: 'penguin',   // penguins waddling about (they flee from you and from blasts)
+    palette: { top: 0xf8f9fa, soil: 0x5c677d, deep: 0x33415c, sand: 0xdee2e6, plank: 0x7f5539, under: 0x3a506b, rock: 0x7d8597, ice: 0xa8dadc, thin: 0xcaf0f8, cave: 0x1b263b },
+    // The icy sea instead of the void: it starts at the sea level (1728,
+    // a "sea" rectangle in the Tiled file); the deep goes dark below it and
+    // past deathY you're gone.
+    void: {
+      top: 1800,
+      deathY: 2110,
+      color: 0x03045e,
+      glowColor: 0x90e0ef,
+      sea: true,
+      deathMessage: 'Sank into the icy deep',
+    },
+  },
+
+  // Desert ("Dune Sea"): dunes with quicksand, a mesa with an arch through
+  // it, an oasis, a buried temple with a pillared chamber, islands below.
+  // Rules: quicksand pulls you down (fully under it you suffocate, slowly;
+  // jetpack or jump out); cacti prick; dust devils wander and toss you about.
+  // Advantage: sandstorms roll through and hide you from far
+  // away (words only show close up, for everyone). Hide in the oasis.
+  desert: {
+    key: 'desert',
+    name: 'Desert',
+    background: '#f6bd60',
+    tilemapKey: 'map-desert',
+    tilemapFile: 'assets/maps/desert.json',
+    tilesetName: 'desert-tiles',
+    tilesetKey: 'tiles-desert',
+    tilesetFile: 'assets/tilesets/desert-tiles.png',
+    enemies: {
+      slots: { main: 2, machine: 1, animal: 1 },
+      families: ['military', 'scifi', 'undead'],
+    },
+    sky: {
+      colors: [0x3a86ff, 0x8ecae6, 0xffe8d6, 0xf6bd60, 0xe76f51],
+      sun: { color: 0xfff3b0, x: 0.75, y: 0.12, size: 1.4 },
+      clouds: { count: 4, color: 0xfffaf0 },
+      ridges: [
+        { color: 0xe9c46a, factor: 0.1, height: 200, rough: 0.4 },
+        { color: 0xd08c60, factor: 0.22, height: 230, rough: 0.3, mesa: true },
+      ],
+      camels: true,          // a camel caravan walking along the far dunes
+      haze: true,            // heat shimmer over the sand
+      tumbleweeds: true,
+      horizonY: 1120,
+    },
+    water: { color: 0x2a9d8f, deepColor: 0x1d3557, surfaceColor: 0xa8dadc },
+    palette: { top: 0xf4d58d, soil: 0xd08c60, deep: 0x9c6644, sand: 0xedc988, plank: 0x8d5a2b, under: 0xb5703f, rock: 0xc9743a, cave: 0x3d2314 },
+    sandstorm: true,
+    critters: 'scorpion',  // scorpions skittering about (harmless)
+    void: {
+      top: 2304,
+      deathY: 2450,
+      color: 0x2b1a10,
+      glowColor: 0xf6bd60,
     },
   },
 };

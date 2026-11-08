@@ -8,7 +8,12 @@
 //   geyser   (point, on the ground) a fire geyser that erupts now and then
 //   vent     (point, on the ground) a heat vent: hover over it to refuel
 //   waterfall / lavafall (rectangle) pours down: pushes you down (lava: burns)
-// And in the "decor" layer: tree, rock, mushroom, spire, bones (points),
+//   quicksand (rectangle) sinks you, slowly
+//   icicle   (point, at the bottom of a ceiling) type its word to drop it
+//   sea      (rectangle) Glacier's endless sea (water; the void's death line is deep in it)
+//   dustdevil (rectangle) the stretch a dust devil wanders along
+// And in the "decor" layer: tree, pine, palm, cactus (pricks), rock,
+// mushroom, spire, bones (points),
 // bush, bigtree, chain, cave, fireflies (rectangles).
 //
 // Map hazards are slow on purpose: they wear you down, they don't kill you
@@ -51,6 +56,89 @@ export const WATER = {
   sinkSpeed: 70,        // px/s: grenades, items and body parts sink this slowly
 };
 
+// Ice (Glacier): you slide. Your speed only slowly follows what you press,
+// so you skid to a stop and take a moment to get going.
+export const ICE = {
+  gripMs: 450,          // how slowly your speed catches up on ice (higher = slipperier)
+};
+
+// Thin ice: stand on it and it cracks, then breaks under you (into the
+// freezing water below). It freezes over again after a while.
+export const THIN_ICE = {
+  crackMs: 500,         // standing this long: it cracks...
+  breakMs: 1100,        // ...and this long: it breaks
+  refreezeMs: 12000,
+  freezingMs: 1200,     // freezing water: frozen this long, again and again while in it
+};
+
+// Icicles (Glacier's advantage): type the word on one (it takes a shot) and
+// it drops on whoever is below. Grows back after a while.
+export const ICICLE = {
+  width: 16,
+  length: 44,
+  fallSpeed: 900,       // px/s
+  damage: 45,           // to whoever it lands on (and frozen)
+  hitWidth: 36,         // px wide it hits
+  regrowMs: 15000,
+  color: 0xcaf0f8,
+};
+
+// Quicksand (Desert): pulls you down slowly and you can barely move; fully
+// under it you suffocate (slower than an enemy kills you). Jump or fly out.
+export const QUICKSAND = {
+  color: 0xd4a373,
+  deepColor: 0x9c6644,
+  surfaceColor: 0xe9c46a,
+  alpha: 0.97,
+  waveHeight: 1,
+  moveScale: 0.35,
+  pull: 30,             // px/s: always sinking at least this fast
+  maxSinkSpeed: 45,
+  maxRiseSpeed: 190,    // the jetpack pulls you out, slowly
+  breathMs: 3000,
+  drownDamage: 3,       // per tick...
+  drownTickMs: 500,     // ...(6 HP/s)
+};
+
+// Cacti (Desert): touch one and it pricks you and pushes you off.
+export const CACTUS = {
+  damage: 3,
+  everyMs: 700,
+  push: 220,
+  widthPx: 26,
+  heightPx: 54,
+};
+
+// Sandstorms (Desert's advantage): every so often a storm rolls through.
+// While it lasts nobody sees far: words only show and bots only see within
+// visionPx, so you can sneak up (or get away).
+export const SANDSTORM = {
+  everyMs: [35000, 55000],
+  lastMs: 14000,
+  fadeMs: 2500,
+  visionPx: 280,
+  color: 0xd4a373,
+  alpha: 0.5,
+};
+
+// Igloos (Glacier): step inside one and you're hidden (like a bush), and
+// its warmth thaws you out (no frozen).
+export const IGLOO = {
+  color: 0xf8f9fa,
+  shade: 0xcfd8e3,
+};
+
+// Dust devils (Desert): little whirlwinds wandering over the sand. Get
+// caught in one and it lifts you and spins you about. No damage.
+export const DUST_DEVIL = {
+  widthPx: 60,
+  heightPx: 170,
+  speed: [30, 60],      // px/s along the sand
+  lift: 1300,           // px/s² upward while inside
+  maxLift: 320,
+  swirl: 260,           // px/s sideways shove (changes direction)
+};
+
 // Waterfall / lavafall: standing in it pushes you down.
 export const FALLS = {
   push: 900,            // px/s² downward
@@ -73,15 +161,18 @@ export const LAVA = {
   maxRiseSpeed: 220,
 };
 
-// Cryo on water freezes it into a sheet of ice you can stand on (and that
-// traps anyone under it until it breaks). On lava it cools a crust you can
-// walk on. EMP in water shocks everyone in that water.
+// Cryo on water freezes it into an iceberg: rough cut edges, a jagged top
+// just above the surface you can stand on, a deep chunk below that traps
+// anyone under it until it cracks and breaks. Cryo does nothing to lava.
+// EMP in water shocks everyone in that water.
 export const FREEZE = {
-  ms: 8000,             // how long the ice lasts (it cracks for the last 1.5s)
-  crustMs: 6000,        // cooled lava crust
-  thickness: 18,        // px
+  ms: 8000,             // how long the iceberg lasts (it cracks for the last 1.5s)
+  aboveSurface: 8,      // px its flat (standing) top sits above the water
+  peak: 12,             // px its jagged top pokes up further
+  depth: 90,            // px it reaches down into the water (in the middle)
+  bodyHeight: 40,       // px of it that's solid (top part)
   iceColor: 0xcaf0f8,
-  crustColor: 0x2b2d42,
+  deepIceColor: 0x90e0ef,
   empDamage: 10,        // EMP in water: everyone in it takes this and is shocked
 };
 
@@ -117,4 +208,9 @@ export const DECOR = {
   leaves: { colors: [0x95d5b2, 0x52b788, 0xe9c46a], perSecond: 4 },
   fireflies: { color: 0xfff3b0, count: 40 },
   fish: { everyMs: [3000, 7000], color: 0xf4a261 }, // a fish jumping in a lake now and then
+  snow: { perSecond: 18 },
+  tumbleweeds: { max: 2, everyMs: [6000, 12000], speed: [90, 150], size: 14 },
+  critters: { walk: 22, flee: 120, scarePx: 140, respawnMs: 40000 }, // penguins / scorpions (killed by blasts, back after respawnMs)
+  camels: { count: 5, speed: 14, spacing: 80, color: 0x6b4f3a },
+  whales: { everyMs: [5000, 11000] },
 };

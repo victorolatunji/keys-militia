@@ -12,6 +12,8 @@ export default class EnemyBullet extends Phaser.GameObjects.Rectangle {
     super(scene, x, y, look.length, look.width, look.color);
     scene.add.existing(this);
     this.setDepth(40);
+    // A dark edge so the bright tracer shows on light skies, snow and sand too.
+    this.setStrokeStyle(1, 0x000000, 0.75);
     this.rotation = angle;
 
     this.vx = Math.cos(angle) * speed;

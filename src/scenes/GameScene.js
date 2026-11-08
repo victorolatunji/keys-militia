@@ -34,11 +34,13 @@ const DEATH_MESSAGES = {
   drown: 'Drowned',
   geyser: 'Caught by a fire geyser',
   env: 'Burned to death',
+  quicksand: 'Swallowed by quicksand',
+  cactus: 'Pricked to death by a cactus',
 };
 
 // Deaths to the map itself (not a weapon). A bot you hurt badly just before
 // counts as your kill, like a fall into the void.
-const MAP_DEATHS = new Set(['void', 'lava', 'drown', 'geyser', 'env']);
+const MAP_DEATHS = new Set(['void', 'lava', 'drown', 'geyser', 'env', 'quicksand', 'cactus']);
 
 export default class GameScene extends Phaser.Scene {
   constructor() {
@@ -97,6 +99,9 @@ export default class GameScene extends Phaser.Scene {
       height,
       this.collisions
     );
+
+    // Glacier's icicles are word targets too.
+    this.hazards.registerTargets(this.typing);
 
     // Practice targets from the Tiled "dummy" points.
     this.dummies = dummySpawns.map((p) => new Dummy(this, p.x, p.y));
@@ -200,7 +205,9 @@ export default class GameScene extends Phaser.Scene {
   dropY(p) {
     const step = this.groundLayer.tilemap.tileHeight / 2;
     let y = p.y - 40;
-    while (y - step > Math.max(BOT_DROP_Y, p.y - BOT_DROP_PX) && !isSolid(this.groundLayer, p.x, y - step - 24)) y -= step;
+    // (checks the whole width of a body, so it never drops in inside ragged rock)
+    const clear = (yy) => [-16, 0, 16].every((dx) => !isSolid(this.groundLayer, p.x + dx, yy - 24) && !isSolid(this.groundLayer, p.x + dx, yy + 24));
+    while (y - step > Math.max(BOT_DROP_Y, p.y - BOT_DROP_PX) && clear(y - step)) y -= step;
     return y;
   }
 

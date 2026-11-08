@@ -122,10 +122,12 @@ export default class BlastFx {
     const pool = hz?.poolAt(x, y);
     if (pool?.kind === 'water') {
       hz.waterBlast(x, y, radius, pool);
+      hz.blastTerrain(x, y, radius); // a blast under thin ice smashes it too
       return;
     }
     if (pool?.kind === 'lava') hz.lavaBlast(x, y, pool);
     else hz?.surfaceSplash(x, y, radius);
+    hz?.blastTerrain(x, y, radius); // smashes thin ice, scares penguins
 
     // A white-hot flash at the heart of it.
     this.blob(x, y, 90 * k, 0xfff3c4, { alpha: 1, grow: 1.6, life: 140, add: true, depth: DEPTH + 2 });

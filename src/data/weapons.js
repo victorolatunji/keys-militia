@@ -979,5 +979,5 @@ export const DEFAULT_LOADOUT = {
   // A random melee weapon from this list, new every time you spawn.
   // Melee weapons never drop and can't be picked up.
   melee: ['knife', 'machete', 'bat', 'spade', 'hammer', 'sword', 'axe'],
-  throwable: { key: 'cryo', count: 3 },
+  throwable: { key: 'grenade', count: 3 },
 };

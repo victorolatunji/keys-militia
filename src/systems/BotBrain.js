@@ -89,6 +89,8 @@ export default class BotBrain {
       if (bot.hasStatus('blinded')) this.sees = false;
       // Hiding under water or in a bush: lost, unless it bumps right into you.
       else if (t.hidden && Phaser.Math.Distance.Between(bot.x, bot.y, t.x, t.y) > HIDING.closePx) this.sees = false;
+      // A sandstorm: it only sees you close up.
+      else if (bot.scene.hazards?.visionPx && Phaser.Math.Distance.Between(bot.x, bot.y, t.x, t.y) > bot.scene.hazards.visionPx) this.sees = false;
       else if (this.sees && bot.scene.weapons?.smokeBlocks(bot.x, bot.y + EYE_OFFSET_Y, t.x, t.y + EYE_OFFSET_Y, bot)) {
         this.sees = false;
       }

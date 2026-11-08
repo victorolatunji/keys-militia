@@ -37,6 +37,7 @@ export const MATERIALS = {
   bone: { colors: [0xf8f9fa, 0xdee2e6, 0xadb5bd], splat: false, gibs: 'bone' },
   machine: { colors: [0x343a40, 0x212529], sparks: true, splat: true, gibs: 'metal' }, // oil
   straw: { colors: [0xe9c46a, 0xd4a373], splat: false, gibs: 'straw' },              // dummies
+  ice: { colors: [0xcaf0f8, 0xffffff], splat: false, gibs: 'bone' },                 // icicles
 };
 
 // How each gore level looks. Numbers are per hit unless said otherwise.

@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { DECOR } from '../data/hazards.js';
+import { groundBelow } from './Terrain.js';
 
 // Everything behind the action (looks only, no physics), from map.sky in
 // maps.js and the Tiled "decor" layer:
@@ -19,6 +20,7 @@ export default class BackdropSystem {
     this.key = map.key;
     this.birds = [];
     this.clouds = [];
+    this.critters = [];
     if (!this.sky) return;
 
     this.groundY = this.sky.horizonY ?? mainGroundY(groundLayer);
@@ -29,6 +31,15 @@ export default class BackdropSystem {
     if (this.sky.birds) this.makeBirds();
     if (this.sky.embers) this.makeEmbers();
     if (this.sky.leaves) this.makeLeaves();
+    if (this.sky.snow) this.makeSnow();
+    if (this.sky.aurora) this.drawAurora();
+    if (this.sky.bergs) this.drawBergs();
+    if (this.sky.camels) this.makeCaravan();
+    if (this.sky.haze) this.makeHaze();
+    this.tumbleweeds = [];
+    this.nextWeedAt = scene.time.now + 1500;
+    this.layer = groundLayer;
+    this.palette = map.palette ?? {};
 
     // Ground decor, all drawn once into two layers: behind the characters
     // (trees, spires, chains...) and in front of their feet (small rocks).
@@ -43,9 +54,14 @@ export default class BackdropSystem {
       else if (o.name === 'mushroom') this.drawMushroom(o.x, o.y);
       else if (o.name === 'bones') this.drawBones(o.x, o.y);
       else if (o.name === 'chain') this.drawChain(o);
+      else if (o.name === 'pine') this.drawPine(o.x, o.y);
+      else if (o.name === 'palm') this.drawPalm(o.x, o.y);
+      else if (o.name === 'cactus') this.drawCactus(o.x, o.y);
       else if (o.name === 'fireflies') this.makeFireflies(o);
       else if (o.name === 'cave') this.drawCave(o);
+      else if (o.name === 'penguin' || o.name === 'scorpion') this.addCritter(o.name, o.x, o.y);
     }
+    if (this.critters.length) this.critterGfx = scene.add.graphics().setDepth(3);
     if (map.key === 'forest') this.drawGrass(groundLayer);
   }
 
@@ -77,12 +93,12 @@ export default class BackdropSystem {
   }
 
   drawSun() {
-    const { color, x, y } = this.sky.sun;
+    const { color, x, y, size = 1 } = this.sky.sun;
     const factor = 0.05;
     const sx = VIEW_W * x;
     const sy = this.placeY(VIEW_H * y, factor);
     for (const [r, a] of [[90, 0.12], [60, 0.2], [38, 1]]) {
-      this.scene.add.circle(sx, sy, r, color, a).setScrollFactor(factor).setDepth(-99);
+      this.scene.add.circle(sx, sy, r * size, color, a).setScrollFactor(factor).setDepth(-99);
     }
   }
 
@@ -120,6 +136,13 @@ export default class BackdropSystem {
       const tex = this.scene.textures.createCanvas(key, w, h);
       const ctx = tex.getContext();
       const top = (x) => {
+        if (r.mesa) {
+          // Flat-topped mesas with steep sides.
+          const period = 260;
+          const p = (x % period) / period;
+          const tall = 0.55 + 0.35 * Math.sin(Math.floor(x / period) * 7.13);
+          return p < 0.55 ? r.height * (1 - tall) : p < 0.62 ? r.height * (1 - tall * (1 - (p - 0.55) / 0.07)) : r.height * 0.92;
+        }
         if (r.spiky) {
           const period = 90 + (i * 37) % 50;
           const p = (x % period) / period;
@@ -138,6 +161,15 @@ export default class BackdropSystem {
       ctx.closePath();
       ctx.fill();
       // Pine trees along the near ridge.
+      // Snow on the peaks: white wherever the ridge is high.
+      if (r.snowCaps) {
+        ctx.fillStyle = 'rgba(255,255,255,0.9)';
+        for (let x = 0; x <= w; x += 3) {
+          const y = top(x);
+          const cap = Math.max(0, (r.height * 0.5 - y) * 0.45);
+          if (cap > 2) ctx.fillRect(x, y, 3, cap);
+        }
+      }
       if (r.trees) {
         ctx.fillStyle = css(darken(r.color, 0.7));
         for (let x = 10; x < w; x += 14 + ((x * 7) % 23)) {
@@ -177,7 +209,7 @@ export default class BackdropSystem {
       x,
       y: Phaser.Math.Between(150, Math.max(200, this.groundY - 350)),
       dir,
-      speed: Phaser.Math.Between(...speed),
+      speed: Phaser.Math.Between(...speed) * (this.sky.birds?.speed ?? 1),
       gfx: this.scene.add.graphics().setDepth(-90).setScrollFactor(0.8),
       birds: Array.from({ length: Phaser.Math.Between(...perFlock) }, (_, k) => ({
         dx: -dir * k * Phaser.Math.Between(16, 26),
@@ -203,19 +235,23 @@ export default class BackdropSystem {
       }
       const g = f.gfx;
       g.clear();
-      g.lineStyle(2, 0x1d3557, 0.85);
+      const look = typeof this.sky.birds === 'object' ? this.sky.birds : {};
+      const size = look.size ?? 1;
+      g.lineStyle(2 * Math.min(1.5, size), look.color ?? 0x1d3557, 0.85);
       for (const b of f.birds) {
-        const flap = Math.sin(now / 110 + b.phase) * 5;
-        const x = f.x + b.dx;
-        const y = f.y + b.dy + Math.sin(now / 900 + b.phase) * 4;
+        const flap = Math.sin(now / (110 * size) + b.phase) * 5 * size;
+        // Vultures (look.speed < 1) circle slowly instead of crossing.
+        const circle = look.speed ? Math.sin(now / 2200 + b.phase) * 60 : 0;
+        const x = f.x + b.dx + circle;
+        const y = f.y + b.dy + Math.sin(now / 900 + b.phase) * 4 + (look.speed ? Math.cos(now / 2200 + b.phase) * 20 : 0);
         g.beginPath();
-        g.moveTo(x - 7, y - flap);
+        g.moveTo(x - 7 * size, y - flap);
         g.lineTo(x, y);
-        g.lineTo(x + 7, y - flap);
+        g.lineTo(x + 7 * size, y - flap);
         g.strokePath();
       }
       // A chirp now and then when a flock is near the middle of the screen.
-      if (Math.abs(screenX - VIEW_W / 2) < DECOR.birds.chirpPx / 2 && now >= f.nextChirpAt) {
+      if (!look.color && Math.abs(screenX - VIEW_W / 2) < DECOR.birds.chirpPx / 2 && now >= f.nextChirpAt) {
         f.nextChirpAt = now + Phaser.Math.Between(2500, 6000);
         this.scene.sfx?.play('chirp', null, { volume: 0.5 });
       }
@@ -322,7 +358,7 @@ export default class BackdropSystem {
   drawCave(o) {
     const g = this.scene.add.graphics().setDepth(-7);
     const hell = this.key === 'hell';
-    g.fillStyle(hell ? 0x1a0808 : 0x2b1d14, 1).fillRect(o.x, o.y, o.width, o.height);
+    g.fillStyle(this.palette.cave ?? (hell ? 0x1a0808 : 0x2b1d14), 1).fillRect(o.x, o.y, o.width, o.height);
     g.fillStyle(hell ? 0xff5400 : 0x000000, hell ? 0.08 : 0.25);
     for (let x = o.x + 10; x < o.x + o.width; x += 46) g.fillEllipse(x, o.y + o.height * 0.5, 30, o.height * 0.7);
   }
@@ -411,6 +447,496 @@ export default class BackdropSystem {
       if (c.img.x > c.span + 150) c.img.x = -150;
     }
     if (this.birds.length) this.updateBirds(now, dt);
+    if (this.sky.tumbleweeds) this.updateTumbleweeds(now);
+    if (this.aurora) this.aurora.setAlpha(0.35 + Math.sin(now / 2600) * 0.15);
+    if (this.critters.length) this.updateCritters(now, dt);
+    if (this.caravan) this.updateCaravan(now, dt);
+    if (this.bergs) this.updateWhales(now);
+    if (this.haze) this.haze.forEach((h, i) => h.setAlpha(0.06 + Math.sin(now / 300 + i * 1.7) * 0.04));
+  }
+
+  // ---- Wildlife: penguins (Glacier), scorpions (Desert) ----
+  // Each one stands on the exact top of the ground (no jitter) and runs a
+  // little routine:
+  //   penguin: waddles (sways and bobs with each step, slow), stops to look
+  //            around, and when scared flops on its belly and slides away,
+  //            slowing down, then gets back up.
+  //   scorpion: scuttles in short bursts, freezes, and raises its tail when
+  //            scared before scuttling off.
+  // They turn back at edges, water, lava and walls. A blast kills any caught
+  // in it (feathers / bits); they come back after a while.
+
+  addCritter(kind, x, y) {
+    const c = { kind, x, y, home: { x, y }, dir: Math.random() < 0.5 ? -1 : 1, state: 'idle', until: 0, phase: Math.random() * 6, speed: 0, alive: true };
+    c.y = this.surfaceAt(x, y) ?? y;
+    this.critters.push(c);
+  }
+
+  // The exact top of the ground under (x, around y), or null (no ground,
+  // or water / lava there).
+  surfaceAt(x, y) {
+    const layer = this.layer;
+    const th = layer.tilemap.tileHeight;
+    for (let yy = y - th * 1.5; yy < y + th * 2; yy += th / 4) {
+      if (layer.unsafeAt?.(x, yy)) return null;
+      const t = layer.getTileAtWorldXY(x, yy);
+      if (t && t.collides) return t.pixelY;
+    }
+    return null;
+  }
+
+  // A blast: anything caught in it dies, anything near it panics.
+  blast(x, y, radius) {
+    const now = this.scene.time.now;
+    for (const c of this.critters) {
+      if (!c.alive) continue;
+      const d = Phaser.Math.Distance.Between(x, y, c.x, c.y - 8);
+      if (d <= radius) this.killCritter(c, now);
+      else if (d <= radius * 1.8) this.startle(c, x, now);
+    }
+    for (const t of this.tumbleweeds) {
+      if (t.active && Phaser.Math.Distance.Between(x, y, t.x, t.y) <= radius) this.breakWeed(t);
+    }
+  }
+
+  scare(x, y, r) {
+    this.blast(x, y, r / 1.6);
+  }
+
+  startle(c, fromX, now) {
+    c.dir = c.x < fromX ? -1 : 1;
+    if (c.kind === 'penguin') {
+      c.state = 'slide';
+      c.speed = DECOR.critters.flee * 1.3;
+    } else {
+      c.state = 'alarm';
+      c.until = now + 350;
+    }
+  }
+
+  killCritter(c, now) {
+    c.alive = false;
+    c.backAt = now + DECOR.critters.respawnMs;
+    const fx = this.scene.effects;
+    const colors = c.kind === 'penguin' ? [0x1b1b1b, 0xffffff, 0xffffff, 0xf4a261] : [0x5c3a21, 0x3d2314];
+    for (let i = 0; i < (c.kind === 'penguin' ? 9 : 6); i++) {
+      fx?.piece(c.x, c.y - 10, { w: 3, h: c.kind === 'penguin' ? 5 : 3, color: colors[i % colors.length] }, true);
+    }
+    if (c.kind === 'penguin') fx?.poof?.(c.x, c.y - 12, 0xffffff);
+  }
+
+  updateCritters(now, dt) {
+    const cfg = DECOR.critters;
+    const p = this.scene.player;
+    const g = this.critterGfx;
+    g.clear();
+    for (const c of this.critters) {
+      if (!c.alive) {
+        if (now >= c.backAt) {
+          Object.assign(c, { alive: true, x: c.home.x, y: this.surfaceAt(c.home.x, c.home.y) ?? c.home.y, state: 'idle', until: now + 1000, speed: 0 });
+        }
+        continue;
+      }
+      // You coming close scares it (once, not every frame).
+      const near = p?.alive && Phaser.Math.Distance.Between(p.x, p.y, c.x, c.y) < cfg.scarePx;
+      if (near && c.state !== 'slide' && c.state !== 'flee' && c.state !== 'alarm' && now > (c.calmUntil ?? 0)) {
+        this.startle(c, p.x, now);
+        c.calmUntil = now + 3000;
+      }
+
+      // The routine.
+      if (c.kind === 'penguin') this.penguinStep(c, now, dt);
+      else this.scorpionStep(c, now, dt);
+
+      // Move along the ground; at an edge, a wall or water: stop and turn.
+      if (c.speed > 0) {
+        const nx = c.x + c.dir * c.speed * dt;
+        const ny = this.surfaceAt(nx + c.dir * 8, c.y);
+        if (ny === null || Math.abs(ny - c.y) > 34) {
+          c.dir *= -1;
+          c.speed = 0;
+          c.state = 'idle';
+          c.until = now + Phaser.Math.Between(600, 1500);
+        } else {
+          c.x = nx;
+          const y = this.surfaceAt(nx, c.y) ?? c.y;
+          c.ofs = (c.ofs ?? 0) + c.y - y; // a step up or down: ease onto it (a little hop)
+          c.y = y;
+        }
+      }
+      if (c.ofs) c.ofs = Math.abs(c.ofs) < 1 ? 0 : c.ofs - Math.sign(c.ofs) * Math.min(Math.abs(c.ofs), 160 * dt);
+      if (c.kind === 'penguin') this.drawPenguin(g, c, now);
+      else this.drawScorpion(g, c, now);
+    }
+  }
+
+  penguinStep(c, now, dt) {
+    const cfg = DECOR.critters;
+    if (c.state === 'slide') {
+      c.speed = Math.max(0, c.speed - 70 * dt); // glides, slowing down
+      if (c.speed < 12) {
+        c.state = 'getup';
+        c.until = now + 500;
+        c.speed = 0;
+      }
+      return;
+    }
+    if (now < c.until && c.state !== 'walk') return;
+    if (c.state === 'walk') {
+      // Each step: a push, then a pause as it rocks onto the other foot.
+      c.phase += dt * 7;
+      c.speed = cfg.walk * (0.35 + 0.65 * Math.abs(Math.sin(c.phase)));
+      if (now >= c.until) {
+        c.state = 'idle';
+        c.until = now + Phaser.Math.Between(1200, 3500);
+        c.speed = 0;
+      }
+      return;
+    }
+    // idle / getup finished: walk somewhere, sometimes turning first.
+    if (Math.random() < 0.4) c.dir *= -1;
+    c.state = 'walk';
+    c.until = now + Phaser.Math.Between(1500, 4000);
+  }
+
+  scorpionStep(c, now, dt) {
+    const cfg = DECOR.critters;
+    if (c.state === 'alarm') {
+      c.speed = 0;
+      if (now >= c.until) {
+        c.state = 'flee';
+        c.until = now + 900;
+      }
+      return;
+    }
+    if (c.state === 'flee' || c.state === 'scuttle') {
+      c.phase += dt * 30;
+      c.speed = c.state === 'flee' ? cfg.flee * 0.7 : cfg.walk * 1.6;
+      if (now >= c.until) {
+        c.state = 'idle';
+        c.until = now + Phaser.Math.Between(500, 2200);
+        c.speed = 0;
+      }
+      return;
+    }
+    if (now < c.until) return;
+    if (Math.random() < 0.35) c.dir *= -1;
+    c.state = 'scuttle';
+    c.until = now + Phaser.Math.Between(300, 1000);
+  }
+
+  drawPenguin(g, c, now) {
+    const x = c.x;
+    const y = c.y + (c.ofs ?? 0);
+    const d = c.dir;
+    if (c.state === 'slide') {
+      // On its belly, flippers back, gliding.
+      g.fillStyle(0x1b1b1b, 1).fillEllipse(x, y - 6, 28, 11);
+      g.fillStyle(0xffffff, 1).fillEllipse(x + d * 2, y - 2, 20, 5);
+      g.fillStyle(0x1b1b1b, 1).fillCircle(x + d * 12, y - 8, 5);
+      g.fillStyle(0xf4a261, 1).fillTriangle(x + d * 16, y - 9, x + d * 21, y - 8, x + d * 16, y - 6);
+      g.fillStyle(0xf4a261, 1).fillEllipse(x - d * 15, y - 5, 6, 3);
+      return;
+    }
+    const walking = c.state === 'walk';
+    const sway = walking ? Math.sin(c.phase) * 0.16 : 0;           // rocks side to side
+    const bob = walking ? Math.abs(Math.sin(c.phase)) * 1.5 : 0;   // a little lift each step
+    const up = c.state === 'getup' ? 6 * Math.max(0, (c.until - now) / 500) : 0;
+    const look = !walking && Math.sin(now / 900 + c.phase) > 0.6 ? -d : d; // looks around while standing
+    const cx = x + sway * 8;
+    const top = y - 24 - bob + up;
+    // feet (step in turn)
+    g.fillStyle(0xf4a261, 1);
+    g.fillEllipse(x - 4 + (walking ? Math.sin(c.phase) * 2 : 0), y - 1, 7, 3);
+    g.fillEllipse(x + 4 - (walking ? Math.sin(c.phase) * 2 : 0), y - 1, 7, 3);
+    // body and belly
+    g.fillStyle(0x1b1b1b, 1).fillEllipse(cx, y - 12 - bob + up / 2, 17, 23 - up);
+    g.fillStyle(0xffffff, 1).fillEllipse(cx + look * 2, y - 11 - bob + up / 2, 10, 16 - up);
+    // flippers
+    g.fillStyle(0x1b1b1b, 1);
+    g.fillEllipse(cx - 8, y - 13 - bob, 4, 12).fillEllipse(cx + 8, y - 13 - bob, 4, 12);
+    // head, eye, beak
+    g.fillCircle(cx + sway * 4, top, 6.5);
+    g.fillStyle(0xffffff, 1).fillCircle(cx + sway * 4 + look * 3, top - 1, 1.8);
+    g.fillStyle(0xf4a261, 1).fillTriangle(cx + sway * 4 + look * 5, top, cx + sway * 4 + look * 11, top + 1.5, cx + sway * 4 + look * 5, top + 3);
+  }
+
+  drawScorpion(g, c, now) {
+    const x = c.x;
+    const y = c.y + (c.ofs ?? 0);
+    const d = c.dir;
+    const moving = c.state === 'scuttle' || c.state === 'flee';
+    const alarmed = c.state === 'alarm' || c.state === 'flee';
+    // legs: four a side, stepping in waves while it moves
+    g.lineStyle(1.3, 0x3d2314, 1);
+    for (let k = 0; k < 4; k++) {
+      const lx = x - 5 + k * 3.5;
+      const lift = moving ? Math.sin(c.phase + k * 1.6) * 1.8 : 0;
+      g.lineBetween(lx, y - 3, lx - 3, y - lift * (k % 2 ? 1 : -1) * 0.5);
+      g.lineBetween(lx, y - 3, lx + 3, y + lift * (k % 2 ? -1 : 1) * 0.5);
+    }
+    // body
+    g.fillStyle(0x5c3a21, 1).fillEllipse(x, y - 4, 14, 6);
+    // tail: segments curling over the back, higher when alarmed
+    const curl = alarmed ? 1.35 : 1;
+    g.fillCircle(x - d * 8, y - 5 * curl, 2.6).fillCircle(x - d * 11, y - 9 * curl, 2.3).fillCircle(x - d * 11, y - 13 * curl, 2.1).fillCircle(x - d * 8, y - 16 * curl, 1.9);
+    g.fillStyle(0x3d2314, 1).fillTriangle(x - d * 8, y - 16 * curl, x - d * 4, y - 15 * curl, x - d * 6, y - 12 * curl); // stinger
+    // pincers out front (open when alarmed)
+    const open = alarmed ? 2 : 0.8;
+    g.fillStyle(0x5c3a21, 1).fillCircle(x + d * 9, y - 5 - open, 2.2).fillCircle(x + d * 9, y - 2 + open, 2.2);
+  }
+
+  // ---- Desert: a camel caravan on the far dunes ----
+
+  makeCaravan() {
+    const cfg = DECOR.camels;
+    const factor = 0.16;
+    this.caravanFactor = factor;
+    this.caravanBase = this.placeY(345, factor);
+    this.caravanSpan = VIEW_W + (this.world.width - VIEW_W) * factor;
+    // Their own low dune to walk on (between the far and near ridges).
+    const dune = this.scene.add.graphics().setScrollFactor(factor).setDepth(-96.5);
+    dune.fillStyle(0xe0b36a, 1);
+    dune.beginPath();
+    dune.moveTo(0, this.caravanBase + 300);
+    for (let x = 0; x <= this.caravanSpan; x += 10) dune.lineTo(x, this.duneTop(x));
+    dune.lineTo(this.caravanSpan, this.caravanBase + 300);
+    dune.closePath();
+    dune.fillPath();
+    this.caravan = {
+      gfx: this.scene.add.graphics().setScrollFactor(factor).setDepth(-96.4),
+      x: Phaser.Math.Between(0, this.caravanSpan),
+      speed: cfg.speed,
+    };
+  }
+
+  duneTop(x) {
+    return this.caravanBase + Math.sin(x / 210) * 10 + Math.sin(x / 77) * 4;
+  }
+
+  updateCaravan(now, dt) {
+    const cfg = DECOR.camels;
+    const c = this.caravan;
+    c.x += c.speed * dt;
+    if (c.x - cfg.count * cfg.spacing > this.caravanSpan) c.x = -40;
+    const g = c.gfx;
+    g.clear();
+    g.fillStyle(cfg.color, 0.85);
+    g.lineStyle(2, cfg.color, 0.85);
+    for (let k = 0; k < cfg.count; k++) {
+      const x = c.x - k * cfg.spacing;
+      const y = this.duneTop(x) - 2;
+      const step = Math.sin(now / 260 + k * 1.3) * 3;
+      // legs
+      g.lineBetween(x - 8, y - 14, x - 8 + step, y);
+      g.lineBetween(x - 4, y - 14, x - 4 - step, y);
+      g.lineBetween(x + 8, y - 14, x + 8 - step, y);
+      g.lineBetween(x + 12, y - 14, x + 12 + step, y);
+      // body, hump, neck and head
+      g.fillEllipse(x + 2, y - 18, 30, 12);
+      g.fillEllipse(x, y - 25, 14, 10);
+      g.lineBetween(x + 16, y - 20, x + 22, y - 32);
+      g.fillEllipse(x + 25, y - 33, 9, 5);
+      // a rider on the first camel
+      if (k === 0) {
+        g.fillRect(x - 2, y - 40, 5, 10);
+        g.fillCircle(x, y - 43, 3);
+      }
+    }
+  }
+
+  // Heat shimmer: faint bands wavering over the horizon.
+  makeHaze() {
+    this.haze = [];
+    for (let i = 0; i < 3; i++) {
+      this.haze.push(this.scene.add.rectangle(0, 380 + i * 26, VIEW_W, 14, 0xfff3e0, 0.06).setOrigin(0, 0).setScrollFactor(0).setDepth(-95));
+    }
+  }
+
+  // ---- Glacier: icebergs on the far sea, and whales spouting ----
+
+  drawBergs() {
+    const factor = 0.12;
+    const span = VIEW_W + (this.world.width - VIEW_W) * factor;
+    const sea = this.placeY(470, factor);
+    const g = this.scene.add.graphics().setScrollFactor(factor).setDepth(-96.5);
+    g.fillStyle(0x5e8cad, 1).fillRect(0, sea, span, 400);           // the far sea
+    g.fillStyle(0x8fb8d6, 0.6).fillRect(0, sea, span, 3);
+    this.bergs = [];
+    for (let x = 60; x < span; x += Phaser.Math.Between(140, 280)) {
+      const w = Phaser.Math.Between(40, 110);
+      const h = Phaser.Math.Between(20, 55);
+      g.fillStyle(0xf1faee, 1).fillTriangle(x, sea, x + w, sea, x + w * Phaser.Math.FloatBetween(0.3, 0.7), sea - h);
+      g.fillStyle(0xc8d6e5, 1).fillTriangle(x + w * 0.5, sea, x + w, sea, x + w * 0.6, sea - h * 0.6);
+      this.bergs.push(x + w + 40);
+    }
+    this.bergSea = sea;
+    this.bergFactor = factor;
+    this.nextWhaleAt = this.scene.time.now + 3000;
+  }
+
+  updateWhales(now) {
+    if (now < this.nextWhaleAt) return;
+    this.nextWhaleAt = now + Phaser.Math.Between(...DECOR.whales.everyMs);
+    const cam = this.scene.cameras.main;
+    const x = cam.scrollX * this.bergFactor + Phaser.Math.Between(100, VIEW_W - 100);
+    const back = this.scene.add.ellipse(x, this.bergSea + 2, 40, 10, 0x2b3a55).setScrollFactor(this.bergFactor).setDepth(-96.4);
+    this.scene.tweens.add({ targets: back, y: this.bergSea + 10, alpha: 0, delay: 1200, duration: 800, onComplete: () => back.destroy() });
+    for (let i = 0; i < 10; i++) {
+      const d = this.scene.add.circle(x + 8, this.bergSea - 2, Phaser.Math.Between(2, 4), 0xffffff, 0.9).setScrollFactor(this.bergFactor).setDepth(-96.3);
+      this.scene.tweens.add({
+        targets: d,
+        x: x + 8 + Phaser.Math.Between(-14, 14),
+        y: this.bergSea - Phaser.Math.Between(25, 45),
+        alpha: 0,
+        delay: i * 30,
+        duration: 700,
+        ease: 'Quad.easeOut',
+        onComplete: () => d.destroy(),
+      });
+    }
+  }
+
+  // ---- Glacier ----
+
+  makeSnow() {
+    this.scene.add
+      .particles(0, 0, 'hz-dot', {
+        x: { min: -100, max: VIEW_W + 100 },
+        y: -10,
+        lifespan: 9000,
+        speedX: { min: -25, max: 15 },
+        speedY: { min: 35, max: 70 },
+        scale: { min: 0.08, max: 0.22 },
+        alpha: { start: 0.95, end: 0.6 },
+        tint: 0xffffff,
+        frequency: 1000 / DECOR.snow.perSecond,
+      })
+      .setScrollFactor(0)
+      .setDepth(34);
+  }
+
+  // Northern lights: soft green and teal bands high in the sky.
+  drawAurora() {
+    const key = `aurora-${this.key}`;
+    const w = 1400;
+    const h = 260;
+    if (!this.scene.textures.exists(key)) {
+      const tex = this.scene.textures.createCanvas(key, w, h);
+      const ctx = tex.getContext();
+      for (const [color, off, amp] of [['rgba(112,224,140,', 0, 40], ['rgba(72,202,228,', 2, 30], ['rgba(157,78,221,', 4, 20]]) {
+        for (let x = 0; x < w; x += 2) {
+          const y = 90 + Math.sin(x / 140 + off) * amp + Math.sin(x / 47 + off) * 10;
+          const grad = ctx.createLinearGradient(0, y - 70, 0, y + 10);
+          grad.addColorStop(0, color + '0)');
+          grad.addColorStop(0.7, color + '0.55)');
+          grad.addColorStop(1, color + '0)');
+          ctx.fillStyle = grad;
+          ctx.fillRect(x, y - 70, 2, 80);
+        }
+      }
+      tex.refresh();
+    }
+    this.aurora = this.scene.add.image(-60, this.placeY(10, 0.05), key).setOrigin(0, 0).setScrollFactor(0.05).setDepth(-99).setBlendMode(Phaser.BlendModes.ADD);
+  }
+
+  // A snowy pine: dark green tiers with snow on each.
+  drawPine(x, y) {
+    const g = this.back;
+    const h = Phaser.Math.Between(80, 130);
+    g.fillStyle(0x582f0e, 1).fillRect(x - 4, y - 18, 8, 18);
+    for (let k = 0; k < 4; k++) {
+      const ty = y - 14 - k * h * 0.22;
+      const tw = (4 - k) * 13;
+      g.fillStyle(0x1b4332, 1).fillTriangle(x - tw, ty, x + tw, ty, x, ty - h * 0.36);
+      g.fillStyle(0xffffff, 0.95).fillTriangle(x - tw * 0.45, ty - h * 0.2, x + tw * 0.45, ty - h * 0.2, x, ty - h * 0.36);
+    }
+  }
+
+  // ---- Desert ----
+
+  drawPalm(x, y) {
+    const g = this.back;
+    const h = Phaser.Math.Between(110, 150);
+    const lean = Phaser.Math.Between(-20, 20);
+    g.lineStyle(9, 0x8d5a2b, 1);
+    g.beginPath();
+    g.moveTo(x, y);
+    g.lineTo(x + lean * 0.5, y - h * 0.5);
+    g.lineTo(x + lean, y - h);
+    g.strokePath();
+    for (let k = 0; k < 7; k++) {
+      const a = -Math.PI / 2 + (k - 3) * 0.5;
+      const tx = x + lean + Math.cos(a) * 55;
+      const ty = y - h + Math.sin(a) * 30 + 22;
+      g.fillStyle(k % 2 ? 0x2d6a4f : 0x40916c, 1).fillTriangle(x + lean, y - h - 4, x + lean, y - h + 6, tx, ty);
+    }
+    g.fillStyle(0x6f4518, 1).fillCircle(x + lean - 4, y - h + 6, 5).fillCircle(x + lean + 5, y - h + 7, 5);
+  }
+
+  // A saguaro: a trunk and two arms (it pricks: see CACTUS in hazards.js).
+  drawCactus(x, y) {
+    const g = this.back;
+    const green = 0x2d6a4f;
+    g.fillStyle(green, 1);
+    g.fillRoundedRect(x - 8, y - 54, 16, 54, 8);
+    g.fillRoundedRect(x - 22, y - 38, 10, 22, 5);
+    g.fillRect(x - 18, y - 22, 12, 8);
+    g.fillRoundedRect(x + 12, y - 46, 10, 20, 5);
+    g.fillRect(x + 6, y - 30, 10, 8);
+    g.lineStyle(1, 0x95d5b2, 0.8);
+    for (let k = 0; k < 6; k++) g.lineBetween(x - 4 + (k % 2) * 8, y - 50 + k * 8, x - 7 + (k % 2) * 14, y - 52 + k * 8);
+  }
+
+  // A tumbleweed: a loose, tangled ball of dry twigs.
+  makeWeedTexture(r) {
+    const size = r * 2 + 4;
+    const g = this.scene.add.graphics();
+    const c = size / 2;
+    for (let i = 0; i < 26; i++) {
+      const a0 = Math.random() * Math.PI * 2;
+      const a1 = a0 + Phaser.Math.FloatBetween(0.6, 2.2);
+      const rr = Phaser.Math.FloatBetween(r * 0.3, r);
+      g.lineStyle(1.3, i % 3 ? 0xb08968 : 0x7f5539, 0.95);
+      g.beginPath();
+      g.arc(c + Phaser.Math.FloatBetween(-2, 2), c + Phaser.Math.FloatBetween(-2, 2), rr, a0, a1);
+      g.strokePath();
+    }
+    g.generateTexture('tumbleweed', size, size);
+    g.destroy();
+  }
+
+  // Caught in a blast: it bursts into twigs.
+  breakWeed(t) {
+    for (let i = 0; i < 6; i++) this.scene.effects?.piece(t.x, t.y, { w: 5, h: 1.5, color: 0xb08968 }, true);
+    t.destroy();
+  }
+
+  // Tumbleweeds: dry desert plants rolled along by the wind, hopping over
+  // bumps (looks only; a blast bursts them).
+  updateTumbleweeds(now) {
+    const cfg = DECOR.tumbleweeds;
+    this.tumbleweeds = this.tumbleweeds.filter((t) => {
+      if (!t.active) return false;
+      if (t.y > this.world.height || t.x > this.world.width + 40) {
+        t.destroy();
+        return false;
+      }
+      t.body.setVelocityX(t.speed);
+      if (t.body.blocked.right || (t.body.blocked.down && Math.random() < 0.02)) t.body.setVelocityY(-Phaser.Math.Between(180, 300));
+      t.rotation += t.speed / 900;
+      return true;
+    });
+    if (now < this.nextWeedAt || this.tumbleweeds.length >= cfg.max) return;
+    this.nextWeedAt = now + Phaser.Math.Between(...cfg.everyMs);
+    if (!this.scene.textures.exists('tumbleweed')) this.makeWeedTexture(cfg.size);
+    const t = this.scene.add.image(-20, Phaser.Math.Between(400, this.groundY - 200), 'tumbleweed').setDepth(-2);
+    this.scene.physics.add.existing(t);
+    t.body.setCircle(cfg.size, t.width / 2 - cfg.size, t.height / 2 - cfg.size);
+    t.body.setBounce(0.4);
+    t.speed = Phaser.Math.Between(...cfg.speed);
+    this.scene.physics.add.collider(t, this.layer);
+    this.tumbleweeds.push(t);
   }
 }
 

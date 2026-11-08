@@ -12,6 +12,8 @@ export default class Bullet extends Phaser.GameObjects.Rectangle {
     super(scene, x, y, style.length, width, color);
     scene.add.existing(this);
     this.setDepth(40);
+    // A dark edge so the bright tracer shows on light skies, snow and sand too.
+    this.setStrokeStyle(1, 0x000000, 0.75);
 
     this.target = target;
     this.offset = offset;
@@ -58,7 +60,9 @@ export default class Bullet extends Phaser.GameObjects.Rectangle {
   // Thin line from the muzzle to the hit, fading out (snipers, marksman).
   drawTrail() {
     const g = this.scene.add.graphics().setDepth(39);
-    g.lineStyle(1, this.fillColor, 0.6);
+    g.lineStyle(3, 0x000000, 0.25); // a faint dark edge (light maps)
+    g.lineBetween(this.startX, this.startY, this.goalX, this.goalY);
+    g.lineStyle(1, this.fillColor, 0.7);
     g.lineBetween(this.startX, this.startY, this.goalX, this.goalY);
     this.scene.tweens.add({
       targets: g,

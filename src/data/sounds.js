@@ -167,6 +167,7 @@ export const SOUNDS = {
   iceForm: { gapMs: 150, layers: [{ noise: true, filter: 'highpass', freq: 3000, freqEnd: 6000, dur: 0.5, gain: 0.35, attack: 0.05 }, ...crackles(12, 0.5, 0.25, 4500, 47), { wave: 'sine', freq: 2600, freqEnd: 1800, dur: 0.3, gain: 0.06, delay: 0.1 }] }, // water freezing over
   iceCrack: { gapMs: 200, layers: [snap(0.5), ...crackles(8, 0.25, 0.35, 3800, 53)] },
   iceBreak: { gapMs: 200, layers: [...glass, body(500, 0.2, 0.3)] },
+  sandSink: { gapMs: 200, layers: [{ noise: true, filter: 'lowpass', freq: 600, freqEnd: 250, dur: 0.5, gain: 0.5, attack: 0.04 }, ...crackles(10, 0.5, 0.15, 1400, 59)] }, // sinking into quicksand
   steam: { gapMs: 150, layers: [{ noise: true, filter: 'highpass', freq: 2500, dur: 0.8, gain: 0.45, attack: 0.03 }] }, // fire hitting water
   chirp: { gapMs: 250, vary: 0.15, layers: [{ wave: 'sine', freq: 3200, freqEnd: 4200, dur: 0.06, gain: 0.14 }, { wave: 'sine', freq: 3600, freqEnd: 4600, dur: 0.05, gain: 0.11, delay: 0.09 }] }, // a bird overhead
 
@@ -327,6 +328,8 @@ export const LOOPS = {
   // Maps: a waterfall's steady roar, lava bubbling, a heat vent's hot breath.
   waterfall: { gain: 0.3, layers: [{ noise: true, filter: 'lowpass', freq: 1200, gain: 1 }, { noise: true, filter: 'bandpass', freq: 3000, q: 0.6, gain: 0.35 }] },
   lava: { gain: 0.35, pulse: { rate: 0.7, depth: 0.5 }, layers: [{ noise: true, filter: 'lowpass', freq: 220, gain: 1 }, { noise: 'crackle', filter: 'bandpass', freq: 700, q: 1, gain: 0.6 }] },
+  // Sandstorm: a howling wind.
+  wind: { gain: 0.35, pulse: { rate: 0.4, depth: 0.5 }, layers: [{ noise: true, filter: 'bandpass', freq: 500, q: 0.6, gain: 1 }, { noise: true, filter: 'bandpass', freq: 1800, q: 3, gain: 0.35 }] },
   vent: { gain: 0.18, layers: [{ noise: true, filter: 'bandpass', freq: 700, q: 0.8, gain: 1 }] },
   sawGrindMetal: { gain: 0.22, layers: [{ noise: true, filter: 'bandpass', freq: 3800, q: 6, gain: 1 }, { wave: 'sawtooth', freq: 2400, gain: 0.15, vibrato: { rate: 35, depth: 90 } }, { noise: 'crackle', filter: 'highpass', freq: 4500, gain: 0.8 }] }, // blade screeching on metal
 };

@@ -1,5 +1,8 @@
 import Phaser from 'phaser';
-import { HIDING, WATER, LAVA, GEYSER, VENT, FALLS, FREEZE, DECOR } from '../data/hazards.js';
+import { HIDING, WATER, LAVA, GEYSER, VENT, FALLS, FREEZE, DECOR, ICE, THIN_ICE, QUICKSAND, CACTUS, SANDSTORM, IGLOO, DUST_DEVIL } from '../data/hazards.js';
+import { groundBelow } from './Terrain.js';
+import { TILE_FAMILY, SLIPPERY } from '../data/maps.js';
+import Icicle from '../entities/Icicle.js';
 
 // Map hazards and advantages (Phase 7), read from the Tiled object layer
 // "hazards" (and bushes from "decor"). Rules live in src/data/hazards.js.
@@ -11,7 +14,11 @@ import { HIDING, WATER, LAVA, GEYSER, VENT, FALLS, FREEZE, DECOR } from '../data
 //   vents: hot air that lifts you and refuels your jetpack
 //   bushes: stand inside one and you're hidden
 //   waterfalls / lavafalls: push you down (lava also burns), splash, sound
-//   cryo freezes water into ice (lava into a crust); EMP shocks the water
+//   cryo freezes water into an iceberg (not lava); EMP shocks the water
+//   ice: you slide; thin ice cracks and breaks under you; freezing water
+//   quicksand: sinks you, suffocates you slowly when you're under
+//   icicles: word targets that drop on whoever is below; cacti prick
+//   sandstorms: nobody sees far while one blows (visionPx)
 // Every character gets a few flags each frame: inWater, submerged, inLava,
 // inBush, hidden (TypingSystem and BotBrain respect `hidden`).
 const DEPTH_WATER = 30; // over characters (they look submerged), under words (50)
@@ -32,7 +39,15 @@ export default class HazardSystem {
     const waterCfg = { ...WATER, ...(map.water ?? {}) };
     const lavaCfg = { ...LAVA, ...(map.lava ?? {}) };
     this.waters = rects(objects, 'water').map((o) => this.makePool(o, waterCfg, 'water'));
+    // Glacier's endless sea: water like any other, just huge (and deep).
+    for (const o of rects(objects, 'sea')) this.waters.push(this.makePool(o, { ...waterCfg, fish: false, sea: true }, 'water'));
     this.lavas = rects(objects, 'lava').map((o) => this.makePool(o, lavaCfg, 'lava'));
+    this.sands = rects(objects, 'quicksand').map((o) => this.makePool(o, { ...QUICKSAND }, 'quicksand'));
+    this.icicles = points(objects, 'icicle').map((o) => new Icicle(scene, o.x, o.y));
+    this.cacti = points(decor, 'cactus').map((o) => ({ x: o.x, y: o.y }));
+    this.thin = new Map();      // thin ice tile -> how long it's been stood on
+    this.refreeze = [];         // broken thin ice waiting to freeze over
+    if (map.sandstorm) this.makeStorm();
     this.falls = [
       ...rects(objects, 'waterfall').map((o) => this.makeFall(o, waterCfg, 'waterfall')),
       ...rects(objects, 'lavafall').map((o) => this.makeFall(o, lavaCfg, 'lava')),
@@ -40,10 +55,12 @@ export default class HazardSystem {
     this.geysers = points(objects, 'geyser').map((o) => this.makeGeyser(o));
     this.vents = points(objects, 'vent').map((o) => this.makeVent(o));
     this.bushes = rects(decor, 'bush').map((o) => this.makeBush(o));
+    this.bushes.push(...rects(decor, 'igloo').map((o) => this.makeIgloo(o)));
+    this.devils = rects(objects, 'dustdevil').map((o) => this.makeDevil(o));
 
     // Bots and crates treat water and lava like the void: they don't walk
     // into it or land in it (see Terrain.groundBelow).
-    const pools = [...this.waters, ...this.lavas];
+    const pools = [...this.waters, ...this.lavas, ...this.sands];
     if (pools.length) groundLayer.unsafeAt = (x, y) => pools.some((p) => inside(p, x, y));
 
     this.breathBar = scene.add.graphics().setDepth(55);
@@ -66,9 +83,19 @@ export default class HazardSystem {
     this.scene.sfx?.play('steam', { x, y });
   }
 
-  // The pool (water or lava) at a point, or null.
+  // The pool (water, lava or quicksand) at a point, or null.
   poolAt(x, y) {
-    return this.waters.find((p) => inside(p, x, y)) ?? this.lavas.find((p) => inside(p, x, y)) ?? null;
+    return this.waters.find((p) => inside(p, x, y)) ?? this.lavas.find((p) => inside(p, x, y)) ?? this.sands.find((p) => inside(p, x, y)) ?? null;
+  }
+
+  // Icicles are word targets: TypingSystem needs to know about them.
+  registerTargets(typing) {
+    for (const ic of this.icicles) typing.addTarget(ic);
+  }
+
+  // How far anyone can see right now (a sandstorm cuts it), or null = normal.
+  get visionPx() {
+    return this.storm && this.storm.level > 0.5 ? SANDSTORM.visionPx : null;
   }
 
   // How hard a blast at (x, y) hits a victim, given water: a blast under
@@ -93,6 +120,11 @@ export default class HazardSystem {
     for (const c of this.characters()) this.updateCharacter(c, now);
     for (const p of this.waters) this.drawSurface(p, now);
     for (const p of this.lavas) this.drawSurface(p, now);
+    for (const p of this.sands) this.drawSurface(p, now);
+    for (const ic of this.icicles) ic.update(dt);
+    this.updateThinIce(now);
+    for (const d of this.devils) this.updateDevil(d, now, dt);
+    if (this.storm) this.updateStorm(now);
     for (const f of this.falls) this.drawFall(f, now);
     for (const g of this.geysers) this.updateGeyser(g, now);
     for (const v of this.vents) this.updateVent(v, now, dt);
@@ -111,7 +143,7 @@ export default class HazardSystem {
     const elapsed = Math.min(250, now - st.lastAt); // game time since last frame (breath runs on the clock)
     st.lastAt = now;
     if (!c.alive) {
-      c.inWater = c.submerged = c.inLava = c.inBush = c.hidden = false;
+      c.inWater = c.submerged = c.inLava = c.inBush = c.hidden = c.inSand = c.buried = false;
       st.wasInWater = st.wasInLava = false;
       this.setHiddenLook(c, false);
       return;
@@ -129,6 +161,12 @@ export default class HazardSystem {
     c.inWater = Boolean(water);
     c.submerged = Boolean(water && !c.boosted && b.top > water.y + 2 && b.top < water.bottom);
     c.inLava = Boolean(lava);
+    const sand = this.sands.find((p) => touches(p, b));
+    c.inSand = Boolean(sand);
+    c.buried = Boolean(sand && b.top > sand.y + 2);
+
+    // Ice underfoot: you slide (and thin ice cracks; see updateThinIce).
+    this.slide(c, b, elapsed);
 
     // Water: partly in it changes only how you move. Fully under: hidden,
     // holding your breath, then drowning.
@@ -136,25 +174,47 @@ export default class HazardSystem {
       this.slow(b, water.cfg);
       if (!st.wasInWater) this.enterPool(c, water, b.velocity.y);
       if (water.cfg.putsOutFire && c.statuses?.burning) this.scene.weapons?.status.clear(c, 'burning');
+      // Freezing water (Glacier): frozen stiff for a moment when you fall in.
+      if (water.cfg.freezing && !st.wasInWater) this.scene.weapons?.status.apply(c, 'frozen', 'env', THIN_ICE.freezingMs);
     } else if (st.wasInWater) {
       this.scene.sfx?.play('splashSmall', c, { volume: 0.6 });
     }
-    if (c.submerged) {
-      st.breath -= elapsed;
-      if (now >= st.nextBubbleAt) {
+    // Quicksand: you can barely move and it keeps pulling you down.
+    if (sand) {
+      this.slow(b, sand.cfg);
+      // It only pulls while you're not fighting it: the jetpack (or a jump)
+      // gets you out, slowly. (Fixed: it used to cancel the jetpack every frame.)
+      if (!c.thrusting && b.velocity.y >= 0) b.velocity.y = Math.max(b.velocity.y, sand.cfg.pull);
+      if (!st.wasInSand) {
+        this.scene.sfx?.play('sandSink', c);
+        this.splash(sand, c.x, sand.cfg.surfaceColor, 6, 0.6);
+      }
+    }
+    st.wasInSand = Boolean(sand);
+
+    // Fully under water or quicksand: holding your breath, then drowning
+    // (suffocating in sand: no hiding in it).
+    const under = c.submerged ? water : c.buried ? sand : null;
+    if (under) {
+      st.breathMax = under.cfg.breathMs;
+      st.breath = Math.min(st.breath, st.breathMax) - elapsed;
+      if (under.kind === 'water' && now >= st.nextBubbleAt) {
         st.nextBubbleAt = now + (st.breath > 0 ? 450 : 200);
         this.scene.effects?.bubbles(c.x + (c.facing ?? 1) * 6, b.top + 4, st.breath > 0 ? 1 : 3);
       }
       if (st.breath <= 0 && now >= st.nextDrownAt) {
-        st.nextDrownAt = now + WATER.drownTickMs;
-        c.takeDamage(WATER.drownDamage, 'drown', 'drown');
+        st.nextDrownAt = now + under.cfg.drownTickMs;
+        c.takeDamage(under.cfg.drownDamage, under.kind === 'quicksand' ? 'quicksand' : 'drown', 'drown');
       }
     } else {
-      if (st.breath < WATER.breathMs * 0.5 && st.wasSubmerged && c === this.scene.player) this.scene.sfx?.play('gasp', c);
+      if (st.breath < (st.breathMax ?? WATER.breathMs) * 0.5 && st.wasUnder && c === this.scene.player) this.scene.sfx?.play('gasp', c);
+      st.breathMax = WATER.breathMs;
       st.breath = Math.min(WATER.breathMs, st.breath + elapsed * 2); // breath comes back quickly
     }
+    c.underSomething = Boolean(under);
     st.wasInWater = Boolean(water);
     st.wasSubmerged = c.submerged;
+    st.wasUnder = Boolean(under);
 
     // Lava: touching it sets you burning. Fully in: like drowning, only
     // faster and on fire (a moment to get out, then you melt).
@@ -186,12 +246,233 @@ export default class HazardSystem {
       if (f.sound === 'lava') this.scene.weapons?.status.apply(c, 'burning', 'env');
     }
 
+    // Cacti prick you and push you off.
+    for (const k of this.cacti) {
+      if (Math.abs(c.x - k.x) > CACTUS.widthPx / 2 + b.width / 2 || b.bottom < k.y - CACTUS.heightPx || b.top > k.y) continue;
+      if (now < (st.nextPrickAt ?? 0)) break;
+      st.nextPrickAt = now + CACTUS.everyMs;
+      c.takeDamage(CACTUS.damage, 'cactus', 'melee');
+      b.velocity.x = Math.sign(c.x - k.x || 1) * CACTUS.push;
+      b.velocity.y = Math.min(b.velocity.y, -140);
+      break;
+    }
+
     // Hidden: fully under water, or in a bush, and not just attacked.
-    c.inBush = this.bushes.some((bush) => c.x > bush.x && c.x < bush.right && b.top >= bush.y - 4 && b.bottom <= bush.bottom + 6);
+    const cover = this.bushes.find((bush) => c.x > bush.x && c.x < bush.right && b.top >= bush.y - 4 && b.bottom <= bush.bottom + 6);
+    c.inBush = Boolean(cover);
+    // An igloo's warmth thaws you out.
+    if (cover?.igloo && c.statuses?.frozen) this.scene.weapons?.status.clear(c, 'frozen');
     const hidden = (c.submerged || c.inBush) && now >= (c.lastAttackAt ?? -1e9) + HIDING.revealMs;
     if (hidden !== c.hidden && c === this.scene.player) this.note(c, hidden ? 'hidden' : 'spotted');
     c.hidden = hidden;
     this.setHiddenLook(c, hidden);
+  }
+
+  // ---- Ice ----
+
+  // Standing on ice: your speed only slowly follows what you press, so you
+  // skid to a stop and take a moment to get going.
+  slide(c, b, elapsed) {
+    const fam = c.onGround ? this.familyUnder(b) : null;
+    if (fam && SLIPPERY.has(fam)) {
+      const k = 1 - Math.exp(-elapsed / ICE.gripMs);
+      c.slideVx = (c.slideVx ?? b.velocity.x) + (b.velocity.x - (c.slideVx ?? b.velocity.x)) * k;
+      b.velocity.x = c.slideVx;
+      if (Math.abs(c.slideVx) > 120 && Math.random() < 0.15) this.scene.effects?.flakes?.(c.x, b.bottom, 1); // ice spray
+    } else {
+      c.slideVx = b.velocity.x;
+    }
+  }
+
+  // The tile family under a body's feet (middle, then the edges), or null.
+  familyUnder(b) {
+    for (const x of [b.center.x, b.left + 3, b.right - 3]) {
+      const t = this.layer.getTileAtWorldXY(x, b.bottom + 2);
+      if (t && t.collides) return TILE_FAMILY[t.index] ?? null;
+    }
+    return null;
+  }
+
+  // Thin ice under anyone standing on it cracks, then breaks, then freezes
+  // over again later (once nobody is in the way).
+  updateThinIce(now) {
+    const stood = new Set();
+    for (const c of this.characters()) {
+      if (!c.alive || !c.onGround) continue;
+      const b = c.body;
+      for (const x of [b.center.x, b.left + 3, b.right - 3]) {
+        const t = this.layer.getTileAtWorldXY(x, b.bottom + 2);
+        if (t && t.collides && TILE_FAMILY[t.index] === 'thin') stood.add(t);
+      }
+    }
+    const dt = Math.min(250, now - (this.thinAt ?? now));
+    this.thinAt = now;
+    for (const t of stood) {
+      const ms = (this.thin.get(t) ?? 0) + dt;
+      this.thin.set(t, ms);
+      if (ms >= THIN_ICE.crackMs && !t.cracked) {
+        t.cracked = true;
+        t.tint = 0x90a8c0;
+        this.scene.sfx?.play('iceCrack', { x: t.getCenterX(), y: t.pixelY }, { volume: 0.5 });
+      }
+      if (ms >= THIN_ICE.breakMs) this.breakThin(t, now);
+    }
+    // Ice nobody is on slowly stops cracking.
+    for (const [t, ms] of this.thin) if (!stood.has(t)) this.thin.set(t, Math.max(0, ms - dt * 0.5));
+    // Freeze broken ice over again when it's clear.
+    this.refreeze = this.refreeze.filter((r) => {
+      if (now < r.at) return true;
+      const x = r.x * this.layer.tilemap.tileWidth;
+      const y = r.y * this.layer.tilemap.tileHeight;
+      const blocked = this.characters().some((c) => c.alive && c.body.right > x && c.body.left < x + 32 && c.body.bottom > y && c.body.top < y + 32);
+      if (blocked) return true;
+      const t = this.layer.putTileAt(r.index, r.x, r.y);
+      t.setCollision(true, true, true, true);
+      return false;
+    });
+  }
+
+  breakThin(t, now) {
+    this.thin.delete(t);
+    const x = t.getCenterX();
+    const y = t.pixelY;
+    this.scene.sfx?.play('iceBreak', { x, y });
+    for (let i = 0; i < 5; i++) {
+      const size = Phaser.Math.Between(3, 6);
+      this.scene.effects?.piece(x, y + 4, { w: size, h: 3, color: 0xcaf0f8 }, false);
+    }
+    this.refreeze.push({ x: t.x, y: t.y, index: t.index, at: now + THIN_ICE.refreezeMs });
+    this.layer.removeTileAt(t.x, t.y);
+  }
+
+  // A blast smashes thin ice near it (and kills or scares the wildlife).
+  blastTerrain(x, y, radius) {
+    const r = radius * 0.8;
+    const now = this.scene.time.now;
+    for (const t of this.layer.getTilesWithinWorldXY(x - r, y - r, r * 2, r * 2)) {
+      if (TILE_FAMILY[t.index] !== 'thin' || !t.collides) continue;
+      if (Phaser.Math.Distance.Between(x, y, t.getCenterX(), t.getCenterY()) <= r) this.breakThin(t, now);
+    }
+    this.scene.backdrop?.blast(x, y, radius); // wildlife caught in it dies, near it panics
+  }
+
+  // ---- Igloos ----
+
+  // A dome of snow blocks with a dark doorway. Inside you're hidden.
+  makeIgloo(o) {
+    const igloo = { igloo: true, x: o.x, y: o.y, w: o.width, h: o.height, right: o.x + o.width, bottom: o.y + o.height };
+    const g = this.scene.add.graphics().setDepth(DEPTH_BUSH);
+    const cx = o.x + o.width / 2;
+    const r = o.width / 2;
+    g.fillStyle(IGLOO.color, 1);
+    g.slice(cx, igloo.bottom, r, Math.PI, 0, false);
+    g.fillPath();
+    g.lineStyle(1.5, IGLOO.shade, 1);
+    for (let k = 1; k < 4; k++) {
+      const yy = igloo.bottom - (r * k) / 4;
+      const half = Math.sqrt(r * r - (igloo.bottom - yy) ** 2);
+      g.lineBetween(cx - half, yy, cx + half, yy);
+      for (let bx = cx - half + ((k % 2) * 14); bx < cx + half; bx += 28) g.lineBetween(bx, yy, bx, yy + r / 4);
+    }
+    g.fillStyle(0x1b263b, 1);
+    g.slice(cx + r * 0.45, igloo.bottom, r * 0.35, Math.PI, 0, false); // the doorway
+    g.fillPath();
+    igloo.gfx = g;
+    return igloo;
+  }
+
+  // ---- Dust devils ----
+
+  makeDevil(o) {
+    const d = { x0: o.x, x1: o.x + o.width, x: Phaser.Math.Between(o.x, o.x + o.width), y: o.y + o.height, dir: Math.random() < 0.5 ? -1 : 1, speed: Phaser.Math.Between(...DUST_DEVIL.speed), spin: 1, nextSpinAt: 0 };
+    d.fx = this.scene.add
+      .particles(0, 0, 'hz-dot', {
+        x: { min: -DUST_DEVIL.widthPx / 2, max: DUST_DEVIL.widthPx / 2 },
+        y: { min: -10, max: 0 },
+        lifespan: 1300,
+        speedY: { min: -DUST_DEVIL.heightPx * 1.1, max: -DUST_DEVIL.heightPx * 0.6 },
+        speedX: { min: -50, max: 50 },
+        scale: { start: 0.35, end: 1.2 },
+        alpha: { start: 0.55, end: 0 },
+        tint: [0xe9c46a, 0xd4a373, 0xb08968],
+        frequency: 25,
+        quantity: 2,
+      })
+      .setDepth(42);
+    return d;
+  }
+
+  updateDevil(d, now, dt) {
+    d.x += d.dir * d.speed * dt;
+    if (d.x < d.x0 || d.x > d.x1) d.dir *= -1;
+    const below = groundBelow(this.layer, d.x, d.y - 260);
+    if (below !== null) d.y = d.y - 260 + below;
+    d.fx.setPosition(d.x, d.y);
+    if (now >= d.nextSpinAt) {
+      d.nextSpinAt = now + 400;
+      d.spin *= -1;
+    }
+    const half = DUST_DEVIL.widthPx / 2;
+    for (const c of this.characters()) {
+      if (!c.alive) continue;
+      const b = c.body;
+      if (Math.abs(c.x - d.x) > half || b.bottom < d.y - DUST_DEVIL.heightPx || b.top > d.y) continue;
+      if (b.velocity.y > -DUST_DEVIL.maxLift) b.velocity.y = Math.max(-DUST_DEVIL.maxLift, b.velocity.y - DUST_DEVIL.lift * dt);
+      b.velocity.x += d.spin * DUST_DEVIL.swirl * dt * 6;
+    }
+    const p = this.scene.player;
+    if (p) {
+      const dist = Phaser.Math.Distance.Between(d.x, d.y - 60, p.x, p.y);
+      if (dist < 500) this.scene.sfx?.hold(`devil${this.devils.indexOf(d)}`, 'wind', { x: d.x, y: d.y }, 0.5 * (1 - dist / 500));
+    }
+  }
+
+  // ---- Sandstorm ----
+
+  makeStorm() {
+    const scene = this.scene;
+    this.storm = { level: 0, nextAt: scene.time.now + Phaser.Math.Between(...SANDSTORM.everyMs) * 0.5, until: 0 };
+    this.storm.veil = scene.add.rectangle(0, 0, 1280, 720, SANDSTORM.color, 0).setOrigin(0, 0).setScrollFactor(0).setDepth(45);
+    this.storm.dust = scene.add
+      .particles(0, 0, 'hz-dot', {
+        x: -20,
+        y: { min: 0, max: 720 },
+        lifespan: 1600,
+        speedX: { min: 700, max: 1100 },
+        speedY: { min: -40, max: 60 },
+        scale: { min: 0.15, max: 0.5 },
+        alpha: { start: 0.7, end: 0 },
+        tint: [0xe9c46a, 0xd4a373, 0xb08968],
+        frequency: 8,
+        quantity: 3,
+        emitting: false,
+      })
+      .setScrollFactor(0)
+      .setDepth(46);
+  }
+
+  updateStorm(now) {
+    const s = this.storm;
+    const cfg = SANDSTORM;
+    if (!s.active && now >= s.nextAt) {
+      s.active = true;
+      s.startAt = now;
+      s.until = now + cfg.lastMs;
+      s.dust.start();
+      this.scene.effects?.notice('Sandstorm!  Nobody sees far');
+    }
+    if (s.active) {
+      const t = Math.min(1, (now - s.startAt) / cfg.fadeMs, (s.until - now) / cfg.fadeMs);
+      s.level = Math.max(0, t);
+      if (now >= s.until) {
+        s.active = false;
+        s.level = 0;
+        s.dust.stop();
+        s.nextAt = now + Phaser.Math.Between(...cfg.everyMs);
+      }
+      this.scene.sfx?.hold('storm', 'wind', null, 0.3 + s.level * 0.7);
+    }
+    s.veil.setAlpha(cfg.alpha * s.level);
   }
 
   // In water or lava: slower running and flying, slow sinking.
@@ -315,7 +596,7 @@ export default class HazardSystem {
       if (!b.active) continue;
       const pool = enter(b, b.x, b.y, 3);
       if (!pool || !b.justEntered) continue;
-      if (pool.kind === 'lava') b.destroy();
+      if (pool.kind !== 'water') b.destroy();
       else b.maxRangePx = Math.min(b.maxRangePx, Phaser.Math.Distance.Between(b.startX, b.startY, b.x, b.y) + WATER.bulletRangePx);
     }
 
@@ -368,7 +649,8 @@ export default class HazardSystem {
     const r = config.radiusPx ?? 150;
     const near = (p) => x > p.x - r && x < p.right + r && y > p.y - r && y < p.bottom + r;
     if (config.effect === 'cryo') {
-      for (const p of [...this.waters, ...this.lavas]) if (near(p)) this.freeze(p, Math.max(p.x, x - r), Math.min(p.right, x + r));
+      // Water only: cryo does nothing to lava.
+      for (const p of this.waters) if (near(p)) this.freeze(p, Math.max(p.x, x - r), Math.min(p.right, x + r));
     } else if (config.effect === 'emp') {
       for (const p of this.waters) {
         if (!near(p)) continue;
@@ -398,31 +680,56 @@ export default class HazardSystem {
     }
   }
 
-  // A sheet of ice over water (or a cooled crust over lava) from x0 to x1:
-  // solid for a while, you can stand on it; it cracks, then breaks.
+  // An iceberg frozen out of the water from x0 to x1: rough cut edges, a
+  // jagged top just above the surface and a deep, tapering chunk under it.
+  // You can stand on it; anyone caught in it is frozen and anyone under it
+  // is trapped until it cracks and breaks.
   freeze(p, x0, x1) {
-    if (x1 - x0 < 24) return;
+    if (x1 - x0 < 24 || p.kind !== 'water') return;
     const scene = this.scene;
-    const lava = p.kind === 'lava';
-    const t = FREEZE.thickness;
-    const slab = scene.add
-      .rectangle((x0 + x1) / 2, p.y - 4 + t / 2, x1 - x0, t, lava ? FREEZE.crustColor : FREEZE.iceColor, lava ? 1 : 0.92)
-      .setStrokeStyle(2, lava ? 0xff7b00 : 0xffffff, 0.8)
-      .setDepth(DEPTH_WATER + 2);
+    const cfg = FREEZE;
+    const cx = (x0 + x1) / 2;
+    const w = x1 - x0;
+    const top = p.y - cfg.aboveSurface;
+    const deep = Math.min(cfg.depth, p.bottom - p.y - 4);
+
+    // The solid part: a slab from just above the surface down into the water.
+    const slab = scene.add.rectangle(cx, top + cfg.bodyHeight / 2, w, cfg.bodyHeight, 0xffffff, 0);
     scene.physics.add.existing(slab, true);
     this.slabGroup.add(slab);
     if (!this.slabCollider) {
       this.slabCollider = scene.physics.add.collider([scene.player, ...(scene.bots ?? [])], this.slabGroup);
     }
-    const ms = lava ? FREEZE.crustMs : FREEZE.ms;
+
+    // The look: one jagged outline (top edge, a rough side, a tapering
+    // bottom, the other side), lighter above the water, glints on top.
+    const pts = [];
+    const steps = Math.max(4, Math.round(w / 22));
+    for (let i = 0; i <= steps; i++) pts.push({ x: x0 + (w * i) / steps, y: top - Phaser.Math.Between(0, cfg.peak) });
+    pts.push({ x: x1 + Phaser.Math.Between(2, 8), y: p.y + Phaser.Math.Between(4, 12) });
+    const bottom = [];
+    for (let i = steps; i >= 0; i--) {
+      const t = i / steps;
+      const taper = 1 - Math.pow(Math.abs(t - 0.5) * 2, 1.6); // deepest in the middle
+      bottom.push({ x: x0 + w * (0.08 + 0.84 * t) + Phaser.Math.Between(-6, 6), y: p.y + 10 + deep * taper * Phaser.Math.FloatBetween(0.75, 1) });
+    }
+    pts.push(...bottom, { x: x0 - Phaser.Math.Between(2, 8), y: p.y + Phaser.Math.Between(4, 12) });
+
+    const gfx = scene.add.graphics().setDepth(DEPTH_WATER + 2);
+    gfx.fillStyle(cfg.iceColor, 0.95);
+    gfx.fillPoints(pts, true);
+    gfx.fillStyle(cfg.deepIceColor, 0.45); // the part under water, bluer
+    gfx.fillPoints([{ x: x0 - 8, y: p.y + 6 }, { x: x1 + 8, y: p.y + 6 }, ...bottom], true);
+    gfx.lineStyle(2, 0xffffff, 0.9);
+    gfx.strokePoints(pts, true);
+    gfx.lineStyle(2, 0xffffff, 0.7); // glints along the top
+    for (let i = 0; i < steps; i += 2) gfx.lineBetween(pts[i].x + 3, pts[i].y + 3, pts[i + 1].x - 3, pts[i + 1].y + 3);
+
     const marks = scene.add.graphics().setDepth(DEPTH_WATER + 3);
-    this.slabs.push({ slab, marks, lava, until: scene.time.now + ms, x0, x1, y: p.y - 4, pool: p, cracked: false });
-    scene.sfx?.play(lava ? 'lavaSizzle' : 'iceForm', { x: (x0 + x1) / 2, y: p.y });
-    // Anyone under fresh ice is frozen in it for a moment.
-    if (!lava) {
-      for (const c of this.characters()) {
-        if (c.alive && c.x > x0 && c.x < x1 && touches(p, c.body)) scene.weapons?.status.apply(c, 'frozen', 'player');
-      }
+    this.slabs.push({ slab, gfx, marks, until: scene.time.now + cfg.ms, x0, x1, y: top, pool: p, cracked: false });
+    scene.sfx?.play('iceForm', { x: cx, y: p.y });
+    for (const c of this.characters()) {
+      if (c.alive && c.x > x0 && c.x < x1 && touches(p, c.body)) scene.weapons?.status.apply(c, 'frozen', 'player');
     }
   }
 
@@ -431,22 +738,31 @@ export default class HazardSystem {
       const left = s.until - now;
       if (left <= 1500 && !s.cracked) {
         s.cracked = true;
-        s.marks.lineStyle(2, s.lava ? 0xff7b00 : 0x48cae4, 0.9);
-        for (let x = s.x0 + 12; x < s.x1 - 12; x += Phaser.Math.Between(18, 34)) {
-          s.marks.lineBetween(x, s.y + 2, x + Phaser.Math.Between(-8, 8), s.y + FREEZE.thickness - 2);
+        s.marks.lineStyle(2, 0x48cae4, 0.9);
+        for (let x = s.x0 + 14; x < s.x1 - 14; x += Phaser.Math.Between(18, 34)) {
+          let y = s.y + 2;
+          let cx = x;
+          s.marks.beginPath();
+          s.marks.moveTo(cx, y);
+          for (let k = 0; k < 4; k++) {
+            cx += Phaser.Math.Between(-7, 7);
+            y += Phaser.Math.Between(6, 12);
+            s.marks.lineTo(cx, y);
+          }
+          s.marks.strokePath();
         }
         this.scene.sfx?.play('iceCrack', s.slab, { volume: 0.6 });
       }
-      if (s.cracked) s.slab.setAlpha(0.6 + Math.sin(now / 60) * 0.3);
+      if (s.cracked) s.gfx.setAlpha(0.65 + Math.sin(now / 60) * 0.25);
       if (left <= 0) this.breakSlab(s);
     }
     this.slabs = this.slabs.filter((s) => s.slab.active);
   }
 
   breakSlab(s) {
-    const color = s.lava ? FREEZE.crustColor : FREEZE.iceColor;
-    for (let x = s.x0 + 6; x < s.x1; x += 14) this.splash(s.pool, x, color, 1, 1.1);
-    this.scene.sfx?.play(s.lava ? 'lavaSizzle' : 'iceBreak', s.slab);
+    for (let x = s.x0 + 6; x < s.x1; x += 12) this.splash(s.pool, x, FREEZE.iceColor, 2, 1.2);
+    this.scene.sfx?.play('iceBreak', s.slab);
+    s.gfx.destroy();
     s.marks.destroy();
     s.slab.destroy();
   }
@@ -504,10 +820,10 @@ export default class HazardSystem {
     const g = this.breathBar;
     g.clear();
     const p = this.scene.player;
-    if (!p?.alive || (!p.submerged && !p.melting)) return;
+    if (!p?.alive || (!p.underSomething && !p.melting)) return;
     const share = p.melting
       ? Math.max(0, 1 - (p.hazard.heat ?? 0) / LAVA.holdMs)
-      : Math.max(0, p.hazard.breath / WATER.breathMs);
+      : Math.max(0, p.hazard.breath / (p.hazard.breathMax ?? WATER.breathMs));
     const x = p.x - 18;
     const y = p.body.top - 14;
     g.fillStyle(0x000000, 0.6).fillRect(x - 1, y - 1, 38, 6);
@@ -636,7 +952,7 @@ export default class HazardSystem {
       speedX: { min: -15, max: 15 },
       scale: { start: 0.6, end: 1.6 },
       alpha: { start: 0.5, end: 0 },
-      tint: 0x495057,
+      tint: 0xadb5bd, // darkened white smoke
       frequency: 70,
       emitting: false,
     }).setDepth(42);

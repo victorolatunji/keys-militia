@@ -17,6 +17,12 @@
 //   Hell "Inferno": a basalt plateau with spikes and a lava pit, a volcano
 //     with a lava crater and a tunnel through it, floating rock steps with a
 //     hot spring and a lava fall into the sea, broken islands underneath.
+//   Glacier "Frostbite": floats on an endless icy sea (no void). A snowy peak
+//     with an icicle cave and a sea cave, a frozen lake with thin spots, a
+//     chasm with floes, a slippery glacier with crevasses down to the sea, a
+//     grotto, an icicle overhang, igloos and penguins.
+//   Desert "Dune Sea": dunes with quicksand, a mesa with an arch, an oasis,
+//     a buried temple with a pillared chamber, islands underneath.
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { deflateSync } from 'node:zlib';
 import { dirname, join } from 'node:path';
@@ -153,6 +159,7 @@ const TILE = {
   top: 1, soil: 2, deep: 3, sand: 4, plank: 5, under: 6, rock: 7,
   topL: 8, topR: 9, topLR: 10, rockTL: 11, rockTR: 12, rockTLR: 13,
   sandL: 14, sandR: 15, sandLR: 16, underL: 17, underR: 18, underLR: 19,
+  ice: 20, iceL: 21, iceR: 22, iceLR: 23, thin: 24,
 };
 
 // One tileset from a palette: every tile and its rounded versions.
@@ -162,6 +169,7 @@ function paletteTiles(p) {
   const rock = () => stone(hex(p.rock), hex(p.crack));
   const sand = () => grain(hex(p.sand), 0.1, 0.06, hex(p.sandSpeck));
   const under = () => underside(hex(p.under), hex(p.roots));
+  const ice = () => iceTile(hex(p.ice ?? 0xa8dadc));
   return [
     top(),                                            // 1
     soil(),                                           // 2
@@ -174,7 +182,27 @@ function paletteTiles(p) {
     rounded(rock(), ['tl']), rounded(rock(), ['tr']), rounded(rock(), ['tl', 'tr']), // 11-13
     rounded(sand(), ['tl']), rounded(sand(), ['tr']), rounded(sand(), ['tl', 'tr']), // 14-16
     rounded(under(), ['bl']), rounded(under(), ['br']), rounded(under(), ['bl', 'br']), // 17-19
+    ice(), rounded(ice(), ['tl']), rounded(ice(), ['tr']), rounded(ice(), ['tl', 'tr']), // 20-23
+    thinIce(hex(p.ice ?? 0xcaf0f8)),                                                     // 24
   ];
+}
+
+// Ice: glossy, with diagonal shine streaks. (Slippery in game: Glacier.)
+function iceTile(base) {
+  const streaks = Array.from({ length: 3 }, () => Math.floor(rand() * 40) - 4);
+  return (x, y) => {
+    for (const s0 of streaks) if (Math.abs(x + y * 0.6 - s0) < 1.2) return shade(base, 1.25);
+    return shade(base, 1.04 - (y / 32) * 0.12 + rand() * 0.05);
+  };
+}
+// Thin ice: pale, see-through-ish, cracked (it breaks if you stand on it).
+function thinIce(base) {
+  const cracks = Array.from({ length: 3 }, () => [Math.floor(rand() * 28) + 2, rand() * 1.6 - 0.8]);
+  return (x, y) => {
+    if (y > 9) return [0, 0, 0, 0];                    // only a thin sheet on top
+    for (const [cx, k] of cracks) if (Math.abs(x - cx - (y - 4) * k) < 0.7) return shade(base, 0.6);
+    return [...shade(base, 1.08 + rand() * 0.05), 215];
+  };
 }
 
 const FOREST_PALETTE = {
@@ -184,6 +212,15 @@ const FOREST_PALETTE = {
 const HELL_PALETTE = {
   top: 0xff6b35, topDepth: 5, soil: 0x3d2b2b, deep: 0x1b1423, deepSpeck: 0x5a189a, sand: 0x6b5b55, sandSpeck: 0x4a3f3b,
   plank: 0x5c5c66, plankGap: 0x22222a, under: 0x2b1d1d, roots: 0xff7b00, rock: 0x4a2c2a, crack: 0xff7b00,
+};
+
+const GLACIER_PALETTE = {
+  top: 0xf8f9fa, topDepth: 9, soil: 0x5c677d, deep: 0x33415c, deepSpeck: 0x0466c8, sand: 0xdee2e6, sandSpeck: 0xadb5bd,
+  plank: 0x7f5539, plankGap: 0x432818, under: 0x3a506b, roots: 0xcaf0f8, rock: 0x7d8597, crack: 0x33415c, ice: 0xa8dadc,
+};
+const DESERT_PALETTE = {
+  top: 0xf4d58d, topDepth: 8, soil: 0xd08c60, deep: 0x9c6644, deepSpeck: 0x7f5539, sand: 0xedc988, sandSpeck: 0xd4a373,
+  plank: 0x8d5a2b, plankGap: 0x432818, under: 0xb5703f, roots: 0x7f4f24, rock: 0xc9743a, crack: 0x7f4f24,
 };
 
 // ---------------------------------------------------------------- map ----
@@ -257,6 +294,8 @@ function tiles(mats) {
       if (m === 'sand') id = openTop ? pick(openL, openR, TILE.sandLR, TILE.sandL, TILE.sandR, TILE.sand) : TILE.sand;
       else if (m === 'rock') id = openTop ? pick(openL, openR, TILE.rockTLR, TILE.rockTL, TILE.rockTR, TILE.rock) : TILE.rock;
       else if (m === 'plank') id = TILE.plank;
+      else if (m === 'ice') id = openTop ? pick(openL, openR, TILE.iceLR, TILE.iceL, TILE.iceR, TILE.ice) : TILE.ice;
+      else if (m === 'thin') id = TILE.thin;
       else if (m === 'soil') {
         if (openTop) id = pick(openL, openR, TILE.topLR, TILE.topL, TILE.topR, TILE.top);
         else if (!solid(x, y + 1)) {
@@ -465,6 +504,168 @@ function hell() {
   ]);
 }
 
+
+// ------------------------------------------------------------ Glacier ----
+// 112 x 72 tiles. No void: the whole glacier floats on an endless icy sea
+// (sea level row 54). Fall in and you can swim, but sink too deep and the
+// cold dark takes you (the death line is deep under the surface).
+function glacier() {
+  W = 112;
+  H = 72;
+  seed = 4242;
+  objectId = 1;
+  const m = grid();
+  const hz = [];
+  const decor = [];
+  const SEA = 54;
+
+  // West: a snowy peak with an ice cave through it (icicles), its foot in
+  // the sea, and a half-flooded sea cave at the waterline.
+  land(m, 2, 27, (x) => Math.min(36, 20 + Math.abs(x - 13) * 1.15), (x) => 58 + (x % 3 === 0 ? 1 : 0));
+  carve(m, 2, 33, 24, 35);
+  fill(m, 2, 36, 24, 36, 'ice');            // the cave floor is ice
+  for (const x of [8, 13, 18, 22]) hz.push(point('icicle', px(x) + 16, px(33)));
+  decor.push(rect('cave', px(2), px(33), px(23), px(3)));
+  carve(m, 2, 49, 15, 55);                  // sea cave, open to the west
+  fill(m, 2, 56, 15, 59, 'ice');
+  for (const x of [6, 10]) hz.push(point('icicle', px(x) + 16, px(49)));
+  decor.push(rect('cave', px(2), px(49), px(14), px(5)));
+
+  // The frozen lake: solid ice with THIN SPOTS (traps: they break under
+  // anyone, and blasts smash them) over freezing water. The shelf under it
+  // goes down into the sea.
+  fill(m, 28, 37, 56, 48, 'rock');
+  carve(m, 29, 37, 55, 45);
+  fill(m, 28, 36, 56, 36, 'ice');
+  for (const [x0, x1] of [[31, 33], [40, 42], [51, 53]]) fill(m, x0, 36, x1, 36, 'thin');
+  hz.push(rect('water', px(29), px(37), px(27), px(9)));
+  land(m, 28, 56, () => 49, (x) => 57 + (x % 4 === 1 ? 1 : 0), 'ice');
+
+  // A chasm straight down to the sea, with ice floes bobbing in it.
+  island(m, 58, 62, SEA - 1, 2, 'ice');
+
+  // East: a slippery glacier with crevasses down to the sea, a grotto at
+  // the waterline, an icicle overhang, ice blocks and an igloo.
+  land(m, 64, 100, (x) => 36 + (x < 66 ? 1 : 0) - (x > 94 ? 1 : 0), (x) => 57 + (x % 3 === 2 ? 1 : 0));
+  fill(m, 66, 36, 94, 36, 'ice');
+  carve(m, 70, 30, 72, 58);                 // crevasses: right down into the sea
+  carve(m, 86, 30, 88, 58);
+  carve(m, 73, 46, 85, 52);                 // the grotto (reach it from a crevasse)
+  for (const x of [76, 80, 84]) hz.push(point('icicle', px(x) + 16, px(46)));
+  decor.push(rect('cave', px(73), px(46), px(13), px(7)));
+  fill(m, 67, 34, 68, 35, 'ice');
+  fill(m, 90, 34, 91, 35, 'ice');
+  fill(m, 74, 28, 84, 29, 'ice');           // the overhang
+  for (const x of [76, 79, 82]) hz.push(point('icicle', px(x) + 16, px(30)));
+  decor.push(rect('igloo', px(95), px(35) - 60, px(4), 60));
+
+  // Open sea to the east with floes and a small berg.
+  island(m, 103, 108, SEA - 1, 2, 'ice');
+  fill(m, 104, SEA - 4, 106, SEA - 2, 'ice');
+
+  // Sky: floating ice and a wooden bridge.
+  island(m, 30, 37, 20, 3, 'ice');
+  island(m, 60, 66, 16, 3, 'ice');
+  island(m, 88, 95, 22, 3, 'ice');
+  fill(m, 44, 26, 50, 26, 'plank');
+  decor.push(rect('igloo', px(31), px(20) - 54, px(3), 54));
+
+  // The sea itself: one big pool under everything.
+  hz.push(rect('sea', 0, px(SEA), px(W), px(H - SEA)));
+
+  const spawns = [
+    point('player', px(80), px(12)),
+    on(m, 'bot', 6, 20), on(m, 'bot', 26, 20), on(m, 'bot', 46, 30), on(m, 'bot', 76, 20), on(m, 'bot', 98, 20),
+    on(m, 'bot', 33, 10), on(m, 'bot', 91, 10), point('bot', px(79) + 16, px(53)), point('bot', px(105) + 16, px(SEA - 4)),
+  ];
+  for (const x of [4, 9, 23, 65, 92, 99]) decor.push(on(m, 'pine', x, 10));
+  for (const x of [17, 61, 75, 97]) decor.push(on(m, 'rock', x, 10, 8));
+  for (const x of [36, 47, 68, 78, 82, 93, 107]) decor.push(on(m, 'penguin', x, x === 107 ? 40 : 30, 16));
+  decor.push(on(m, 'penguin', 60, 40, 16));
+
+  return tiledMap('glacier-tiles', m, [
+    { name: 'spawns', objects: spawns },
+    { name: 'hazards', objects: hz },
+    { name: 'decor', objects: decor },
+  ]);
+}
+
+// ------------------------------------------------------------- Desert ----
+// 112 x 80 tiles. Dunes, a mesa with an arch, an oasis, a buried temple.
+function desert() {
+  W = 112;
+  H = 80;
+  seed = 8080;
+  objectId = 1;
+  const m = grid();
+  const hz = [];
+  const decor = [];
+
+  // West: rolling dunes with a quicksand pit.
+  land(m, 2, 34, (x) => (x >= 12 && x <= 22 ? 36 : 35 + Math.round(Math.sin(x / 4) * 1.6)), () => 46);
+  hz.push(pool(m, 'quicksand', 14, 20, 36, 3, 'soil', 8));
+  hang(m, 3, 33, 47, 6);
+
+  // The mesa: tall flat-topped sandstone with an arch through its base.
+  land(m, 36, 52, (x) => (x < 38 ? 30 : x > 50 ? 28 : 24), () => 46, 'rock');
+  carve(m, 36, 33, 52, 35);                  // a natural arch: walk right under the mesa
+  decor.push(rect('cave', px(36), px(33), px(17), px(3)));
+  hang(m, 37, 51, 47, 6, 'rock');
+
+  // The oasis: a dip with a pool (hide in it) and palms.
+  land(m, 53, 67, () => 37, () => 45);
+  hz.push(pool(m, 'water', 57, 63, 37, 4, 'soil', 10));
+  hang(m, 53, 67, 46, 5);
+
+  // The buried temple: a shaft down into a pillared chamber, a hole out the bottom.
+  land(m, 68, 106, (x) => (x > 99 ? 35 : 35), () => 50);
+  carve(m, 74, 39, 98, 45);                  // the chamber
+  for (const x of [79, 85, 91]) fill(m, x, 39, x + 1, 45, 'rock'); // pillars
+  for (const x of [79, 85, 91]) carve(m, x, 42, x + 1, 43);       // ...with gaps to walk through
+  carve(m, 70, 35, 72, 45);                  // the way in
+  carve(m, 73, 39, 73, 45);
+  carve(m, 95, 46, 97, 50);                  // the way out the bottom
+  hz.push(pool(m, 'quicksand', 101, 104, 35, 3, 'soil', 8));
+  fill(m, 76, 33, 77, 34, 'rock');           // ruins on top
+  fill(m, 88, 34, 89, 34, 'rock');
+  fill(m, 82, 32, 82, 34, 'rock');
+  decor.push(rect('cave', px(70), px(39), px(29), px(7)), rect('cave', px(70), px(35), px(3), px(4)), rect('cave', px(95), px(46), px(3), px(5)));
+  hang(m, 68, 94, 51, 6);
+  hang(m, 98, 106, 51, 5);
+
+  // Sky: floating sandstone and wooden scaffolds.
+  island(m, 20, 26, 20, 3, 'rock');
+  island(m, 84, 92, 18, 3, 'rock');
+  fill(m, 56, 26, 62, 26, 'plank');
+  fill(m, 100, 24, 106, 24, 'plank');
+
+  // Under the map.
+  island(m, 6, 20, 58, 5);
+  island(m, 36, 52, 60, 4, 'rock');
+  island(m, 72, 88, 62, 5);
+  island(m, 96, 108, 57, 4);
+
+  const spawns = [
+    point('player', px(60), px(14)),
+    on(m, 'bot', 5, 20), on(m, 'bot', 30, 20), on(m, 'bot', 44, 10), on(m, 'bot', 66, 20),
+    on(m, 'bot', 86, 40), on(m, 'bot', 108, 20), on(m, 'bot', 12, 50), on(m, 'bot', 80, 55), on(m, 'bot', 102, 50),
+  ];
+  for (const x of [8, 26, 39, 49, 75, 98, 107]) decor.push(on(m, 'cactus', x, 10, 16));
+  decor.push(on(m, 'cactus', 15, 50, 16), on(m, 'cactus', 44, 50, 16));
+  for (const x of [55, 66]) decor.push(on(m, 'palm', x, 20));
+  for (const x of [4, 32, 69, 93, 109]) decor.push(on(m, 'rock', x, 10, 8));
+  for (const x of [11, 83]) decor.push(on(m, 'bones', x, x === 83 ? 40 : 10, 14));
+  for (const x of [6, 28, 58, 90, 104]) decor.push(on(m, 'scorpion', x, x === 90 ? 40 : 10, 16));
+  // Dust devils wander along these stretches of open sand.
+  hz.push(rect('dustdevil', px(2), px(28), px(32), px(8)), rect('dustdevil', px(68), px(27), px(38), px(8)));
+
+  return tiledMap('desert-tiles', m, [
+    { name: 'spawns', objects: spawns },
+    { name: 'hazards', objects: hz },
+    { name: 'decor', objects: decor },
+  ]);
+}
+
 // ---------------------------------------------------------------- out ----
 
 const out = (rel, data) => {
@@ -478,5 +679,11 @@ seed = 101;
 out('public/assets/tilesets/forest-tiles.png', tileset(paletteTiles(FOREST_PALETTE)));
 seed = 202;
 out('public/assets/tilesets/hell-tiles.png', tileset(paletteTiles(HELL_PALETTE)));
+seed = 303;
+out('public/assets/tilesets/glacier-tiles.png', tileset(paletteTiles(GLACIER_PALETTE)));
+seed = 404;
+out('public/assets/tilesets/desert-tiles.png', tileset(paletteTiles(DESERT_PALETTE)));
 out('public/assets/maps/forest.json', JSON.stringify(forest()));
 out('public/assets/maps/hell.json', JSON.stringify(hell()));
+out('public/assets/maps/glacier.json', JSON.stringify(glacier()));
+out('public/assets/maps/desert.json', JSON.stringify(desert()));
