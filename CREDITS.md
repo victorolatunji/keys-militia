@@ -26,3 +26,5 @@ Robot sprite: generated with ChatGPT (OpenAI), cut and edited by VAO.
 Android sprite: generated with ChatGPT (OpenAI), cut and edited by VAO.
 
 Scrap bot sprite: generated with ChatGPT (OpenAI), cut and edited by VAO.
+
+Drone sprite: generated with ChatGPT (OpenAI), cut and edited by VAO.
