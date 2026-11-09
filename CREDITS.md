@@ -44,3 +44,5 @@ Melee sprites (7): generated with ChatGPT (OpenAI), cut and edited by VAO.
 Throwable sprites (10): generated with ChatGPT (OpenAI), cut and edited by VAO.
 
 Projectile, effect and airdrop sprites: generated with ChatGPT (OpenAI), cut and edited by VAO.
+
+Utility sprites (6): generated with ChatGPT (OpenAI), cut and edited by VAO.
