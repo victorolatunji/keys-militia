@@ -12,3 +12,5 @@ Soldier sprite: generated with ChatGPT (OpenAI), cut and edited by VAO.
 Commando sprite: generated with ChatGPT (OpenAI), cut and edited by VAO.
 
 Armoured trooper sprite: generated with ChatGPT (OpenAI), cut and edited by VAO.
+
+Mercenary sprite: generated with ChatGPT (OpenAI), cut and edited by VAO.
