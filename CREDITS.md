@@ -40,3 +40,5 @@ Zombie K9 sprite: generated with ChatGPT (OpenAI), cut and edited by VAO.
 Weapon sprites (37 guns): generated with ChatGPT (OpenAI), cut and edited by VAO.
 
 Melee sprites (7): generated with ChatGPT (OpenAI), cut and edited by VAO.
+
+Throwable sprites (10): generated with ChatGPT (OpenAI), cut and edited by VAO.
