@@ -6,3 +6,5 @@ Every third-party asset used in Keys Militia, with its license.
 |---|---|---|---|---|
 | (none yet) | | | | |
 Player sprite: generated with ChatGPT (OpenAI), cut and edited by VAO.
+
+Soldier sprite: generated with ChatGPT (OpenAI), cut and edited by VAO.
