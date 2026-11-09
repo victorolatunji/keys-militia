@@ -22,3 +22,5 @@ Skeleton sprite: generated with ChatGPT (OpenAI), cut and edited by VAO.
 Infected soldier sprite: generated with ChatGPT (OpenAI), cut and edited by VAO.
 
 Robot sprite: generated with ChatGPT (OpenAI), cut and edited by VAO.
+
+Android sprite: generated with ChatGPT (OpenAI), cut and edited by VAO.
