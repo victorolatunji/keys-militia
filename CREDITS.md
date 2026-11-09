@@ -30,3 +30,5 @@ Scrap bot sprite: generated with ChatGPT (OpenAI), cut and edited by VAO.
 Drone sprite: generated with ChatGPT (OpenAI), cut and edited by VAO.
 
 Alien sprite: generated with ChatGPT (OpenAI), cut and edited by VAO.
+
+Mutant sprite: generated with ChatGPT (OpenAI), cut and edited by VAO.
