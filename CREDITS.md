@@ -38,3 +38,5 @@ Cyborg sprite: generated with ChatGPT (OpenAI), cut and edited by VAO.
 Zombie K9 sprite: generated with ChatGPT (OpenAI), cut and edited by VAO.
 
 Weapon sprites (37 guns): generated with ChatGPT (OpenAI), cut and edited by VAO.
+
+Melee sprites (7): generated with ChatGPT (OpenAI), cut and edited by VAO.
