@@ -34,3 +34,5 @@ Alien sprite: generated with ChatGPT (OpenAI), cut and edited by VAO.
 Mutant sprite: generated with ChatGPT (OpenAI), cut and edited by VAO.
 
 Cyborg sprite: generated with ChatGPT (OpenAI), cut and edited by VAO.
+
+Zombie K9 sprite: generated with ChatGPT (OpenAI), cut and edited by VAO.
