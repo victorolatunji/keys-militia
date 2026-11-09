@@ -18,3 +18,5 @@ Mercenary sprite: generated with ChatGPT (OpenAI), cut and edited by VAO.
 Zombie sprite: generated with ChatGPT (OpenAI), cut and edited by VAO.
 
 Skeleton sprite: generated with ChatGPT (OpenAI), cut and edited by VAO.
+
+Infected soldier sprite: generated with ChatGPT (OpenAI), cut and edited by VAO.
