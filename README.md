@@ -354,19 +354,35 @@ Stats live in `src/data/weapons.js` (guns, specials, throwables), `src/data/item
 
 **Match score:** `kills × 100 + assists × 50 − deaths × 25` (tiebreak: K/D)
 
-**End-of-match awards:**
-- **Most Kills**
+**Stats tracked every match (offline and online):** kills, deaths, assists, **K/D ratio** (kills ÷ deaths, deaths counted as at least 1), score, longest kill streak, accuracy (words finished ÷ words started), typos, typing speed (words per minute), damage dealt and taken, time alive; plus waves survived (Zombies, You vs Enemies).
+
+**End-of-match screen:** a scoreboard of everyone (you, your duo partner, the bots) sorted by score, and awards:
 - **MVP ⭐** (highest score)
+- **Most Kills**
+- **Best K/D**
+- **Sharpshooter** (best accuracy)
+- **Fastest Fingers** (highest words per minute)
+- **Survivor** (longest time alive)
+
+**Leaderboard:** your best results per mode and map, saved in the browser (local, Phase 8); a shared online leaderboard comes with sign-in (Phase 11).
 
 ---
 
 ## 10. Game modes
-**Offline** (Phase 8, free to run):
-| Mode | Notes |
+**Offline** (Phase 8, free to run). Every offline mode is **Solo or Duo (co-op)**: you pick on the mode screen.
+
+**Duo = you + an AI partner.** You pick which character it is, from every character in the game (soldiers, cyborgs, zombies, even a Drone or a Zombie K9). It's there to help, not to carry you:
+- It sticks with you and fights beside you, but it kills only now and then and rarely dies.
+- Enemies ignore it and go after you; it's never a threat or a target.
+- Its kills are its own: they don't count as yours (they show under its name on the scoreboard).
+- If it does die, it simply respawns next to you, in every mode (its deaths don't use up your respawns).
+| Mode | Rules |
 |---|---|
-| You vs Military | You (optionally with AI Soldier teammates) against Military characters. Pick a kill target before the match; first side to it wins, else most kills when time runs out. Time limits from a ~20s kill pace plus slack: 20 kills / 8 min, 30 kills / 12 min, 50 kills / 20 min (check against real play) |
-| Zombies | Waves of rushers |
-| Endless vs Enemies | Survive until you die, in waves where all enemy types come, getting harder |
+| You vs Military | Solo or Duo against Military soldiers. **Kill target 25 on a 10-minute countdown** (no picking targets). Respawn as often as you like until the clock runs out. Reach 25 first to win; if the clock runs out, the side with more kills wins. |
+| Zombies | Solo or Duo against waves of zombies. **No respawns:** one life each; survive as many waves as you can. Each wave is bigger and faster. |
+| You vs Enemies | Solo or Duo against every enemy type, in waves. **3 respawns each, then game over.** Survive as long as you can. |
+
+**Flow (all offline modes):** the match gets harder as it goes, so it never drags and never overwhelms. The countdown or wave number drives it: more enemies at once, tougher enemy types, better guns and smarter, faster bots step in every couple of minutes or waves (a short calm after each step, a warning when the next one is coming). Starting values to tune by play-testing.
 
 **Online** (Phase 11, after launch):
 | Mode | Notes |
@@ -531,7 +547,7 @@ keys-militia/
 | 5.5 | Arsenal II | Status effects, saw gun, nail gun, laser, flamethrower, sticky grenade (also the trip mine), molotov, combat axe, smoke, flashbang, concussion, EMP, cryo bomb, Jet Boost, riot shield, health pack, armor vest, mouse aiming, two throwable slots, crates and supply lanes | ✅ |
 | 6 | Effects | Blood, gibs, gore toggle, explosions, smoke/gas clouds with night vision, sounds made in code (shots, explosions, loops, voices, death cries), finishing touches | ✅ |
 | 7 | Maps | All launch maps with hazards and advantages, open and enclosed | ✅ Forest, Hell, Glacier, Desert, Catacombs, Graveyard, Monastery, Wastelands, Sky Islands, Space |
-| 8 | Offline modes | You vs Military, Zombies, Endless vs Enemies, scoring, awards | |
+| 8 | Offline modes | Solo or Duo (you + an AI partner of your chosen character): You vs Military (25 kills / 10 min, respawns), Zombies (waves, no respawns), You vs Enemies (waves, 3 respawns); difficulty that ramps for flow; K/D and stats, awards, MVP, local leaderboard | |
 | 9 | Menus and guest | Menu, settings, name and character select, local saves | |
 | 9.5 | Art pass | Replace placeholders with final sprites, tiles, backgrounds and effects | |
 | 10 | Launch | Published on itch.io, linked from the VAO site | |
