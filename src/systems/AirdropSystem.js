@@ -101,11 +101,11 @@ export default class AirdropSystem {
   }
 
   drop() {
-    const x = this.findDropX();
+    const { x, y } = this.dropPoint();
     const crate = new Crate(
       this.scene,
       x,
-      AIRDROPS.spawnY,
+      y,
       this.crateItem(),
       this.groundLayer,
       this.height
@@ -121,10 +121,11 @@ export default class AirdropSystem {
     const item = this.supplyItem(lane);
 
     if (isMelee(item)) return; // melee only comes with your spawn, never loose
+    const at = this.dropPoint();
     const supply = new Pickup(
       this.scene,
-      this.findDropX(),
-      AIRDROPS.spawnY,
+      at.x,
+      at.y,
       item,
       this.groundLayer,
       this.height,
@@ -154,6 +155,25 @@ export default class AirdropSystem {
   }
 
   // Random x with a solid tile somewhere below it, so most crates land.
+  // Where a drop starts: above the map, or (enclosed maps, like the
+  // Catacombs) just under the roof of a random tunnel with a floor below.
+  dropPoint() {
+    if (!this.scene.map?.enclosed) return { x: this.findDropX(), y: AIRDROPS.spawnY };
+    const layer = this.groundLayer;
+    const th = layer.tilemap.tileHeight;
+    for (let i = 0; i < 40; i++) {
+      const x = Phaser.Math.Between(AIRDROPS.edgeMarginPx, this.width - AIRDROPS.edgeMarginPx);
+      const open = [];
+      for (let y = th; y < this.height - th; y += th) {
+        const here = layer.getTileAtWorldXY(x, y)?.collides;
+        const above = layer.getTileAtWorldXY(x, y - th)?.collides;
+        if (!here && above && !layer.unsafeAt?.(x, y)) open.push(y + th / 2);
+      }
+      if (open.length) return { x, y: Phaser.Utils.Array.GetRandom(open) };
+    }
+    return { x: this.findDropX(), y: AIRDROPS.spawnY };
+  }
+
   findDropX() {
     const min = AIRDROPS.edgeMarginPx;
     const max = this.width - AIRDROPS.edgeMarginPx;

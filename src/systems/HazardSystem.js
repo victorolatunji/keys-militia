@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
-import { HIDING, WATER, LAVA, GEYSER, VENT, FALLS, FREEZE, DECOR, ICE, THIN_ICE, QUICKSAND, CACTUS, SANDSTORM, IGLOO, DUST_DEVIL } from '../data/hazards.js';
+import { HIDING, WATER, LAVA, GEYSER, VENT, FALLS, FREEZE, DECOR, ICE, THIN_ICE, QUICKSAND, CACTUS, SANDSTORM, IGLOO, DUST_DEVIL, BOULDER, HANDS, BELL } from '../data/hazards.js';
+import Trigger from '../entities/Trigger.js';
 import { groundBelow } from './Terrain.js';
 import { TILE_FAMILY, SLIPPERY } from '../data/maps.js';
 import Icicle from '../entities/Icicle.js';
@@ -57,6 +58,10 @@ export default class HazardSystem {
     this.bushes = rects(decor, 'bush').map((o) => this.makeBush(o));
     this.bushes.push(...rects(decor, 'igloo').map((o) => this.makeIgloo(o)));
     this.devils = rects(objects, 'dustdevil').map((o) => this.makeDevil(o));
+    this.triggers = [];  // levers, the bell: word targets (registerTargets)
+    this.ramps = objects.filter((o) => o.name === 'boulderR' || o.name === 'boulderL').map((o) => this.makeRamp(o));
+    this.handZones = rects(objects, 'hands').map((o) => ({ x: o.x, y: o.y, right: o.x + o.width, bottom: o.y + o.height, nextAt: scene.time.now + Phaser.Math.Between(...HANDS.everyMs), hand: null }));
+    this.bells = points(objects, 'bell').map((o) => this.makeBell(o));
 
     // Bots and crates treat water and lava like the void: they don't walk
     // into it or land in it (see Terrain.groundBelow).
@@ -91,6 +96,7 @@ export default class HazardSystem {
   // Icicles are word targets: TypingSystem needs to know about them.
   registerTargets(typing) {
     for (const ic of this.icicles) typing.addTarget(ic);
+    for (const t of this.triggers) typing.addTarget(t);
   }
 
   // How far anyone can see right now (a sandstorm cuts it), or null = normal.
@@ -124,6 +130,9 @@ export default class HazardSystem {
     for (const ic of this.icicles) ic.update(dt);
     this.updateThinIce(now);
     for (const d of this.devils) this.updateDevil(d, now, dt);
+    for (const r of this.ramps) this.updateRamp(r, now, dt);
+    for (const z of this.handZones) this.updateHands(z, now);
+    for (const t of this.triggers) t.update();
     if (this.storm) this.updateStorm(now);
     for (const f of this.falls) this.drawFall(f, now);
     for (const g of this.geysers) this.updateGeyser(g, now);
@@ -424,6 +433,219 @@ export default class HazardSystem {
     if (p) {
       const dist = Phaser.Math.Distance.Between(d.x, d.y - 60, p.x, p.y);
       if (dist < 500) this.scene.sfx?.hold(`devil${this.devils.indexOf(d)}`, 'wind', { x: d.x, y: d.y }, 0.5 * (1 - dist / 500));
+    }
+  }
+
+  // ---- Boulders (Catacombs) ----
+
+  makeRamp(o) {
+    const scene = this.scene;
+    const dir = o.name === 'boulderR' ? 1 : -1;
+    const r = { x: o.x, y: o.y, dir, state: 'wait', nextAt: scene.time.now + Phaser.Math.Between(...BOULDER.everyMs), by: null, boulder: null, hits: new Map() };
+    if (!scene.textures.exists('boulder')) this.makeBoulderTexture();
+    r.dust = scene.add
+      .particles(o.x, o.y - BOULDER.radius - 4, 'hz-dot', {
+        x: { min: -40, max: 40 },
+        lifespan: 900,
+        speedY: { min: 40, max: 120 },
+        scale: { start: 0.3, end: 0.05 },
+        alpha: { start: 0.6, end: 0 },
+        tint: 0x8a8278,
+        frequency: 40,
+        emitting: false,
+      })
+      .setDepth(42);
+    // The lever: on the wall beside the start, back up the ramp.
+    const lx = o.x - dir * 48;
+    const lever = new Trigger(scene, lx, o.y - 4, {
+      name: 'Lever', width: 26, height: 40, rearmMs: BOULDER.leverRearmMs, labelOffset: 18,
+      draw: (g, ready) => {
+        g.fillStyle(0x3d3a36, 1).fillRect(-10, 8, 20, 10);
+        g.lineStyle(4, 0x6c584c, 1);
+        g.lineBetween(0, 12, ready ? -dir * 10 : dir * 12, ready ? -16 : -10);
+        g.fillStyle(0xb5651d, 1).fillCircle(ready ? -dir * 10 : dir * 12, ready ? -16 : -10, 4);
+      },
+      onTrigger: () => this.warnBoulder(r, 'player', scene.time.now, 500),
+    });
+    this.triggers.push(lever);
+    r.lever = lever;
+    return r;
+  }
+
+  makeBoulderTexture() {
+    const R = BOULDER.radius;
+    const g = this.scene.add.graphics();
+    g.fillStyle(BOULDER.color, 1).fillCircle(R + 2, R + 2, R);
+    g.fillStyle(0x5c544c, 1).fillCircle(R + 8, R + 10, R * 0.75);
+    g.fillStyle(BOULDER.color, 1).fillCircle(R - 2, R - 2, R * 0.75);
+    g.fillStyle(0xa39a8f, 0.6).fillCircle(R - 8, R - 10, R * 0.3);
+    g.lineStyle(2, 0x3d3a36, 1);
+    g.lineBetween(R - 10, R - 4, R + 6, R + 8).lineBetween(R + 6, R + 8, R + 2, R + 20).lineBetween(R - 14, R + 10, R - 4, R + 16);
+    g.strokeCircle(R + 2, R + 2, R);
+    g.generateTexture('boulder', R * 2 + 4, R * 2 + 4);
+    g.destroy();
+  }
+
+  // Rumble and dust at the top, then it goes. by: 'player' (your lever) or 'map'.
+  warnBoulder(r, by, now, warnMs = BOULDER.warnMs) {
+    if (r.state !== 'wait') return;
+    r.state = 'warn';
+    r.by = by;
+    r.goAt = now + warnMs;
+    r.dust.start();
+    this.scene.sfx?.play('boulderWarn', r);
+  }
+
+  updateRamp(r, now, dt) {
+    if (r.state === 'wait' && now >= r.nextAt) this.warnBoulder(r, 'map', now);
+    if (r.state === 'warn' && now >= r.goAt) {
+      r.dust.stop();
+      r.state = 'roll';
+      r.hits.clear();
+      const b = this.scene.add.image(r.x, r.y, 'boulder').setDepth(41);
+      this.scene.physics.add.existing(b);
+      b.body.setCircle(BOULDER.radius, 2, 2);
+      b.body.setBounce(0.15);
+      b.body.setMaxVelocity(BOULDER.speed, 900);
+      b.collider = this.scene.physics.add.collider(b, this.layer);
+      r.boulder = b;
+      r.stallMs = 0;
+      return;
+    }
+    if (r.state !== 'roll') return;
+    const b = r.boulder;
+    b.body.setVelocityX(r.dir * BOULDER.speed);
+    b.rotation += (r.dir * BOULDER.speed * dt) / BOULDER.radius;
+    const blocked = r.dir > 0 ? b.body.blocked.right : b.body.blocked.left;
+    r.stallMs = blocked ? r.stallMs + dt * 1000 : 0;
+    this.scene.sfx?.hold(`roll${this.ramps.indexOf(r)}`, 'roll', b);
+    // Crushing anyone in its way: hurt and thrown (not an instant kill).
+    for (const c of this.characters()) {
+      if (!c.alive || now < (r.hits.get(c) ?? 0)) continue;
+      if (Phaser.Math.Distance.Between(b.x, b.y, c.x, c.y) > BOULDER.radius + c.width / 2 + 4) continue;
+      r.hits.set(c, now + BOULDER.hitEveryMs);
+      const yours = r.by === 'player';
+      if (c === this.scene.player) c.takeDamage(BOULDER.damage, yours ? 'self' : 'boulder', 'blast');
+      else if (yours) this.scene.weapons?.addDamage(c, BOULDER.damage, '#ff9f1c', 'blast');
+      else c.takeDamage(BOULDER.damage, 'boulder', 'blast');
+      c.applyKnockback?.(r.dir * BOULDER.knockback, -BOULDER.knockback * 0.5);
+      this.scene.sfx?.play('meleeHit', c);
+      this.scene.cameras.main.shake(120, 0.004);
+    }
+    // Hit the wall at the bottom (or stuck): it smashes apart.
+    if (r.stallMs > 120 || b.y > this.layer.tilemap.heightInPixels) this.smashBoulder(r, now);
+  }
+
+  smashBoulder(r, now) {
+    const b = r.boulder;
+    this.scene.sfx?.play('boulderCrash', b);
+    this.scene.cameras.main.shake(200, 0.006);
+    for (let i = 0; i < 12; i++) {
+      const size = Phaser.Math.Between(5, 12);
+      this.scene.effects?.piece(b.x, b.y, { w: size, h: size, color: i % 3 ? BOULDER.color : 0x5c544c }, true);
+    }
+    this.scene.effects?.poof?.(b.x, b.y, 0x8a8278);
+    b.collider.destroy();
+    b.destroy();
+    r.boulder = null;
+    r.state = 'wait';
+    r.nextAt = now + Phaser.Math.Between(...BOULDER.everyMs);
+  }
+
+  // ---- Grabbing hands (Graveyard) ----
+
+  updateHands(z, now) {
+    const h = z.hand;
+    if (h) {
+      if (h.state === 'warn' && now >= h.at) {
+        h.state = 'up';
+        h.at = now + HANDS.holdMs;
+        h.gfx = this.scene.add.graphics().setDepth(35);
+        this.scene.sfx?.play('handGrab', { x: h.x, y: h.y });
+        const c = h.target;
+        if (c.alive && Math.abs(c.x - h.x) < 34 && Math.abs(c.body.bottom - h.y) < 20) {
+          h.caught = c;
+          this.scene.weapons?.status.apply(c, 'grabbed', 'env', HANDS.holdMs);
+          c.takeDamage(HANDS.damage, 'hands', 'melee');
+        }
+      }
+      if (h.state === 'up') {
+        const t = 1 - Math.max(0, (h.at - now) / HANDS.holdMs);
+        const rise = t < 0.15 ? t / 0.15 : t > 0.8 ? (1 - t) / 0.2 : 1; // bursts up, holds, sinks back
+        this.drawHand(h, rise, now);
+        if (now >= h.at) {
+          h.gfx.destroy();
+          z.hand = null;
+        }
+      }
+      return;
+    }
+    if (now < z.nextAt) return;
+    z.nextAt = now + Phaser.Math.Between(...HANDS.everyMs);
+    const inside = this.characters().filter((c) => c.alive && c.onGround && c.x > z.x && c.x < z.right && c.body.bottom > z.y && c.body.bottom < z.bottom + 12 && !c.statuses?.grabbed);
+    if (!inside.length) return;
+    const c = Phaser.Utils.Array.GetRandom(inside);
+    z.hand = { state: 'warn', at: now + HANDS.warnMs, x: c.x, y: c.body.bottom, target: c, caught: null };
+    this.scene.sfx?.play('dirtCrumble', c);
+    for (let i = 0; i < 6; i++) {
+      const d = this.scene.add.circle(c.x + Phaser.Math.Between(-12, 12), c.body.bottom, Phaser.Math.Between(2, 4), 0x4a3b2c).setDepth(35);
+      this.scene.tweens.add({ targets: d, y: d.y - Phaser.Math.Between(6, 18), alpha: 0, duration: 500, delay: i * 60, onComplete: () => d.destroy() });
+    }
+  }
+
+  // A rotting hand out of the ground, fingers clutching (round the ankle).
+  drawHand(h, rise, now) {
+    const g = h.gfx;
+    g.clear();
+    const len = 34 * rise;
+    const x = h.caught ? h.caught.x : h.x;
+    const y = h.y;
+    g.fillStyle(0x4a3b2c, 1).fillEllipse(x, y + 1, 30, 6); // broken earth
+    if (len < 2) return;
+    const sway = Math.sin(now / 90) * 2;
+    g.fillStyle(HANDS.color, 1);
+    g.fillRect(x - 5 + sway * 0.3, y - len, 10, len);            // forearm
+    g.fillEllipse(x + sway, y - len, 16, 12);                       // palm
+    g.lineStyle(3, HANDS.color, 1);
+    for (let k = -2; k <= 2; k++) g.lineBetween(x + sway + k * 3.5, y - len - 4, x + sway + k * 4.5, y - len - 12 + Math.abs(k));
+    g.lineStyle(1, 0x3d4a2a, 1).strokeRect(x - 5 + sway * 0.3, y - len, 10, len);
+  }
+
+  // ---- The church bell (Graveyard) ----
+
+  makeBell(o) {
+    const scene = this.scene;
+    const bell = { x: o.x, y: o.y };
+    const trig = new Trigger(scene, o.x, o.y + 10, {
+      name: 'Bell', width: 32, height: 34, rearmMs: BELL.rearmMs, labelOffset: 22,
+      draw: (g, ready) => {
+        g.lineStyle(3, 0x3d3a36, 1).lineBetween(0, -22, 0, -16);
+        g.fillStyle(ready ? BELL.color : 0x8d7a3a, 1);
+        g.fillTriangle(-6, -16, 6, -16, 0, -20);
+        g.fillRoundedRect(-11, -16, 22, 24, 7);
+        g.fillRect(-16, 4, 32, 6);
+        g.fillStyle(0x3d3a36, 1).fillCircle(0, 12, 3);
+      },
+      onTrigger: () => this.ringBell(bell),
+    });
+    this.triggers.push(trig);
+    bell.trigger = trig;
+    return bell;
+  }
+
+  // Dong: rings spread out and every enemy within reach is dazed.
+  ringBell(bell) {
+    const scene = this.scene;
+    scene.sfx?.play('bell', bell);
+    scene.tweens.add({ targets: bell.trigger.look, angle: { from: -25, to: 25 }, duration: 260, yoyo: true, repeat: 3, onComplete: () => bell.trigger.look.setAngle(0) });
+    for (let i = 0; i < 3; i++) {
+      const ring = scene.add.circle(bell.x, bell.y, 20).setStrokeStyle(3, BELL.color, 0.8).setDepth(43);
+      scene.tweens.add({ targets: ring, radius: BELL.radiusPx, alpha: 0, duration: 900, delay: i * 250, onComplete: () => ring.destroy() });
+    }
+    for (const bot of scene.bots ?? []) {
+      if (bot.alive && Phaser.Math.Distance.Between(bot.x, bot.y, bell.x, bell.y) <= BELL.radiusPx) {
+        scene.weapons?.status.apply(bot, 'dazed', 'player', BELL.dazedMs);
+      }
     }
   }
 

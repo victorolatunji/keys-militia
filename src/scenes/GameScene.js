@@ -36,11 +36,13 @@ const DEATH_MESSAGES = {
   env: 'Burned to death',
   quicksand: 'Swallowed by quicksand',
   cactus: 'Pricked to death by a cactus',
+  boulder: 'Crushed by a boulder',
+  hands: 'Dragged under by the dead',
 };
 
 // Deaths to the map itself (not a weapon). A bot you hurt badly just before
 // counts as your kill, like a fall into the void.
-const MAP_DEATHS = new Set(['void', 'lava', 'drown', 'geyser', 'env', 'quicksand', 'cactus']);
+const MAP_DEATHS = new Set(['void', 'lava', 'drown', 'geyser', 'env', 'quicksand', 'cactus', 'boulder', 'hands']);
 
 export default class GameScene extends Phaser.Scene {
   constructor() {
@@ -66,8 +68,9 @@ export default class GameScene extends Phaser.Scene {
     this.backdrop = new BackdropSystem(this, this.map, this.tilemap, this.groundLayer, { width, height });
     this.input.keyboard.on(`keydown-${MAP_SELECT.key}`, () => this.nextMap());
 
-    // World bounds: walls left, right and top. No floor: below is the void.
-    this.physics.world.setBounds(0, 0, width, height, true, true, true, false);
+    // World bounds: walls left, right and top. No floor: below is the void
+    // (maps with no void, like Catacombs and Graveyard, get a floor too).
+    this.physics.world.setBounds(0, 0, width, height, true, true, true, !this.map.void);
 
     this.player = new Player(this, spawn.x, spawn.y);
     this.physics.add.collider(this.player, this.groundLayer);
@@ -125,9 +128,9 @@ export default class GameScene extends Phaser.Scene {
     this.airdrops = new AirdropSystem(this, this.groundLayer, { width, height }, this.collisions);
     this.pickups = new PickupSystem(this, this.player, this.weapons, this.airdrops);
 
-    this.voidSystem = new VoidSystem(this, this.map, { width, height }, (player) =>
-      player.kill('void')
-    );
+    this.voidSystem = this.map.void
+      ? new VoidSystem(this, this.map, { width, height }, (player) => player.kill('void'))
+      : null;
 
     // Camera follows the player smoothly and stays inside the map.
     this.cameras.main.setBounds(0, 0, width, height);
@@ -315,7 +318,7 @@ export default class GameScene extends Phaser.Scene {
     this.cameras.main.shake(250, 0.01);
     this.cameras.main.flash(250, 120, 0, 40);
 
-    let message = (cause === 'void' && this.map.void.deathMessage) || DEATH_MESSAGES[cause] || 'You died';
+    let message = (cause === 'void' && this.map.void?.deathMessage) || DEATH_MESSAGES[cause] || 'You died';
     const attacker = this.player.lastAttacker;
     if (cause === 'bot' && attacker) {
       attacker.kills += 1;
@@ -345,8 +348,8 @@ export default class GameScene extends Phaser.Scene {
     this.effects.update(delta);
     this.sfx.updateJet(this.player.alive && this.player.thrusting, this.player.boosted);
     this.sfx.endFrame(); // loops nobody held this frame fade out
-    this.voidSystem.update(this.player);
-    for (const bot of this.bots) this.voidSystem.update(bot);
+    this.voidSystem?.update(this.player);
+    for (const bot of this.bots) this.voidSystem?.update(bot);
     this.hud.update(this.player, this.typing, this.weapons);
 
     const b = this.player.body;

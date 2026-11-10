@@ -1,10 +1,10 @@
 # Keys Militia
 *A VAO game. Living plan book: update it whenever the plan changes.*
 
-**Version:** 0.17
+**Version:** 0.18
 **Owner:** Victor Olatunji / VAO
 **Budget:** $0, free tools and free assets only
-**Status:** Phase 7 (Maps) in progress: Forest, Hell, Glacier and Desert done, six launch maps to go.
+**Status:** Phase 7 (Maps) in progress: Forest, Hell, Glacier, Desert, Catacombs and Graveyard done, four launch maps to go.
 **Live build:** https://victorolatunji.github.io/keys-militia/
 
 ---
@@ -35,7 +35,7 @@ A 2D arena shooter **influenced by Mini Militia**, but its own game: **typing is
 | Pick a loose item | Walk over Health Packs (when hurt), Jet Boosts, Armor Vests and more of a throwable you carry: picked up automatically. Others: 1 / 2 (gun into that slot, or refill a gun you hold), 3 (new throwable, Riot Shield) |
 | Gore level | F2 (Off / Cartoon / Full, remembered in your browser) |
 | Sound on/off | F4 (remembered in your browser) |
-| Next map (testing) | F6 (Forest → Hell → Glacier → Desert → Test, remembered in your browser), or open the game with `?map=forest`, `hell`, `glacier`, `desert` or `test` |
+| Next map (testing) | F6 (Forest → Hell → Glacier → Desert → Catacombs → Graveyard → Test, remembered in your browser), or open the game with `?map=` and the map's name |
 | Alt movement (setting) | Hold right-click to fly toward the cursor |
 
 **Move or type rule:**
@@ -254,7 +254,7 @@ Stats live in `src/data/weapons.js` (guns, specials, throwables), `src/data/item
 
 ## 8. Maps
 **Shared rules:**
-- Every map floats over a **void** (Glacier: an endless icy sea). Fall in and you die.
+- Most maps float over a **void** (Glacier: an endless icy sea). Fall in and you die. Catacombs and Graveyard have no void: solid ground at the bottom.
 - **The void** is drawn as a dark gradient with rising mist (map config: void top, death line, colors). Falling past the death line kills you, clears your half-typed text, and you drop back in from the sky after a short delay. Hell's void is a **lava sea** ("Fell into the lava").
 - Maps are either **open sky** (limitless upward) or **enclosed** (dome or roof).
 - **Every map has its own layout, rules, hazards, landscape and advantages.** No shared template.
@@ -264,7 +264,7 @@ Stats live in `src/data/weapons.js` (guns, specials, throwables), `src/data/item
 - **Bots** stay out of water, lava and quicksand (they treat them like the void), and a bot that's chasing you but getting no closer tries another way round. Crates never land in water or lava.
 - **Typeable hazards:** some hazards show a word, and typing it triggers the trap on enemies.
 - Each map is a **config** in `maps.js` (Tiled file, sky, colors, void, enemies); how hazards behave is shared in `src/data/hazards.js`.
-- **Maps are built in Tiled:** 32×32 tiles, tile layer `ground` (every painted tile is solid), object layer `spawns` (points `player`, `bot`, optional `dummy`), optional object layers `hazards` (`water`, `lava`, `quicksand`, `sea` and `dustdevil` rectangles, `geyser`, `vent` and `icicle` points, `waterfall` and `lavafall` rectangles) and `decor` (`tree`, `pine`, `palm`, `cactus`, `rock`, `mushroom`, `spire`, `bones`, `penguin`, `scorpion` points; `bush`, `igloo`, `bigtree`, `chain`, `cave`, `fireflies` rectangles). Tileset embedded in the map, saved as `.json`. Forest, Hell, Glacier and Desert are made by `tools/make-maps.mjs` (`node tools/make-maps.mjs`), with placeholder tilesets drawn in code (rounded edges, grass, rocks), and can then be edited in Tiled.
+- **Maps are built in Tiled:** 32×32 tiles, tile layer `ground` (every painted tile is solid), object layer `spawns` (points `player`, `bot`, optional `dummy`), optional object layers `hazards` (`water`, `lava`, `quicksand`, `sea` and `dustdevil` rectangles, `geyser`, `vent`, `icicle`, `bell`, `boulderR` / `boulderL` points, `hands` rectangles, `waterfall` and `lavafall` rectangles) and `decor` (`tree`, `pine`, `palm`, `cactus`, `rock`, `mushroom`, `spire`, `bones`, `penguin`, `scorpion`, `coffin`, `cobweb`, `candles`, `deadtree`, `cross`, `lantern` points; `fence`, `fog`, `bush`, `igloo`, `bigtree`, `chain`, `cave`, `fireflies` rectangles). Tileset embedded in the map, saved as `.json`. Forest, Hell, Glacier and Desert are made by `tools/make-maps.mjs` (`node tools/make-maps.mjs`), with placeholder tilesets drawn in code (rounded edges, grass, rocks), and can then be edited in Tiled.
 
 **Forest ("Riverbend"), done in 0.15:** sky blue, greens and sand. A cliff with a cave tunnel and a waterfall pouring into a deep lake, a rolling meadow with boulders and a treehouse, a chasm, a rocky highland with a pond, root caverns, islands and a hidden pond under the map, grassy islands in the sky. Birds that chirp, drifting clouds and leaves, fish jumping in the lake, fireflies under the map, trees, bushes, mushrooms, rocks and grass.
 - **Water:** partly in it just slows you (no damage). Fully under: hidden, 5s of breath (a bar over your head), then drowning at 8 HP/s until you come up. Water puts out fire.
@@ -289,19 +289,28 @@ Stats live in `src/data/weapons.js` (guns, specials, throwables), `src/data/item
 - **Dust devils** wander over the open sand: get caught in one and it lifts you and spins you about (no damage), with a howl of wind.
 - **Advantage: sandstorms.** Every 35–55s a storm blows through for 14s: sand everywhere, howling wind, and nobody sees far. Words only show within 280px and bots only see you that close, so you can sneak up or get away. Hide in the oasis.
 
+**Catacombs, done in 0.18:** **enclosed, no void.** A roof and floor of rock pieces, every wall and floor made of rough stones in mortar (no sand), on a black background with everything clearly visible (no darkness or torches). Three levels of tunnels joined by shafts: an upper gallery with pillars, a middle hall and a lower crypt hall with stone coffins, ossuaries full of bones, a low tunnel and a flooded crypt at the bottom (hide in it). Cobwebs, candles, chains, rubble heaps for cover, dust drifting in the dark.
+- **Hazard: rolling boulders.** Every 14–22s a boulder rumbles (dust falls at the top of the ramp), then rolls down one of the two long ramps and along the hall below, and smashes on the far wall. It hits each character once per roll: 35 damage and thrown out of its way. It doesn't kill a healthy character outright, but it can finish off a hurt one.
+- **Advantage: the levers.** A lever at the top of each ramp shows a word: type it to send the boulder down early, onto the enemies in its path (its hits count as yours). Tight tunnels for ambushes.
+- Crates and drops come down inside the tunnels (no sky to fall from).
+
+**Graveyard, done in 0.18:** night under a big moon, **solid ground to the bottom (no void).** A hill of tombstones, a stone chapel with an upstairs floor and doors each side, a bell tower, iron fences, dead trees, wooden grave crosses, flickering lanterns, open graves leading down into a pillared crypt, floating rubble and plank platforms, fog creeping along the ground, bats flitting overhead.
+- **Hazard: grabbing hands.** On the grave hill (and by the fences) the ground cracks under whoever stands there, then a rotting hand bursts out and grabs them: held in place for 1.4s and 5 damage. Bots too.
+- **Advantage:** tombstones are solid stone and block bullets. **The church bell** shows a word: type it to ring it and every enemy within 520px is dazed for 3.5s (rings again after 20s).
+
 **Map list (draft, tune while prototyping):**
 | Map | Sky | Hazard | Advantage |
 |---|---|---|---|
 | Forest ✅ | Open | Water: stay fully under too long and you drown (partly in is safe); waterfall pushes you down | Hide under water or in bushes (no word shows on you) |
 | Hell ✅ | Open | Lava (pit, crater, the sea below), fire geysers | Heat vents refill jetpack fuel; hide in the hot spring |
 | Glacier ✅ | Open | Slippery ice, thin spots over freezing water, an endless icy sea below | Type a word on an icicle to drop it on enemies; hide in igloos |
-| Catacombs | Enclosed | Darkness, limited vision | Tight tunnels for ambushes, torches reveal enemies |
+| Catacombs ✅ | Enclosed (no void) | Rolling boulders down the ramps | Type a lever's word to send a boulder onto enemies; tight tunnels |
 | City | Open | Live power lines | Tall buildings for cover and height |
 | Desert ✅ | Open | Quicksand pits, cacti, dust devils | Sandstorms: nobody sees far (words only close up) |
 | Factory | Enclosed | Crushers and conveyors | Type a word on a crusher to trigger it |
 | Sky Islands | Open | Strong winds push you | Ride the wind for long flights |
 | Space Station | Enclosed | Airlocks pull you into the void | Low gravity, big jumps on less fuel |
-| Graveyard | Open | Hands grab you from the ground | Tombstones block bullets |
+| Graveyard ✅ | Open (no void) | Hands grab you from the ground | Tombstones block bullets; ring the bell to daze enemies |
 
 ---
 
@@ -422,7 +431,7 @@ keys-militia/
 ├── src/
 │   ├── main.js                  ✅ Phaser config
 │   ├── scenes/                  # Boot ✅ (loads maps, builds icons), Game ✅, Menu, Lobby, GameOver, Settings
-│   ├── entities/                # Player ✅, Dummy ✅, Icicle ✅ (Glacier), Bot ✅, Grenade ✅ (every throwable), Crate ✅, Pickup ✅, Projectile ✅ (launcher rounds), Bullet ✅, EnemyBullet ✅, Saw ✅, FirePatch ✅, Cloud ✅ (smoke and gas)
+│   ├── entities/                # Player ✅, Dummy ✅, Icicle ✅ (Glacier), Trigger ✅ (levers, bell), Bot ✅, Grenade ✅ (every throwable), Crate ✅, Pickup ✅, Projectile ✅ (launcher rounds), Bullet ✅, EnemyBullet ✅, Saw ✅, FirePatch ✅, Cloud ✅ (smoke and gas)
 │   ├── systems/
 │   │   ├── VoidSystem.js        ✅ void visuals (Hell: lava sea, Glacier: the deep under the icy sea), fall detection
 │   │   ├── TypingSystem.js      ✅ typing state, words, lock-on, typos, word refresh
@@ -441,8 +450,8 @@ keys-militia/
 │   │   ├── BotCombat.js         ✅ bots attacking: turns, reaction, typing time, aim error, bullets, melee, launchers, grenades, bombers
 │   │   ├── BotGear.js           ✅ what a bot carries: loadout, ammo, gun choice, loot, drops
 │   │   ├── EnemySpawner.js      ✅ spawn slots, random types, family rotation
-│   │   ├── HazardSystem.js      ✅ water, lava, quicksand, geysers, vents, bushes, falls, hiding, breath, splashes, blasts and throwables in liquids, icebergs, slippery and thin ice (blasts smash it), icicles, igloos, cacti, dust devils, sandstorms
-│   │   ├── BackdropSystem.js    ✅ sky, sun, clouds, parallax hills/spires/mountains/mesas, birds, camel caravan, far icebergs and whales, heat shimmer, leaves, snow, northern lights, embers, fireflies, tumbleweeds, penguins, scorpions, trees, pines, palms, cacti, rocks, caves, grass
+│   │   ├── HazardSystem.js      ✅ water, lava, quicksand, geysers, vents, bushes, falls, hiding, breath, splashes, blasts and throwables in liquids, icebergs, slippery and thin ice (blasts smash it), icicles, igloos, cacti, dust devils, sandstorms, boulders and levers, grabbing hands, the church bell
+│   │   ├── BackdropSystem.js    ✅ sky, sun, clouds, parallax hills/spires/mountains/mesas, birds, camel caravan, far icebergs and whales, heat shimmer, leaves, snow, northern lights, embers, fireflies, tumbleweeds, penguins, scorpions, moon, bats, fog, coffins, cobwebs, candles, lanterns, fences, dead trees, crosses, trees, pines, palms, cacti, rocks, caves, grass
 │   │   └── ScoreSystem.js       # kills, assists, fall credit, MVP
 │   ├── ui/
 │   │   ├── Hud.js               ✅ HP, fuel and armor bars, weapon panel + icon, throwable slots, state tag
@@ -452,8 +461,8 @@ keys-militia/
 │   │   └── WordLabel.js         ✅ word plates above targets
 │   └── data/
 │       ├── player.js            ✅ movement, HP, regen, typing and knockback tuning (bots scale it)
-│       ├── maps.js              ✅ map configs (Forest, Hell, Glacier, Desert, test), map select (F6), tile palettes, slippery tiles
-│       ├── hazards.js           ✅ hiding, water, lava, ice, thin ice, icicles, quicksand, cacti, sandstorms, falls, icebergs, geysers, vents, decor tuning
+│       ├── maps.js              ✅ map configs (Forest, Hell, Glacier, Desert, Catacombs, Graveyard, test), map select (F6), tile palettes, slippery tiles
+│       ├── hazards.js           ✅ hiding, water, lava, ice, thin ice, icicles, quicksand, cacti, sandstorms, boulders, hands, bell, falls, icebergs, geysers, vents, decor tuning
 │       ├── words.js             ✅ word lists by length, refresh timer
 │       ├── weapons.js           ✅ weapon categories, guns, launchers, specials, melee, throwables, aim, loadout
 │       ├── items.js             ✅ Jet Boost, Riot Shield, Health Pack, Armor Vest
@@ -466,10 +475,10 @@ keys-militia/
 │       ├── airdrops.js          ✅ crate timing and contents, parachute, tipping, pickup radius, supply-drop lanes, death drops
 │       └── characters.js
 ├── public/assets/
-│   ├── maps/                    # Tiled maps (.json): test ✅, forest ✅, hell ✅, glacier ✅, desert ✅
-│   └── tilesets/                # tile images: placeholder, forest, hell, glacier, desert ✅
+│   ├── maps/                    # Tiled maps (.json): test, forest, hell, glacier, desert, catacombs, graveyard ✅
+│   └── tilesets/                # tile images: placeholder, forest, hell, glacier, desert, catacombs, graveyard ✅
 ├── tools/
-│   └── make-maps.mjs            ✅ builds the Forest, Hell, Glacier and Desert maps and tilesets (no packages)
+│   └── make-maps.mjs            ✅ builds the Forest, Hell, Glacier, Desert, Catacombs and Graveyard maps and tilesets (no packages)
 ├── README.md                    ✅ this plan book
 └── CREDITS.md                   ✅ asset licenses
 ```
@@ -488,7 +497,7 @@ keys-militia/
 | 5 | Enemies | Enemy roster with jetpack, walker, leaper and flyer movement; shooters, rushers and a bomber; smart Military gear; spawn slots; attack turns, flinch, regen | ✅ |
 | 5.5 | Arsenal II | Status effects, saw gun, nail gun, laser, flamethrower, sticky grenade (also the trip mine), molotov, combat axe, smoke, flashbang, concussion, EMP, cryo bomb, Jet Boost, riot shield, health pack, armor vest, mouse aiming, two throwable slots, crates and supply lanes | ✅ |
 | 6 | Effects | Blood, gibs, gore toggle, explosions, smoke/gas clouds with night vision, sounds made in code (shots, explosions, loops, voices, death cries), finishing touches | ✅ |
-| 7 | Maps | All launch maps with hazards and advantages, open and enclosed | 🔄 Forest ✅ Hell ✅ Glacier ✅ Desert ✅, 6 to go |
+| 7 | Maps | All launch maps with hazards and advantages, open and enclosed | 🔄 Forest ✅ Hell ✅ Glacier ✅ Desert ✅ Catacombs ✅ Graveyard ✅, 4 to go |
 | 8 | Offline modes | You vs Military, Zombies, Endless vs Enemies, scoring, awards | |
 | 9 | Menus and guest | Menu, settings, name and character select, local saves | |
 | 9.5 | Art pass | Replace placeholders with final sprites, tiles, backgrounds and effects | |
@@ -500,7 +509,7 @@ keys-militia/
 
 ## 17. Open decisions
 - [ ] Final hazard and advantage behavior per map (Forest and Hell starting values in `hazards.js`)
-- [ ] Remaining maps: Catacombs, Graveyard, City, Factory, Sky Islands, Space Station (each its own layout and rules)
+- [ ] Remaining maps: City, Factory, Sky Islands, Space Station (each its own layout and rules)
 - [ ] Map art: code-drawn placeholders for now (rounded edges, rocks, decor); final tiles in the art pass (9.5)
 - [ ] Match length and kill targets (starting values in section 10; measure the real kill pace)
 - [ ] Exact weapon stats (damage, word length, range falloff)
@@ -519,6 +528,7 @@ keys-militia/
 ---
 
 ## 18. Changelog
+- **0.18:** Phase 7 part 3: Catacombs and Graveyard, both with no void. Catacombs: enclosed, everything built of rock pieces on a black background, three levels of tunnels, coffins, ossuaries and a flooded crypt; boulders roll down the ramps (hurt and throw you, no instant kill) and a lever's word sends one early onto enemies. Graveyard: night, a hill of tombstones that block bullets, a chapel and bell tower (type the bell's word to daze enemies), open graves into a crypt, fog, bats, lanterns; hands burst out of the ground and grab whoever stands on the graves. Crates drop inside tunnels on enclosed maps.
 - **0.17:** Glacier now floats on an endless icy sea instead of the void (swim in it, sink too deep and you're gone), with a sea cave, a grotto, floes, igloos you can hide in (they thaw you out), penguins, far icebergs and whales. The frozen lake is solid ice with thin spots that trap anyone, bots too, and explosions smash thin ice. Desert: quicksand fixed (the jetpack or a jump gets you out now), a shallower pit, a camel caravan on the far dunes instead of vultures, dust devils that toss you about, scorpions, heat shimmer, tumbleweeds that look like tumbleweeds. Wildlife moves naturally (no jitter: penguins waddle and belly-slide, scorpions scuttle and raise their tails) and dies in blasts.
 - **0.16:** Phase 7 part 2: Glacier and Desert, each with its own layout, rules and advantage. Glacier: an icicle cave, a frozen lake of thin ice over freezing water, a slippery glacier with crevasses, northern lights and snow; ice makes you slide, thin ice cracks and breaks under you, and typing the word on an icicle drops it on whoever is below. Desert: dunes with quicksand, a mesa with an arch, an oasis, a buried temple with a pillared chamber, vultures and tumbleweeds; quicksand pulls you under, cacti prick, and sandstorms roll through so nobody sees far. Hell tweaks: cryo no longer affects lava, cryo on water now makes a rough-cut iceberg, darker white smoke. Bots no longer drop in inside ragged rock.
 - **0.15:** Phase 7 (Maps) part 1: Forest and Hell. Two tall maps with their own layouts, rules, hazards and advantages: air above, openings to drop through and a whole fight zone under the map. Forest: cave tunnel, waterfall and lake, treehouse, boulders, pond, root caverns, birds, fish, leaves and fireflies; water slows you, hides you fully under and drowns you slowly; bushes hide you. Hell: volcano with a lava crater and tunnel, lava pit, hot spring, lava fall into a lava sea, fire geysers, heat vents that refuel you. Hazards wear you down instead of killing fast (lava now melts you like drowning, a bit faster). Liquids change combat: muffled underwater blasts with water columns, water shielding you from blasts and bullets, grenades sinking or cooking off, molotovs steaming, splashes for everything that falls in, Jet Boost floats you, Cryo freezes water into ice you can stand on (or crusts lava), EMP shocks the water. Bullet chips and blast chunks off walls. Combat Axe now looks like an axe, sticks in the body and makes it bleed. Code-drawn tiles with rounded edges and rocks. Bots try another way when stuck. Map select (F6 or `?map=`). Test dummies removed from the new maps.

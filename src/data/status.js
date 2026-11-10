@@ -38,6 +38,10 @@ export const STATUS = {
     axeScale: 0.85,     // size of the stuck axe (its icon)
     textColor: '#e01e37',
   },
+  grabbed: {
+    durationMs: 1400,   // Graveyard hands: held in place (like pinned, no nails)
+    textColor: '#8a9a5b',
+  },
   gassed: {
     durationMs: 1200,   // coughing a moment after you get out (damage is from the cloud)
     textColor: '#9ef01a',

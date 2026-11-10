@@ -23,6 +23,11 @@
 //     grotto, an icicle overhang, igloos and penguins.
 //   Desert "Dune Sea": dunes with quicksand, a mesa with an arch, an oasis,
 //     a buried temple with a pillared chamber, islands underneath.
+//   Catacombs: enclosed, all rock pieces (roof and floor, no void): three
+//     levels of tunnels, shafts, two boulder ramps, burial niches, ossuaries
+//     and a flooded crypt.
+//   Graveyard: night, solid ground (no void): a hill of tombstones, a chapel
+//     with a bell tower, fences, dead trees, open graves into a crypt.
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { deflateSync } from 'node:zlib';
 import { dirname, join } from 'node:path';
@@ -164,16 +169,19 @@ const TILE = {
 
 // One tileset from a palette: every tile and its rounded versions.
 function paletteTiles(p) {
-  const top = () => topped(hex(p.top), grain(hex(p.soil), 0.14, 0.06), p.topDepth ?? 7);
-  const soil = () => grain(hex(p.soil), 0.14, 0.06);
-  const rock = () => stone(hex(p.rock), hex(p.crack));
-  const sand = () => grain(hex(p.sand), 0.1, 0.06, hex(p.sandSpeck));
-  const under = () => underside(hex(p.under), hex(p.roots));
+  // p.rubble (Catacombs): every ground tile is rock pieces set in mortar.
+  const rub = (c, k = 1) => () => rubble(hex(c), hex(p.mortar ?? 0x2b2622), k);
+  const top = p.rubble ? rub(p.top, 1.05) : () => topped(hex(p.top), grain(hex(p.soil), 0.14, 0.06), p.topDepth ?? 7);
+  const soil = p.rubble ? rub(p.soil) : () => grain(hex(p.soil), 0.14, 0.06);
+  const rock = p.rubble ? rub(p.rock, 1.1) : () => stone(hex(p.rock), hex(p.crack));
+  const sand = p.rubble ? rub(p.sand) : () => grain(hex(p.sand), 0.1, 0.06, hex(p.sandSpeck));
+  const under = p.rubble ? rub(p.under, 0.9) : () => underside(hex(p.under), hex(p.roots));
+  const deep = p.rubble ? rub(p.deep, 0.95)() : grain(hex(p.deep), 0.12, 0.08, hex(p.deepSpeck));
   const ice = () => iceTile(hex(p.ice ?? 0xa8dadc));
   return [
     top(),                                            // 1
     soil(),                                           // 2
-    grain(hex(p.deep), 0.12, 0.08, hex(p.deepSpeck)), // 3
+    deep,                                             // 3
     sand(),                                           // 4
     planks(hex(p.plank), hex(p.plankGap)),            // 5
     under(),                                          // 6
@@ -185,6 +193,33 @@ function paletteTiles(p) {
     ice(), rounded(ice(), ['tl']), rounded(ice(), ['tr']), rounded(ice(), ['tl', 'tr']), // 20-23
     thinIce(hex(p.ice ?? 0xcaf0f8)),                                                     // 24
   ];
+}
+
+// Rubble: irregular rock pieces set in dark mortar (Catacombs), each stone
+// a slightly different shade, darker toward its edges.
+function rubble(base, mortar, light = 1) {
+  const pts = Array.from({ length: 7 }, () => [rand() * 32, rand() * 32, 0.82 + rand() * 0.32]);
+  return (x, y) => {
+    let d1 = 1e9;
+    let d2 = 1e9;
+    let k = 1;
+    for (const [sx, sy, kk] of pts) {
+      for (const ox of [-32, 0, 32]) {
+        for (const oy of [-32, 0, 32]) {
+          const d = Math.hypot(x - sx - ox, y - sy - oy);
+          if (d < d1) {
+            d2 = d1;
+            d1 = d;
+            k = kk;
+          } else if (d < d2) d2 = d;
+        }
+      }
+    }
+    if (d2 - d1 < 1.5) return mortar;
+    const edge = d2 - d1 < 3.5 ? 0.82 : 1;
+    const lit = y < 10 && d2 - d1 > 3.5 ? 1.06 : 1; // a little highlight on top of each stone
+    return shade(base, k * edge * lit * light * (0.95 + rand() * 0.08));
+  };
 }
 
 // Ice: glossy, with diagonal shine streaks. (Slippery in game: Glacier.)
@@ -221,6 +256,16 @@ const GLACIER_PALETTE = {
 const DESERT_PALETTE = {
   top: 0xf4d58d, topDepth: 8, soil: 0xd08c60, deep: 0x9c6644, deepSpeck: 0x7f5539, sand: 0xedc988, sandSpeck: 0xd4a373,
   plank: 0x8d5a2b, plankGap: 0x432818, under: 0xb5703f, roots: 0x7f4f24, rock: 0xc9743a, crack: 0x7f4f24,
+};
+
+const CATACOMBS_PALETTE = {
+  rubble: true, mortar: 0x221e1b,
+  top: 0x7d746a, soil: 0x6b6259, deep: 0x564f48, sand: 0x777069, under: 0x5e5650, rock: 0x8a8278,
+  plank: 0x5c4033, plankGap: 0x2b1d14, crack: 0x2b2622,
+};
+const GRAVEYARD_PALETTE = {
+  top: 0x3a5a40, topDepth: 7, soil: 0x4a3b2c, deep: 0x3b3a3f, deepSpeck: 0x2b2a2f, sand: 0x8a8580, sandSpeck: 0x6b6763,
+  plank: 0x5c4033, plankGap: 0x2b1d14, under: 0x3b2f24, roots: 0x7f6a55, rock: 0x9aa0a6, crack: 0x5c6066,
 };
 
 // ---------------------------------------------------------------- map ----
@@ -666,6 +711,168 @@ function desert() {
   ]);
 }
 
+
+// ---------------------------------------------------------- Catacombs ----
+// 100 x 64 tiles. Enclosed: rock-piece roof above, rock-piece floor below,
+// no void. Three levels of tunnels joined by shafts and two long sloping
+// ramps that boulders roll down. A flooded crypt at the bottom.
+function catacombs() {
+  W = 100;
+  H = 64;
+  seed = 1313;
+  objectId = 1;
+  const m = grid();
+  const hz = [];
+  const decor = [];
+  fill(m, 0, 0, W - 1, H - 1, 'soil');      // solid rock everywhere, then dig
+
+  // Upper gallery, with a few pillars holding the roof.
+  carve(m, 3, 6, 96, 13);
+  for (const x of [30, 52, 74]) fill(m, x, 6, x + 1, 13, 'rock');
+  for (const x of [30, 52, 74]) carve(m, x, 11, x + 1, 13);       // you can pass under them
+  // Ramp 1: from the gallery's west end, sloping down to the middle hall.
+  for (let x = 6; x <= 50; x++) {
+    const floor = 13 + Math.floor((x - 6) / 3);
+    carve(m, x, floor - 5, x, floor);
+  }
+  // Middle hall.
+  carve(m, 46, 22, 96, 28);
+  // Ramp 2: from the middle hall's east end, sloping down west to the crypt.
+  for (let x = 50; x <= 94; x++) {
+    const floor = 28 + Math.floor((94 - x) / 3);
+    carve(m, x, floor - 5, x, floor);
+  }
+  // Lower crypt hall (stone coffins along it).
+  carve(m, 4, 37, 62, 43);
+  // The flooded crypt at the bottom.
+  carve(m, 64, 46, 96, 55);
+  hz.push(rect('water', px(64), px(51), px(33), px(5)));
+  carve(m, 60, 43, 66, 46);                 // the way down to it
+  // Shafts between levels.
+  carve(m, 18, 13, 20, 37);
+  carve(m, 86, 13, 88, 22);
+  carve(m, 38, 43, 40, 52);
+  carve(m, 30, 50, 62, 55);                 // a low tunnel under the crypt hall
+  carve(m, 20, 50, 30, 52);
+  // Side chambers (ossuaries).
+  carve(m, 3, 22, 14, 28);
+  carve(m, 14, 25, 18, 28);
+  // Rubble heaps and fallen stones on the floors (cover).
+  for (const [x, y] of [[42, 13], [64, 13], [60, 28], [80, 28], [28, 43], [50, 43], [76, 55]]) fill(m, x, y - 1, x + 1, y - 1, 'rock');
+  fill(m, 64, 12, 64, 12, 'rock');
+
+  // Boulders: they start at the top of each ramp, roll down it and smash
+  // against the far wall. A lever at each top shows a word: type it to
+  // send the boulder early.
+  hz.push(point('boulderR', px(8) + 16, px(13) - 30));
+  hz.push(point('boulderL', px(92) + 16, px(28) - 30));
+
+  const spawns = [
+    point('player', px(48), px(13)),
+    point('bot', px(8), px(13)), point('bot', px(90), px(13)), point('bot', px(70), px(28)),
+    point('bot', px(10), px(43)), point('bot', px(50), px(43)), point('bot', px(80), px(55)),
+    point('bot', px(8), px(28)), point('bot', px(25), px(52)),
+  ];
+  for (const [x, y] of [[5, 28], [9, 28], [12, 28], [22, 43], [46, 43], [58, 43], [40, 55]]) decor.push(point('bones', px(x) + 16, px(y)));
+  for (const x of [9, 16, 25, 35, 44, 56]) decor.push(point('coffin', px(x) + 16, px(44)));
+  for (const x of [5, 11]) decor.push(point('coffin', px(x) + 16, px(29)));
+  for (const [x, y] of [[3, 6], [96, 6], [46, 22], [96, 22], [4, 37], [62, 37], [64, 46]]) decor.push(point('cobweb', px(x), px(y)));
+  for (const [x, y] of [[22, 13], [60, 13], [84, 13], [70, 28], [14, 43], [52, 43], [90, 55]]) decor.push(point('candles', px(x) + 16, px(y)));
+  for (const x of [10, 40, 70]) decor.push(rect('chain', px(x) + 13, px(6), 6, 96));
+
+  return tiledMap('catacombs-tiles', m, [
+    { name: 'spawns', objects: spawns },
+    { name: 'hazards', objects: hz },
+    { name: 'decor', objects: decor },
+  ]);
+}
+
+// ---------------------------------------------------------- Graveyard ----
+// 110 x 62 tiles, at night. No void: solid ground to the bottom of the
+// map. A hill of graves, a chapel with a bell tower, iron fences, dead
+// trees, and a crypt under it all that open graves lead down into.
+function graveyard() {
+  W = 110;
+  H = 62;
+  seed = 1031;
+  objectId = 1;
+  const m = grid();
+  const hz = [];
+  const decor = [];
+  const S = 40; // the main ground level
+
+  // The ground: rolling, a hill in the middle, solid down to the bottom.
+  land(m, 0, W - 1, (x) => S - Math.round(Math.max(0, 7 - Math.abs(x - 55) / 4)) + Math.round(Math.sin(x / 5) * 0.8), () => H - 1);
+  // The crypt under the hill, and its tunnels.
+  carve(m, 22, 46, 70, 53);
+  carve(m, 70, 49, 92, 53);
+  for (const x of [30, 46, 60]) fill(m, x, 46, x + 1, 53, 'rock');   // crypt pillars
+  for (const x of [30, 46, 60]) carve(m, x, 50, x + 1, 53);
+  decor.push(rect('cave', px(22), px(46), px(49), px(8)), rect('cave', px(70), px(49), px(23), px(5)));
+  // Open graves: holes down into the crypt.
+  for (const x of [26, 40, 64]) {
+    const top = topAt(m, x, 0);
+    carve(m, x, top, x + 1, 46);
+    decor.push(rect('cave', px(x), px(top), px(2), px(46 - top)));
+  }
+
+  // Tombstones: solid stone, they block bullets (rows of them on the hill).
+  for (let x = 30; x <= 80; x += 3) {
+    if ([40, 41, 64, 65].includes(x) || (x > 72 && x < 92)) continue;
+    const top = topAt(m, x, 0);
+    fill(m, x, top - (x % 2 ? 2 : 1), x, top - 1, 'rock');
+  }
+  for (const x of [8, 12, 16, 98, 102]) fill(m, x, topAt(m, x, 0) - 1, x, topAt(m, x, 0) - 1, 'rock');
+
+  // The chapel: stone walls, a door each side, a wooden floor upstairs,
+  // and the bell tower going up from its east end.
+  const cTop = topAt(m, 80, 0);
+  for (let x = 72; x <= 92; x++) {           // level ground for the chapel
+    carve(m, x, 0, x, cTop - 1);
+    fill(m, x, cTop, x, cTop + 6, 'soil');
+  }
+  fill(m, 74, cTop - 10, 74, cTop - 1, 'rock');
+  fill(m, 90, cTop - 10, 90, cTop - 1, 'rock');
+  carve(m, 74, cTop - 2, 74, cTop - 1);      // doors
+  carve(m, 90, cTop - 2, 90, cTop - 1);
+  fill(m, 74, cTop - 11, 90, cTop - 11, 'plank'); // roof
+  fill(m, 75, cTop - 6, 82, cTop - 6, 'plank');   // the upstairs floor
+  fill(m, 86, cTop - 24, 86, cTop - 12, 'rock');  // the tower
+  fill(m, 89, cTop - 24, 89, cTop - 12, 'rock');
+  fill(m, 86, cTop - 25, 89, cTop - 25, 'plank');
+  carve(m, 89, cTop - 22, 89, cTop - 15);    // the belfry's open side (see and ring the bell)
+  carve(m, 87, cTop - 11, 88, cTop - 11);    // a hole in the roof up into the tower
+  decor.push(rect('cave', px(75), px(cTop - 10), px(15), px(10)), rect('cave', px(87), px(cTop - 24), px(2), px(13)));
+  hz.push(point('bell', px(87) + 32, px(cTop - 20)));
+
+  // Iron fences and grabbing hands.
+  for (const [x0, x1] of [[2, 20], [94, 108]]) decor.push(rect('fence', px(x0), px(topAt(m, x0, 0)) - 40, px(x1 - x0), 40));
+  hz.push(rect('hands', px(28), px(S - 8), px(44), px(8)), rect('hands', px(4), px(S - 2), px(18), px(3)), rect('hands', px(94), px(S - 2), px(14), px(3)));
+
+  // Floating rubble from the old tower and a tree house of planks.
+  island(m, 40, 46, 22, 2, 'rock');
+  island(m, 60, 66, 20, 2, 'rock');
+  fill(m, 10, 28, 15, 28, 'plank');
+  fill(m, 96, 27, 101, 27, 'plank');
+
+  const spawns = [
+    point('player', px(55), px(18)),
+    on(m, 'bot', 5), on(m, 'bot', 20), on(m, 'bot', 36), on(m, 'bot', 70), on(m, 'bot', 96), on(m, 'bot', 106),
+    point('bot', px(35), px(53)), point('bot', px(80), px(53)), on(m, 'bot', 43, 10),
+  ];
+  for (const x of [6, 22, 49, 69, 100]) decor.push(on(m, 'deadtree', x, 0));
+  for (const x of [11, 15, 28, 52, 58, 97]) decor.push(on(m, 'cross', x, 0, 12));
+  for (const x of [4, 24, 72, 92, 108]) decor.push(on(m, 'lantern', x, 0, 16));
+  for (const [x, y] of [[35, 53], [54, 53], [84, 53]]) decor.push(point('bones', px(x), px(y)), point('candles', px(x) + 40, px(y)));
+  decor.push(rect('fog', 0, px(S - 6), px(W), px(6)));
+
+  return tiledMap('graveyard-tiles', m, [
+    { name: 'spawns', objects: spawns },
+    { name: 'hazards', objects: hz },
+    { name: 'decor', objects: decor },
+  ]);
+}
+
 // ---------------------------------------------------------------- out ----
 
 const out = (rel, data) => {
@@ -683,7 +890,13 @@ seed = 303;
 out('public/assets/tilesets/glacier-tiles.png', tileset(paletteTiles(GLACIER_PALETTE)));
 seed = 404;
 out('public/assets/tilesets/desert-tiles.png', tileset(paletteTiles(DESERT_PALETTE)));
+seed = 505;
+out('public/assets/tilesets/catacombs-tiles.png', tileset(paletteTiles(CATACOMBS_PALETTE)));
+seed = 606;
+out('public/assets/tilesets/graveyard-tiles.png', tileset(paletteTiles(GRAVEYARD_PALETTE)));
 out('public/assets/maps/forest.json', JSON.stringify(forest()));
 out('public/assets/maps/hell.json', JSON.stringify(hell()));
 out('public/assets/maps/glacier.json', JSON.stringify(glacier()));
 out('public/assets/maps/desert.json', JSON.stringify(desert()));
+out('public/assets/maps/catacombs.json', JSON.stringify(catacombs()));
+out('public/assets/maps/graveyard.json', JSON.stringify(graveyard()));

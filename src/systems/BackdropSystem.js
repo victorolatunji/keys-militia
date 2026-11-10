@@ -21,11 +21,13 @@ export default class BackdropSystem {
     this.birds = [];
     this.clouds = [];
     this.critters = [];
+    this.tumbleweeds = [];
     if (!this.sky) return;
 
     this.groundY = this.sky.horizonY ?? mainGroundY(groundLayer);
     this.drawSky();
     if (this.sky.sun) this.drawSun();
+    if (this.sky.moon) this.drawMoon();
     if (this.sky.clouds) this.drawClouds();
     (this.sky.ridges ?? []).forEach((r, i) => this.drawRidge(r, i));
     if (this.sky.birds) this.makeBirds();
@@ -36,6 +38,8 @@ export default class BackdropSystem {
     if (this.sky.bergs) this.drawBergs();
     if (this.sky.camels) this.makeCaravan();
     if (this.sky.haze) this.makeHaze();
+    if (this.sky.bats) this.makeBats();
+    if (this.sky.dust) this.makeCaveDust();
     this.tumbleweeds = [];
     this.nextWeedAt = scene.time.now + 1500;
     this.layer = groundLayer;
@@ -60,6 +64,14 @@ export default class BackdropSystem {
       else if (o.name === 'fireflies') this.makeFireflies(o);
       else if (o.name === 'cave') this.drawCave(o);
       else if (o.name === 'penguin' || o.name === 'scorpion') this.addCritter(o.name, o.x, o.y);
+      else if (o.name === 'coffin') this.drawCoffin(o.x, o.y);
+      else if (o.name === 'cobweb') this.drawCobweb(o.x, o.y);
+      else if (o.name === 'candles') this.addCandles(o.x, o.y);
+      else if (o.name === 'deadtree') this.drawDeadTree(o.x, o.y);
+      else if (o.name === 'cross') this.drawCross(o.x, o.y);
+      else if (o.name === 'lantern') this.addLantern(o.x, o.y);
+      else if (o.name === 'fence') this.drawFence(o);
+      else if (o.name === 'fog') this.makeFog(o);
     }
     if (this.critters.length) this.critterGfx = scene.add.graphics().setDepth(3);
     if (map.key === 'forest') this.drawGrass(groundLayer);
@@ -453,6 +465,170 @@ export default class BackdropSystem {
     if (this.caravan) this.updateCaravan(now, dt);
     if (this.bergs) this.updateWhales(now);
     if (this.haze) this.haze.forEach((h, i) => h.setAlpha(0.06 + Math.sin(now / 300 + i * 1.7) * 0.04));
+    if (this.flames) for (const f of this.flames) f.setScale(0.85 + Math.sin(now / 70 + f.phase) * 0.15 + Math.random() * 0.08).setAlpha(0.75 + Math.random() * 0.25);
+    if (this.bats) this.updateBats(now, dt);
+  }
+
+  // ---- Graveyard and Catacombs ----
+
+  drawMoon() {
+    const { color, x, y } = this.sky.moon;
+    const factor = 0.05;
+    const sx = VIEW_W * x;
+    const sy = this.placeY(VIEW_H * y, factor);
+    for (const [r, a] of [[110, 0.06], [75, 0.12], [48, 1]]) this.scene.add.circle(sx, sy, r, color, a).setScrollFactor(factor).setDepth(-99);
+    const g = this.scene.add.graphics().setScrollFactor(factor).setDepth(-99);
+    g.fillStyle(0xced4da, 0.8).fillCircle(sx - 14, sy - 8, 9).fillCircle(sx + 12, sy + 10, 6).fillCircle(sx + 4, sy - 18, 4);
+  }
+
+  // A stone coffin in a burial niche, lid on.
+  drawCoffin(x, y) {
+    const g = this.back;
+    g.fillStyle(0x4a4540, 1).fillRect(x - 30, y - 22, 60, 22);
+    g.fillStyle(0x5e5850, 1).fillRect(x - 33, y - 26, 66, 6);
+    g.lineStyle(2, 0x2b2622, 1).strokeRect(x - 30, y - 22, 60, 22);
+    g.lineStyle(2, 0x8a8278, 0.8).lineBetween(x - 6, y - 18, x + 6, y - 18).lineBetween(x, y - 22, x, y - 10); // a carved cross
+  }
+
+  // Cobwebs in a corner (x, y = the corner; they open toward the middle).
+  drawCobweb(x, y) {
+    const g = this.back;
+    const sx = x < this.world.width / 2 ? 1 : -1;
+    g.lineStyle(1, 0xdee2e6, 0.35);
+    for (let k = 0; k < 5; k++) {
+      const a = (k / 4) * (Math.PI / 2);
+      g.lineBetween(x, y, x + sx * Math.cos(a) * 60, y + Math.sin(a) * 60);
+    }
+    for (let r = 14; r <= 56; r += 14) {
+      g.beginPath();
+      for (let k = 0; k <= 8; k++) {
+        const a = (k / 8) * (Math.PI / 2);
+        const rr = r * (0.92 + (k % 2) * 0.08);
+        const px = x + sx * Math.cos(a) * rr;
+        const py = y + Math.sin(a) * rr;
+        if (k === 0) g.moveTo(px, py);
+        else g.lineTo(px, py);
+      }
+      g.strokePath();
+    }
+  }
+
+  // Candles, their flames flickering (and a little glow).
+  addCandles(x, y) {
+    const g = this.back;
+    this.flames ??= [];
+    for (const [dx, h] of [[-8, 14], [0, 20], [8, 11]]) {
+      g.fillStyle(0xe9ecef, 1).fillRect(x + dx - 2.5, y - h, 5, h);
+      const glow = this.scene.add.circle(x + dx, y - h - 6, 14, 0xffb703, 0.12).setBlendMode(Phaser.BlendModes.ADD).setDepth(-5);
+      const flame = this.scene.add.ellipse(x + dx, y - h - 4, 5, 9, 0xffd166).setDepth(-5);
+      flame.phase = Math.random() * 6;
+      glow.phase = Math.random() * 6;
+      this.flames.push(flame, glow);
+    }
+  }
+
+  drawDeadTree(x, y) {
+    const g = this.back;
+    g.lineStyle(9, 0x1b1b1f, 1).lineBetween(x, y, x - 4, y - 90);
+    g.lineStyle(5, 0x1b1b1f, 1).lineBetween(x - 3, y - 55, x - 34, y - 88).lineBetween(x - 2, y - 70, x + 30, y - 104).lineBetween(x - 4, y - 88, x - 12, y - 122);
+    g.lineStyle(3, 0x1b1b1f, 1).lineBetween(x - 24, y - 78, x - 40, y - 74).lineBetween(x + 18, y - 92, x + 34, y - 88).lineBetween(x - 9, y - 110, x + 4, y - 124);
+  }
+
+  // A wooden grave cross.
+  drawCross(x, y) {
+    const g = this.back;
+    g.fillStyle(0x5c4033, 1).fillRect(x - 3, y - 34, 6, 34).fillRect(x - 12, y - 26, 24, 5);
+    g.fillStyle(0x3d2b1f, 1).fillEllipse(x, y, 26, 6); // the grave mound
+  }
+
+  // An old lantern on a post, its light flickering.
+  addLantern(x, y) {
+    const g = this.back;
+    g.fillStyle(0x2b2622, 1).fillRect(x - 2, y - 56, 4, 56).fillRect(x - 2, y - 56, 16, 3);
+    g.fillStyle(0x343a40, 1).fillRect(x + 8, y - 54, 12, 14);
+    this.flames ??= [];
+    const glow = this.scene.add.circle(x + 14, y - 47, 40, 0xffb703, 0.12).setBlendMode(Phaser.BlendModes.ADD).setDepth(-5);
+    const flame = this.scene.add.ellipse(x + 14, y - 47, 6, 9, 0xffd166).setDepth(-5);
+    flame.phase = Math.random() * 6;
+    glow.phase = Math.random() * 6;
+    this.flames.push(flame, glow);
+  }
+
+  // An iron fence with spiked railings.
+  drawFence(o) {
+    const g = this.back;
+    g.lineStyle(2, 0x212529, 1);
+    g.lineBetween(o.x, o.y + 10, o.x + o.width, o.y + 10).lineBetween(o.x, o.y + o.height - 6, o.x + o.width, o.y + o.height - 6);
+    for (let x = o.x; x <= o.x + o.width; x += 12) {
+      g.lineBetween(x, o.y + o.height, x, o.y);
+      g.fillStyle(0x212529, 1).fillTriangle(x - 3, o.y + 2, x + 3, o.y + 2, x, o.y - 5);
+    }
+  }
+
+  // Low fog creeping along the ground.
+  makeFog(o) {
+    this.scene.add
+      .particles(0, 0, 'hz-dot', {
+        x: { min: o.x, max: o.x + o.width },
+        y: { min: o.y + o.height * 0.4, max: o.y + o.height },
+        lifespan: 7000,
+        speedX: { min: 6, max: 18 },
+        speedY: { min: -3, max: 3 },
+        scale: { start: 2.2, end: 4 },
+        alpha: { values: [0, 0.12, 0.12, 0] },
+        tint: 0xc8d6e5,
+        frequency: 60,
+      })
+      .setDepth(34);
+  }
+
+  // Bats: they flit in jerky zigzags across the night sky.
+  makeBats() {
+    this.bats = [];
+    for (let i = 0; i < 7; i++) {
+      this.bats.push({ x: Phaser.Math.Between(0, this.world.width), y: Phaser.Math.Between(300, this.groundY - 250), vx: Phaser.Math.Between(60, 120) * (Math.random() < 0.5 ? -1 : 1), vy: 0, phase: Math.random() * 6, nextTurnAt: 0 });
+    }
+    this.batGfx = this.scene.add.graphics().setDepth(-4);
+  }
+
+  updateBats(now, dt) {
+    const g = this.batGfx;
+    g.clear();
+    g.fillStyle(0x0b0b0f, 1);
+    for (const b of this.bats) {
+      if (now >= b.nextTurnAt) {
+        b.nextTurnAt = now + Phaser.Math.Between(250, 700);
+        b.vy = Phaser.Math.Between(-70, 70);
+        if (Math.random() < 0.2) b.vx *= -1;
+      }
+      b.x += b.vx * dt;
+      b.y += b.vy * dt;
+      if (b.x < -50) b.x = this.world.width + 40;
+      if (b.x > this.world.width + 50) b.x = -40;
+      b.y = Phaser.Math.Clamp(b.y, 200, this.groundY - 150);
+      const flap = Math.sin(now / 45 + b.phase) * 6;
+      g.fillEllipse(b.x, b.y, 6, 5);
+      g.fillTriangle(b.x - 2, b.y, b.x - 13, b.y - flap, b.x - 8, b.y + 3);
+      g.fillTriangle(b.x + 2, b.y, b.x + 13, b.y - flap, b.x + 8, b.y + 3);
+    }
+  }
+
+  // Catacombs: dust motes drifting in the dark.
+  makeCaveDust() {
+    this.scene.add
+      .particles(0, 0, 'hz-dot', {
+        x: { min: 0, max: VIEW_W },
+        y: { min: 0, max: VIEW_H },
+        lifespan: 6000,
+        speedX: { min: -6, max: 6 },
+        speedY: { min: 2, max: 10 },
+        scale: { min: 0.05, max: 0.12 },
+        alpha: { values: [0, 0.5, 0] },
+        tint: 0xd6ccc2,
+        frequency: 120,
+      })
+      .setScrollFactor(0)
+      .setDepth(34);
   }
 
   // ---- Wildlife: penguins (Glacier), scorpions (Desert) ----

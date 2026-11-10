@@ -168,6 +168,15 @@ export const SOUNDS = {
   iceCrack: { gapMs: 200, layers: [snap(0.5), ...crackles(8, 0.25, 0.35, 3800, 53)] },
   iceBreak: { gapMs: 200, layers: [...glass, body(500, 0.2, 0.3)] },
   sandSink: { gapMs: 200, layers: [{ noise: true, filter: 'lowpass', freq: 600, freqEnd: 250, dur: 0.5, gain: 0.5, attack: 0.04 }, ...crackles(10, 0.5, 0.15, 1400, 59)] }, // sinking into quicksand
+  boulderWarn: { gapMs: 300, layers: [{ noise: true, filter: 'lowpass', freq: 160, dur: 1.5, gain: 0.9, attack: 0.6 }, thump(45, 35, 1.4, 0.3), ...crackles(14, 1.5, 0.2, 900, 61)] }, // rumbling at the top of the ramp
+  boulderCrash: { gapMs: 200, echo: 0.4, layers: [thump(60, 28, 0.6, 1), body(500, 0.5, 0.7), crack(700, 0.1, 0.5), ...crackles(24, 0.9, 0.35, 1600, 67)] }, // smashing apart on the wall
+  bell: { gapMs: 1000, wet: 0.5, echo: 0.6, layers: [
+    { wave: 'sine', freq: 392, dur: 3, gain: 0.35, attack: 0.005 }, { wave: 'sine', freq: 784, dur: 2.2, gain: 0.18, attack: 0.005 },
+    { wave: 'sine', freq: 1046, dur: 1.6, gain: 0.12, attack: 0.005 }, { wave: 'sine', freq: 1490, dur: 1.1, gain: 0.08, attack: 0.005 },
+    { wave: 'triangle', freq: 196, dur: 2.6, gain: 0.12, attack: 0.01 }, { noise: true, filter: 'bandpass', freq: 2500, q: 2, dur: 0.05, gain: 0.3 },
+  ] }, // a big church bell (inharmonic partials ringing out)
+  dirtCrumble: { gapMs: 150, layers: [body(350, 0.4, 0.35), ...crackles(10, 0.5, 0.2, 1100, 71)] }, // the ground cracking before a hand
+  handGrab: { gapMs: 150, layers: [crack(500, 0.06, 0.5), body(300, 0.25, 0.5), { wave: 'sawtooth', freq: 90, freqEnd: 60, dur: 0.6, gain: 0.08, filter: 'lowpass', cutoff: 400 }] }, // a hand bursting out and grabbing
   steam: { gapMs: 150, layers: [{ noise: true, filter: 'highpass', freq: 2500, dur: 0.8, gain: 0.45, attack: 0.03 }] }, // fire hitting water
   chirp: { gapMs: 250, vary: 0.15, layers: [{ wave: 'sine', freq: 3200, freqEnd: 4200, dur: 0.06, gain: 0.14 }, { wave: 'sine', freq: 3600, freqEnd: 4600, dur: 0.05, gain: 0.11, delay: 0.09 }] }, // a bird overhead
 
@@ -330,6 +339,8 @@ export const LOOPS = {
   lava: { gain: 0.35, pulse: { rate: 0.7, depth: 0.5 }, layers: [{ noise: true, filter: 'lowpass', freq: 220, gain: 1 }, { noise: 'crackle', filter: 'bandpass', freq: 700, q: 1, gain: 0.6 }] },
   // Sandstorm: a howling wind.
   wind: { gain: 0.35, pulse: { rate: 0.4, depth: 0.5 }, layers: [{ noise: true, filter: 'bandpass', freq: 500, q: 0.6, gain: 1 }, { noise: true, filter: 'bandpass', freq: 1800, q: 3, gain: 0.35 }] },
+  // A boulder rolling: a deep grinding rumble.
+  roll: { gain: 0.5, pulse: { rate: 2.2, depth: 0.4 }, layers: [{ noise: true, filter: 'lowpass', freq: 180, gain: 1 }, { noise: 'crackle', filter: 'bandpass', freq: 700, q: 1, gain: 0.5 }] },
   vent: { gain: 0.18, layers: [{ noise: true, filter: 'bandpass', freq: 700, q: 0.8, gain: 1 }] },
   sawGrindMetal: { gain: 0.22, layers: [{ noise: true, filter: 'bandpass', freq: 3800, q: 6, gain: 1 }, { wave: 'sawtooth', freq: 2400, gain: 0.15, vibrato: { rate: 35, depth: 90 } }, { noise: 'crackle', filter: 'highpass', freq: 4500, gain: 0.8 }] }, // blade screeching on metal
 };

@@ -139,6 +139,44 @@ export const DUST_DEVIL = {
   swirl: 260,           // px/s sideways shove (changes direction)
 };
 
+// Boulders (Catacombs): a huge stone ball rolls down a ramp now and then,
+// after a rumble and falling dust at the top. It hurts and throws you
+// (realistic: it can kill a hurt character, but it doesn't one-shot a
+// healthy one), then smashes against the wall at the bottom. A lever at the
+// top shows a word: type it to send the boulder early (your hit: kills
+// count as yours).
+export const BOULDER = {
+  radius: 30,
+  speed: 340,           // px/s rolling
+  everyMs: [14000, 22000],
+  warnMs: 1600,         // rumbling and dust before it goes
+  damage: 35,           // per hit (a healthy character survives one)...
+  hitEveryMs: 60000,    // ...once per roll (it knocks you out of its way)
+  knockback: 520,
+  leverRearmMs: 4000,   // after a boulder goes, the lever is ready again this much later
+  color: 0x7a7067,
+};
+
+// Grabbing hands (Graveyard): in the hand zones, a hand bursts out of the
+// ground under whoever stands there (dirt crumbling first), holds them in
+// place for a moment and squeezes a little. Bots too.
+export const HANDS = {
+  everyMs: [2500, 5000], // per zone, how often a hand tries
+  warnMs: 700,
+  holdMs: 1400,
+  damage: 5,
+  color: 0x8a9a5b,
+};
+
+// The church bell (Graveyard): type its word to ring it. Every enemy
+// within radiusPx is dazed. It can ring again after rearmMs.
+export const BELL = {
+  radiusPx: 520,
+  dazedMs: 3500,
+  rearmMs: 20000,
+  color: 0xc9a227,
+};
+
 // Waterfall / lavafall: standing in it pushes you down.
 export const FALLS = {
   push: 900,            // px/s² downward

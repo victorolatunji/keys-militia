@@ -43,6 +43,7 @@ export default class StatusSystem {
       nextPainAt: old?.nextPainAt ?? 0,
       nextDripAt: 0,
     };
+    if (type === 'grabbed') target.pinnedUntil = now + (durationMs ?? config.durationMs);
     if (type === 'pinned') {
       target.pinnedUntil = now + config.durationMs;
       target.statuses.pinned.nails ??= this.makeNails(target, config);
@@ -75,7 +76,7 @@ export default class StatusSystem {
           if (s.nails) s.nails.forEach((n) => n.img.destroy());
           if (s.axes) s.axes.forEach((a) => this.dropAxe(a, target));
           if (s.overlay) s.overlay.destroy();
-          if (type === 'pinned') target.pinnedUntil = 0;
+          if (type === 'pinned' || type === 'grabbed') target.pinnedUntil = 0;
           delete statuses[type];
           continue;
         }

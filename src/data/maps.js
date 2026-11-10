@@ -26,9 +26,9 @@ export const TILE_FAMILY = {
 export const SLIPPERY = new Set(['ice', 'thin']);
 
 // Testing: F6 switches to the next map (remembered in this browser), or
-// open the game with ?map=forest / hell / glacier / desert / test.
+// open the game with ?map=forest / hell / glacier / desert / catacombs / graveyard / test.
 export const MAP_SELECT = {
-  order: ['forest', 'hell', 'glacier', 'desert', 'test'],
+  order: ['forest', 'hell', 'glacier', 'desert', 'catacombs', 'graveyard', 'test'],
   default: 'forest',
   key: 'F6',
   storageKey: 'keys-militia.map',
@@ -237,5 +237,67 @@ export const MAPS = {
       color: 0x2b1a10,
       glowColor: 0xf6bd60,
     },
+  },
+  // Catacombs: enclosed. Rock pieces everywhere (roof, walls, floors), no
+  // void, a black background. Three levels of tunnels joined by shafts and
+  // two long ramps, burial niches with coffins, ossuaries, a flooded crypt.
+  // Hazard: boulders roll down the ramps now and then (warning rumble
+  // first): they hurt and knock you flying, and can kill, but not outright.
+  // Advantage: a lever at the top of each ramp shows a word: type it to send
+  // the boulder down early, onto the enemies in its path. Tight tunnels for
+  // ambushes; hide in the flooded crypt.
+  catacombs: {
+    key: 'catacombs',
+    name: 'Catacombs',
+    background: '#000000',
+    enclosed: true,
+    tilemapKey: 'map-catacombs',
+    tilemapFile: 'assets/maps/catacombs.json',
+    tilesetName: 'catacombs-tiles',
+    tilesetKey: 'tiles-catacombs',
+    tilesetFile: 'assets/tilesets/catacombs-tiles.png',
+    enemies: {
+      slots: { main: 2, machine: 1, animal: 1 },
+      families: ['undead', 'military', 'scifi'],
+    },
+    sky: { colors: [0x000000, 0x000000], horizonY: 400, dust: true }, // just black, with dust drifting
+    water: { color: 0x2a4d4f, deepColor: 0x0b1d1e, surfaceColor: 0x84a59d, alpha: 0.7 },
+    palette: { top: 0x7d746a, soil: 0x6b6259, deep: 0x564f48, sand: 0x777069, plank: 0x5c4033, under: 0x5e5650, rock: 0x8a8278, cave: 0x0d0c0b },
+    void: null,          // no void: the floor is solid
+  },
+
+  // Graveyard: night under a big moon. Solid ground (no void). A hill of
+  // tombstones, a chapel with a bell tower, iron fences, dead trees, open
+  // graves down into a crypt, fog along the ground, bats.
+  // Hazard: hands burst out of the ground where you stand and grab you
+  // (held in place a moment, a little damage); they grab bots too.
+  // Advantage: tombstones block bullets; ring the bell (type its word) to
+  // daze every enemy near the chapel.
+  graveyard: {
+    key: 'graveyard',
+    name: 'Graveyard',
+    background: '#0b132b',
+    tilemapKey: 'map-graveyard',
+    tilemapFile: 'assets/maps/graveyard.json',
+    tilesetName: 'graveyard-tiles',
+    tilesetKey: 'tiles-graveyard',
+    tilesetFile: 'assets/tilesets/graveyard-tiles.png',
+    enemies: {
+      slots: { main: 2, machine: 1, animal: 1 },
+      families: ['undead', 'scifi', 'military'],
+    },
+    sky: {
+      colors: [0x03071e, 0x0b132b, 0x1c2541, 0x3a506b, 0x1c2541],
+      moon: { color: 0xf1faee, x: 0.7, y: 0.16 },
+      clouds: { count: 6, color: 0x5c677d },
+      ridges: [
+        { color: 0x1c2541, factor: 0.1, height: 200, rough: 0.6 },
+        { color: 0x0b132b, factor: 0.22, height: 160, rough: 0.9, trees: true },
+      ],
+      bats: true,
+      horizonY: 1280,
+    },
+    palette: { top: 0x3a5a40, soil: 0x4a3b2c, deep: 0x3b3a3f, sand: 0x8a8580, plank: 0x5c4033, under: 0x3b2f24, rock: 0x9aa0a6, cave: 0x0d0b10 },
+    void: null,
   },
 };
