@@ -31,7 +31,7 @@ export default class Crate extends Phaser.GameObjects.Rectangle {
     this.setStrokeStyle(2, strokeColor);
 
     // Cap the fall speed: gravity still pulls, the chute holds it to a slow drift.
-    this.body.setMaxVelocity(AIRDROPS.swaySpeed * 2, AIRDROPS.fallSpeed);
+    this.body.setMaxVelocity(AIRDROPS.swaySpeed * 2, AIRDROPS.fallSpeed * Math.sqrt(scene.physics.world.gravity.y / 800));
 
     this.chute = this.drawChute(scene);
     this.collider = scene.physics.add.collider(this, groundLayer);

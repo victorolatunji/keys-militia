@@ -1,3 +1,4 @@
+import { fallScale, gravityK } from './Gravity.js';
 import Phaser from 'phaser';
 import Grenade from '../entities/Grenade.js';
 import Projectile from '../entities/Projectile.js';
@@ -866,7 +867,8 @@ export default class WeaponSystem {
 
   throwVelocity() {
     const t = this.throwable;
-    const speed = t.flight === 'straight' ? t.speed : t.minSpeed + (t.maxSpeed - t.minSpeed) * this.charge;
+    // Lobbed throws: slower on low-gravity maps, so they land about as far.
+    const speed = t.flight === 'straight' ? t.speed : (t.minSpeed + (t.maxSpeed - t.minSpeed) * this.charge) * fallScale(this.scene);
     const rad = Phaser.Math.DegToRad(this.aimAngle);
 
     return {
@@ -1331,9 +1333,11 @@ export default class WeaponSystem {
       dy /= len;
     }
 
+    // Low gravity: the same push sends you further, so it's softened.
+    const soft = 0.5 + 0.5 * fallScale(this.scene);
     victim.applyKnockback(
-      dx * config.knockback * strength,
-      (dy * config.knockback - config.knockbackLift) * strength
+      dx * config.knockback * strength * soft,
+      (dy * config.knockback - config.knockbackLift) * strength * soft
     );
   }
 
@@ -1391,9 +1395,10 @@ export default class WeaponSystem {
     const theta = Phaser.Math.DegToRad(Phaser.Math.Clamp(lineDeg - AIM.mouseLobDeg, AIM.minAngle, 70));
     const cos = Math.cos(theta);
     const denom = 2 * cos * cos * (dy - dx * Math.tan(theta));
-    const speed = denom > 0 ? Math.sqrt((g * dx * dx) / denom) : t.maxSpeed;
+    const fs = fallScale(this.scene);
+    const speed = denom > 0 ? Math.sqrt((g * dx * dx) / denom) : t.maxSpeed * fs;
     this.aimAngle = Phaser.Math.RadToDeg(theta);
-    this.mouseCharge = Phaser.Math.Clamp((speed - t.minSpeed) / (t.maxSpeed - t.minSpeed), 0, 1);
+    this.mouseCharge = Phaser.Math.Clamp((speed - t.minSpeed * fs) / ((t.maxSpeed - t.minSpeed) * fs), 0, 1);
   }
 
   // Dotted path showing where it will fly: an arc for lobbed throwables,

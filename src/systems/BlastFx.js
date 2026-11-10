@@ -1,3 +1,4 @@
+import { gravityK } from './Gravity.js';
 import Phaser from 'phaser';
 import Cloud from '../entities/Cloud.js';
 import { groundBelow } from './Terrain.js';
@@ -58,7 +59,7 @@ export default class BlastFx {
       this.scene.tweens.add({
         targets: s,
         x: x + Math.cos(a) * v * t,
-        y: y + Math.sin(a) * v * t + 0.5 * gravity * t * t,
+        y: y + Math.sin(a) * v * t + 0.5 * gravity * gravityK(this.scene) * t * t,
         alpha: 0,
         scaleX: 0.3,
         duration: life * Phaser.Math.FloatBetween(0.6, 1.1),
@@ -123,6 +124,13 @@ export default class BlastFx {
     if (pool?.kind === 'water') {
       hz.waterBlast(x, y, radius, pool);
       hz.blastTerrain(x, y, radius); // a blast under thin ice smashes it too
+      return;
+    }
+    if (pool?.kind === 'toxic' || pool?.kind === 'quicksand') {
+      // Toxic sludge and quicksand smother the fireball: a column instead.
+      if (pool.kind === 'toxic') hz.sludgeBlast(x, y, radius, pool);
+      else hz.sandBlast(x, y, radius, pool);
+      hz.blastTerrain(x, y, radius);
       return;
     }
     if (pool?.kind === 'lava') hz.lavaBlast(x, y, pool);

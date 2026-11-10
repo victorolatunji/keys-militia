@@ -177,6 +177,9 @@ export const SOUNDS = {
   ] }, // a big church bell (inharmonic partials ringing out)
   dirtCrumble: { gapMs: 150, layers: [body(350, 0.4, 0.35), ...crackles(10, 0.5, 0.2, 1100, 71)] }, // the ground cracking before a hand
   handGrab: { gapMs: 150, layers: [crack(500, 0.06, 0.5), body(300, 0.25, 0.5), { wave: 'sawtooth', freq: 90, freqEnd: 60, dur: 0.6, gain: 0.08, filter: 'lowpass', cutoff: 400 }] }, // a hand bursting out and grabbing
+  pebbles: { gapMs: 200, layers: [...crackles(12, 0.8, 0.3, 2400, 73), body(800, 0.6, 0.15)] }, // pebbles trickling off a cliff (a rock is coming)
+  rustle: { gapMs: 260, vary: 0.2, layers: [{ noise: true, filter: 'bandpass', freq: 3200, q: 0.8, dur: 0.3, gain: 0.25, attack: 0.04 }, ...crackles(6, 0.3, 0.12, 5000, 79)] }, // bamboo leaves
+  geiger: { gapMs: 90, vary: 0.4, layers: [{ noise: true, filter: 'highpass', freq: 3000, dur: 0.012, gain: 0.35 }] }, // a geiger counter click
   steam: { gapMs: 150, layers: [{ noise: true, filter: 'highpass', freq: 2500, dur: 0.8, gain: 0.45, attack: 0.03 }] }, // fire hitting water
   chirp: { gapMs: 250, vary: 0.15, layers: [{ wave: 'sine', freq: 3200, freqEnd: 4200, dur: 0.06, gain: 0.14 }, { wave: 'sine', freq: 3600, freqEnd: 4600, dur: 0.05, gain: 0.11, delay: 0.09 }] }, // a bird overhead
 
@@ -341,6 +344,8 @@ export const LOOPS = {
   wind: { gain: 0.35, pulse: { rate: 0.4, depth: 0.5 }, layers: [{ noise: true, filter: 'bandpass', freq: 500, q: 0.6, gain: 1 }, { noise: true, filter: 'bandpass', freq: 1800, q: 3, gain: 0.35 }] },
   // A boulder rolling: a deep grinding rumble.
   roll: { gain: 0.5, pulse: { rate: 2.2, depth: 0.4 }, layers: [{ noise: true, filter: 'lowpass', freq: 180, gain: 1 }, { noise: 'crackle', filter: 'bandpass', freq: 700, q: 1, gain: 0.5 }] },
+  // Rain pouring down (acid rain).
+  rain: { gain: 0.3, layers: [{ noise: true, filter: 'highpass', freq: 1800, gain: 1 }, { noise: 'crackle', filter: 'bandpass', freq: 3500, q: 0.6, gain: 0.6 }] },
   vent: { gain: 0.18, layers: [{ noise: true, filter: 'bandpass', freq: 700, q: 0.8, gain: 1 }] },
   sawGrindMetal: { gain: 0.22, layers: [{ noise: true, filter: 'bandpass', freq: 3800, q: 6, gain: 1 }, { wave: 'sawtooth', freq: 2400, gain: 0.15, vibrato: { rate: 35, depth: 90 } }, { noise: 'crackle', filter: 'highpass', freq: 4500, gain: 0.8 }] }, // blade screeching on metal
 };

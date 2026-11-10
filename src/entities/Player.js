@@ -1,3 +1,4 @@
+import { tuneStats } from '../systems/Gravity.js';
 import Phaser from 'phaser';
 import { PLAYER } from '../data/player.js';
 import { STATUS } from '../data/status.js';
@@ -15,7 +16,7 @@ export default class Player extends Phaser.GameObjects.Rectangle {
   // stats: movement and health tuning (default: player.js; bots pass a scaled copy)
   constructor(scene, x, y, color = PLAYER.color, stats = PLAYER) {
     super(scene, x, y, PLAYER.width, PLAYER.height, color);
-    this.stats = stats;
+    this.stats = tuneStats(stats, scene.physics.world.gravity.y); // floatier on low-gravity maps
 
     scene.add.existing(this);
     scene.physics.add.existing(this);

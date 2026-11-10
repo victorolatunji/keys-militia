@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
-import { HIDING, WATER, LAVA, GEYSER, VENT, FALLS, FREEZE, DECOR, ICE, THIN_ICE, QUICKSAND, CACTUS, SANDSTORM, IGLOO, DUST_DEVIL, BOULDER, HANDS, BELL } from '../data/hazards.js';
+import { HIDING, WATER, LAVA, GEYSER, VENT, FALLS, FREEZE, DECOR, ICE, THIN_ICE, QUICKSAND, CACTUS, SANDSTORM, IGLOO, DUST_DEVIL, BOULDER, HANDS, BELL, ROCKFALL, BAMBOO, TOXIC, RADIATION, ACID_RAIN, BARREL, METEOR, WIND, UPDRAFT, COFFIN } from '../data/hazards.js';
 import Trigger from '../entities/Trigger.js';
-import { groundBelow } from './Terrain.js';
+import { gravityK, fallScale } from './Gravity.js';
+import { groundBelow, isSolid as isSolidAt } from './Terrain.js';
 import { TILE_FAMILY, SLIPPERY } from '../data/maps.js';
 import Icicle from '../entities/Icicle.js';
 
@@ -44,6 +45,7 @@ export default class HazardSystem {
     for (const o of rects(objects, 'sea')) this.waters.push(this.makePool(o, { ...waterCfg, fish: false, sea: true }, 'water'));
     this.lavas = rects(objects, 'lava').map((o) => this.makePool(o, lavaCfg, 'lava'));
     this.sands = rects(objects, 'quicksand').map((o) => this.makePool(o, { ...QUICKSAND }, 'quicksand'));
+    this.toxics = rects(objects, 'toxic').map((o) => this.makePool(o, { ...TOXIC, glowColor: TOXIC.surfaceColor }, 'toxic'));
     this.icicles = points(objects, 'icicle').map((o) => new Icicle(scene, o.x, o.y));
     this.cacti = points(decor, 'cactus').map((o) => ({ x: o.x, y: o.y }));
     this.thin = new Map();      // thin ice tile -> how long it's been stood on
@@ -62,10 +64,23 @@ export default class HazardSystem {
     this.ramps = objects.filter((o) => o.name === 'boulderR' || o.name === 'boulderL').map((o) => this.makeRamp(o));
     this.handZones = rects(objects, 'hands').map((o) => ({ x: o.x, y: o.y, right: o.x + o.width, bottom: o.y + o.height, nextAt: scene.time.now + Phaser.Math.Between(...HANDS.everyMs), hand: null }));
     this.bells = points(objects, 'bell').map((o) => this.makeBell(o));
+    this.coffinGroup = scene.physics.add.staticGroup();
+    this.coffins = points(objects, 'coffin').map((o) => this.makeCoffin(o));
+    this.bushes.push(...rects(decor, 'bamboo').map((o) => this.makeBamboo(o)));
+    const fallZone = (o, cfg) => ({ cfg, x: o.x, y: o.y, right: o.x + o.width, bottom: o.y + o.height, nextAt: scene.time.now + Phaser.Math.Between(...cfg.everyMs), rock: null });
+    this.rockZones = [
+      ...rects(objects, 'rockfall').map((o) => fallZone(o, { ...ROCKFALL, cause: 'rockfall' })),
+      ...rects(objects, 'meteor').map((o) => fallZone(o, { ...METEOR, cause: 'meteor', meteor: true })),
+    ];
+    this.updrafts = rects(objects, 'updraft').map((o) => this.makeUpdraft(o));
+    if (map.wind) this.makeWind();
+    this.radZones = rects(objects, 'radiation').map((o) => this.makeRadiation(o));
+    this.barrels = points(objects, 'barrel').map((o) => this.makeBarrel(o));
+    if (map.acidRain) this.makeRain();
 
     // Bots and crates treat water and lava like the void: they don't walk
     // into it or land in it (see Terrain.groundBelow).
-    const pools = [...this.waters, ...this.lavas, ...this.sands];
+    const pools = [...this.waters, ...this.lavas, ...this.sands, ...this.toxics];
     if (pools.length) groundLayer.unsafeAt = (x, y) => pools.some((p) => inside(p, x, y));
 
     this.breathBar = scene.add.graphics().setDepth(55);
@@ -76,7 +91,7 @@ export default class HazardSystem {
 
   // What a blast sounds like there (muffled under water).
   blastSound(x, y) {
-    return this.waters.some((p) => inside(p, x, y)) ? 'waterBlast' : 'explosion';
+    return [...this.waters, ...this.toxics, ...this.sands].some((p) => inside(p, x, y)) ? 'waterBlast' : 'explosion';
   }
 
   // Steam where something burning hits water (a molotov).
@@ -88,14 +103,31 @@ export default class HazardSystem {
     this.scene.sfx?.play('steam', { x, y });
   }
 
+  // A molotov on toxic sludge: a flash of green chemical fire that hurts
+  // anyone standing in it.
+  toxicFlare(x, pool) {
+    const scene = this.scene;
+    for (let i = 0; i < 14; i++) {
+      const f = scene.add.circle(x + Phaser.Math.Between(-40, 40), pool.y, Phaser.Math.Between(5, 10), Phaser.Utils.Array.GetRandom([0x9ef01a, 0xffd166, 0x70e000]), 0.85).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH_WATER + 3);
+      scene.tweens.add({ targets: f, y: f.y - Phaser.Math.Between(30, 80), scale: 0.2, alpha: 0, duration: Phaser.Math.Between(400, 800), onComplete: () => f.destroy() });
+    }
+    scene.sfx?.play('molotov', { x, y: pool.y });
+    for (const c of this.characters()) {
+      if (c.alive && touches(pool, c.body) && Math.abs(c.x - x) < 80) {
+        if (c === scene.player) c.takeDamage(8, 'self', 'fire');
+        else scene.weapons?.addDamage(c, 8, '#9ef01a', 'fire');
+        scene.weapons?.status.apply(c, 'burning', 'player', 1500);
+      }
+    }
+  }
+
   // The pool (water, lava or quicksand) at a point, or null.
   poolAt(x, y) {
-    return this.waters.find((p) => inside(p, x, y)) ?? this.lavas.find((p) => inside(p, x, y)) ?? this.sands.find((p) => inside(p, x, y)) ?? null;
+    return this.waters.find((p) => inside(p, x, y)) ?? this.lavas.find((p) => inside(p, x, y)) ?? this.sands.find((p) => inside(p, x, y)) ?? this.toxics.find((p) => inside(p, x, y)) ?? null;
   }
 
   // Icicles are word targets: TypingSystem needs to know about them.
   registerTargets(typing) {
-    for (const ic of this.icicles) typing.addTarget(ic);
     for (const t of this.triggers) typing.addTarget(t);
   }
 
@@ -108,9 +140,12 @@ export default class HazardSystem {
   // water rocks everyone in that water and barely reaches anyone outside;
   // a blast in the air barely reaches anyone fully under water.
   blastFactor(x, y, victim) {
-    const pool = this.waters.find((p) => inside(p, x, y));
-    if (pool) return victim.inWater && this.waters.find((p) => touches(p, victim.body)) === pool ? WATER.blastInWater : WATER.blastOutOfWater;
-    return victim.submerged ? WATER.blastOutOfWater : 1;
+    // Toxic sludge carries a blast like water; quicksand smothers it.
+    const pool = [...this.waters, ...this.toxics].find((p) => inside(p, x, y));
+    if (pool) return touches(pool, victim.body) ? WATER.blastInWater : WATER.blastOutOfWater;
+    const sand = this.sands.find((p) => inside(p, x, y));
+    if (sand) return touches(sand, victim.body) ? 0.8 : 0.4;
+    return victim.submerged || victim.buried ? WATER.blastOutOfWater : 1;
   }
 
   // Everyone hazards act on: you and the bots (dummies don't move).
@@ -127,6 +162,12 @@ export default class HazardSystem {
     for (const p of this.waters) this.drawSurface(p, now);
     for (const p of this.lavas) this.drawSurface(p, now);
     for (const p of this.sands) this.drawSurface(p, now);
+    for (const p of this.toxics) this.drawSurface(p, now);
+    for (const z of this.rockZones) this.updateRockfall(z, now, dt);
+    for (const bell of this.bells) this.updateBell(bell, now);
+    if (this.coffins.length) this.updateCoffins(now);
+    if (this.wind) this.updateWind(now);
+    if (this.rain) this.updateRain(now);
     for (const ic of this.icicles) ic.update(dt);
     this.updateThinIce(now);
     for (const d of this.devils) this.updateDevil(d, now, dt);
@@ -201,6 +242,48 @@ export default class HazardSystem {
     }
     st.wasInSand = Boolean(sand);
 
+    // Toxic puddles: they slow you and eat at you while you're in them.
+    const toxic = this.toxics.find((p) => touches(p, b));
+    if (toxic) {
+      this.slow(b, toxic.cfg);
+      if (!st.wasInToxic) {
+        this.scene.sfx?.play('splashSmall', c);
+        this.splash(toxic, c.x, toxic.cfg.surfaceColor, 6);
+      }
+      if (now >= (st.nextToxicAt ?? 0)) {
+        st.nextToxicAt = now + toxic.cfg.tickMs;
+        c.takeDamage(toxic.cfg.damage, 'toxic', 'gas');
+      }
+    }
+    st.wasInToxic = Boolean(toxic);
+    c.inToxic = Boolean(toxic);
+
+    // Sky Islands: updrafts lift you; gusts of wind push you sideways
+    // (hard in the air, a little on the ground). Ride them for long flights.
+    const draft = this.updrafts.find((z) => c.x > z.x && c.x < z.right && b.bottom > z.y && b.top < z.bottom);
+    if (draft) b.velocity.y = Math.max(b.velocity.y - UPDRAFT.lift * elapsed / 1000, -UPDRAFT.maxRise);
+    if (this.wind?.level > 0) {
+      // A drift on top of however they're moving (movement sets velocity
+      // every frame, so the wind moves them directly). Walls stop it.
+      const dir = this.wind.dir;
+      const blocked = dir > 0 ? b.blocked.right : b.blocked.left;
+      if (!blocked && !c.inWater) c.x += WIND.speed * this.wind.level * dir * (b.blocked.down ? WIND.groundFactor : 1) * elapsed / 1000;
+    }
+
+    // Radiation zones: a slow drain while you stand in one.
+    const rad = this.radZones.find((z) => z.has(c));
+    if (rad && now >= (st.nextRadAt ?? 0)) {
+      st.nextRadAt = now + RADIATION.tickMs;
+      c.takeDamage(RADIATION.damage, 'radiation', 'gas');
+    }
+    if (rad && c === this.scene.player) this.scene.sfx?.play('geiger', c, { volume: 0.5 });
+
+    // Acid rain: out in the open, it burns a little.
+    if (this.rain?.level > 0.5 && now >= (st.nextAcidAt ?? 0) && this.exposed(c)) {
+      st.nextAcidAt = now + ACID_RAIN.tickMs;
+      c.takeDamage(ACID_RAIN.damage, 'acid', 'gas');
+    }
+
     // Fully under water or quicksand: holding your breath, then drowning
     // (suffocating in sand: no hiding in it).
     const under = c.submerged ? water : c.buried ? sand : null;
@@ -269,6 +352,10 @@ export default class HazardSystem {
     // Hidden: fully under water, or in a bush, and not just attacked.
     const cover = this.bushes.find((bush) => c.x > bush.x && c.x < bush.right && b.top >= bush.y - 4 && b.bottom <= bush.bottom + 6);
     c.inBush = Boolean(cover);
+    if (cover?.bamboo && Math.abs(b.velocity.x) > 30) {
+      cover.rustleUntil = now + 400;
+      this.scene.sfx?.play('rustle', c, { volume: 0.6 });
+    }
     // An igloo's warmth thaws you out.
     if (cover?.igloo && c.statuses?.frozen) this.scene.weapons?.status.clear(c, 'frozen');
     const hidden = (c.submerged || c.inBush) && now >= (c.lastAttackAt ?? -1e9) + HIDING.revealMs;
@@ -311,7 +398,7 @@ export default class HazardSystem {
       const b = c.body;
       for (const x of [b.center.x, b.left + 3, b.right - 3]) {
         const t = this.layer.getTileAtWorldXY(x, b.bottom + 2);
-        if (t && t.collides && TILE_FAMILY[t.index] === 'thin') stood.add(t);
+        if (t && t.collides && (TILE_FAMILY[t.index] === 'thin' || TILE_FAMILY[t.index] === 'crumble')) stood.add(t);
       }
     }
     const dt = Math.min(250, now - (this.thinAt ?? now));
@@ -322,7 +409,7 @@ export default class HazardSystem {
       if (ms >= THIN_ICE.crackMs && !t.cracked) {
         t.cracked = true;
         t.tint = 0x90a8c0;
-        this.scene.sfx?.play('iceCrack', { x: t.getCenterX(), y: t.pixelY }, { volume: 0.5 });
+        this.scene.sfx?.play(TILE_FAMILY[t.index] === 'crumble' ? 'dirtCrumble' : 'iceCrack', { x: t.getCenterX(), y: t.pixelY }, { volume: 0.5 });
       }
       if (ms >= THIN_ICE.breakMs) this.breakThin(t, now);
     }
@@ -345,10 +432,11 @@ export default class HazardSystem {
     this.thin.delete(t);
     const x = t.getCenterX();
     const y = t.pixelY;
-    this.scene.sfx?.play('iceBreak', { x, y });
+    const stone = TILE_FAMILY[t.index] === 'crumble';
+    this.scene.sfx?.play(stone ? 'boulderCrash' : 'iceBreak', { x, y }, { volume: stone ? 0.4 : 1 });
     for (let i = 0; i < 5; i++) {
       const size = Phaser.Math.Between(3, 6);
-      this.scene.effects?.piece(x, y + 4, { w: size, h: 3, color: 0xcaf0f8 }, false);
+      this.scene.effects?.piece(x, y + 4, { w: size, h: stone ? size : 3, color: stone ? (this.map.palette?.crumble ?? 0x9c9287) : 0xcaf0f8 }, false);
     }
     this.refreeze.push({ x: t.x, y: t.y, index: t.index, at: now + THIN_ICE.refreezeMs });
     this.layer.removeTileAt(t.x, t.y);
@@ -359,10 +447,13 @@ export default class HazardSystem {
     const r = radius * 0.8;
     const now = this.scene.time.now;
     for (const t of this.layer.getTilesWithinWorldXY(x - r, y - r, r * 2, r * 2)) {
-      if (TILE_FAMILY[t.index] !== 'thin' || !t.collides) continue;
+      if ((TILE_FAMILY[t.index] !== 'thin' && TILE_FAMILY[t.index] !== 'crumble') || !t.collides) continue;
       if (Phaser.Math.Distance.Between(x, y, t.getCenterX(), t.getCenterY()) <= r) this.breakThin(t, now);
     }
     this.scene.backdrop?.blast(x, y, radius); // wildlife caught in it dies, near it panics
+    // Icicles near a blast snap off; coffins in it break.
+    for (const ic of this.icicles) if (ic.alive && Phaser.Math.Distance.Between(x, y, ic.x, ic.ceilingY) < radius) ic.die();
+    for (const cf of this.coffins) if (cf.alive && Phaser.Math.Distance.Between(x, y, cf.x, cf.y) < radius + 20) this.hitCoffin(cf, 100);
   }
 
   // ---- Igloos ----
@@ -455,20 +546,7 @@ export default class HazardSystem {
         emitting: false,
       })
       .setDepth(42);
-    // The lever: on the wall beside the start, back up the ramp.
-    const lx = o.x - dir * 48;
-    const lever = new Trigger(scene, lx, o.y - 4, {
-      name: 'Lever', width: 26, height: 40, rearmMs: BOULDER.leverRearmMs, labelOffset: 18,
-      draw: (g, ready) => {
-        g.fillStyle(0x3d3a36, 1).fillRect(-10, 8, 20, 10);
-        g.lineStyle(4, 0x6c584c, 1);
-        g.lineBetween(0, 12, ready ? -dir * 10 : dir * 12, ready ? -16 : -10);
-        g.fillStyle(0xb5651d, 1).fillCircle(ready ? -dir * 10 : dir * 12, ready ? -16 : -10, 4);
-      },
-      onTrigger: () => this.warnBoulder(r, 'player', scene.time.now, 500),
-    });
-    this.triggers.push(lever);
-    r.lever = lever;
+    // (No lever any more: the boulders roll on their own, on a timer.)
     return r;
   }
 
@@ -562,8 +640,9 @@ export default class HazardSystem {
         h.at = now + HANDS.holdMs;
         h.gfx = this.scene.add.graphics().setDepth(35);
         this.scene.sfx?.play('handGrab', { x: h.x, y: h.y });
-        const c = h.target;
-        if (c.alive && Math.abs(c.x - h.x) < 34 && Math.abs(c.body.bottom - h.y) < 20) {
+        // Grabs whoever is standing on that spot now.
+        const c = this.characters().find((ch) => ch.alive && Math.abs(ch.x - h.x) < 34 && Math.abs(ch.body.bottom - h.y) < 20);
+        if (c) {
           h.caught = c;
           this.scene.weapons?.status.apply(c, 'grabbed', 'env', HANDS.holdMs);
           c.takeDamage(HANDS.damage, 'hands', 'melee');
@@ -582,13 +661,18 @@ export default class HazardSystem {
     }
     if (now < z.nextAt) return;
     z.nextAt = now + Phaser.Math.Between(...HANDS.everyMs);
+    // On its interval a hand comes up: under someone standing in the zone
+    // if anyone is, otherwise somewhere in it (a warning to stay clear).
     const inside = this.characters().filter((c) => c.alive && c.onGround && c.x > z.x && c.x < z.right && c.body.bottom > z.y && c.body.bottom < z.bottom + 12 && !c.statuses?.grabbed);
-    if (!inside.length) return;
-    const c = Phaser.Utils.Array.GetRandom(inside);
-    z.hand = { state: 'warn', at: now + HANDS.warnMs, x: c.x, y: c.body.bottom, target: c, caught: null };
-    this.scene.sfx?.play('dirtCrumble', c);
+    const c = inside.length ? Phaser.Utils.Array.GetRandom(inside) : null;
+    const hx = c ? c.x : Phaser.Math.Between(z.x + 10, z.right - 10);
+    let hy = c ? c.body.bottom : z.y;
+    if (!c) while (hy < z.bottom + 64 && !isSolidAt(this.layer, hx, hy)) hy += 4;
+    if (!c && !isSolidAt(this.layer, hx, hy)) return;
+    z.hand = { state: 'warn', at: now + HANDS.warnMs, x: hx, y: hy, target: c ?? { alive: false }, caught: null };
+    this.scene.sfx?.play('dirtCrumble', { x: hx, y: hy });
     for (let i = 0; i < 6; i++) {
-      const d = this.scene.add.circle(c.x + Phaser.Math.Between(-12, 12), c.body.bottom, Phaser.Math.Between(2, 4), 0x4a3b2c).setDepth(35);
+      const d = this.scene.add.circle(hx + Phaser.Math.Between(-12, 12), hy, Phaser.Math.Between(2, 4), 0x4a3b2c).setDepth(35);
       this.scene.tweens.add({ targets: d, y: d.y - Phaser.Math.Between(6, 18), alpha: 0, duration: 500, delay: i * 60, onComplete: () => d.destroy() });
     }
   }
@@ -611,45 +695,450 @@ export default class HazardSystem {
     g.lineStyle(1, 0x3d4a2a, 1).strokeRect(x - 5 + sway * 0.3, y - len, 10, len);
   }
 
-  // ---- The church bell (Graveyard) ----
+  // ---- Coffins (Graveyard) ----
 
-  makeBell(o) {
+  // A wooden coffin lying on the ground or in an open grave: solid cover
+  // you can stand on. Enemy bullets thud into it; your bullets and blasts
+  // splinter it. Broken, it may spill a health pack; a new one is put back
+  // later.
+  makeCoffin(o) {
     const scene = this.scene;
-    const bell = { x: o.x, y: o.y };
-    const trig = new Trigger(scene, o.x, o.y + 10, {
-      name: 'Bell', width: 32, height: 34, rearmMs: BELL.rearmMs, labelOffset: 22,
-      draw: (g, ready) => {
-        g.lineStyle(3, 0x3d3a36, 1).lineBetween(0, -22, 0, -16);
-        g.fillStyle(ready ? BELL.color : 0x8d7a3a, 1);
-        g.fillTriangle(-6, -16, 6, -16, 0, -20);
-        g.fillRoundedRect(-11, -16, 22, 24, 7);
-        g.fillRect(-16, 4, 32, 6);
-        g.fillStyle(0x3d3a36, 1).fillCircle(0, 12, 3);
-      },
-      onTrigger: () => this.ringBell(bell),
-    });
-    this.triggers.push(trig);
-    bell.trigger = trig;
-    return bell;
+    const cf = { x: o.x, y: o.y - COFFIN.height / 2, hp: COFFIN.hp, alive: true };
+    cf.body = scene.add.rectangle(cf.x, cf.y, COFFIN.width, COFFIN.height, 0x000000, 0);
+    scene.physics.add.existing(cf.body, true);
+    this.coffinGroup.add(cf.body);
+    if (!this.coffinCollider) this.coffinCollider = scene.physics.add.collider([scene.player, ...(scene.bots ?? [])], this.coffinGroup);
+    cf.look = scene.add.graphics().setDepth(3).setPosition(cf.x, cf.y);
+    this.drawCoffin(cf);
+    return cf;
   }
 
-  // Dong: rings spread out and every enemy within reach is dazed.
-  ringBell(bell) {
-    const scene = this.scene;
-    scene.sfx?.play('bell', bell);
-    scene.tweens.add({ targets: bell.trigger.look, angle: { from: -25, to: 25 }, duration: 260, yoyo: true, repeat: 3, onComplete: () => bell.trigger.look.setAngle(0) });
-    for (let i = 0; i < 3; i++) {
-      const ring = scene.add.circle(bell.x, bell.y, 20).setStrokeStyle(3, BELL.color, 0.8).setDepth(43);
-      scene.tweens.add({ targets: ring, radius: BELL.radiusPx, alpha: 0, duration: 900, delay: i * 250, onComplete: () => ring.destroy() });
+  drawCoffin(cf) {
+    const g = cf.look.clear();
+    const w = COFFIN.width / 2;
+    const h = COFFIN.height / 2;
+    const cracked = cf.hp < COFFIN.hp * 0.5;
+    // The six-sided coffin shape, lying down: wider at the shoulder end.
+    const pts = [[-w, -h * 0.7], [-w * 0.55, -h], [w, -h * 0.75], [w, h * 0.75], [-w * 0.55, h], [-w, h * 0.7]].map(([x, y]) => new Phaser.Math.Vector2(x, y));
+    g.fillStyle(COFFIN.color, 1).fillPoints(pts, true);
+    g.lineStyle(2, COFFIN.edge, 1).strokePoints(pts, true);
+    g.lineStyle(2, COFFIN.edge, 0.8).lineBetween(-w * 0.2, -h * 0.6, -w * 0.2, h * 0.6).lineBetween(-w * 0.45, 0, w * 0.05, 0); // a cross on the lid
+    if (cracked) g.lineStyle(1, 0x1b120c, 1).lineBetween(w * 0.2, -h, w * 0.45, 0).lineBetween(w * 0.45, 0, w * 0.3, h);
+  }
+
+  hitCoffin(cf, damage) {
+    if (!cf.alive) return;
+    cf.hp -= damage;
+    this.scene.sfx?.play('meleeHit', cf, { volume: 0.5 });
+    if (cf.hp > 0) {
+      this.drawCoffin(cf);
+      return;
     }
-    for (const bot of scene.bots ?? []) {
-      if (bot.alive && Phaser.Math.Distance.Between(bot.x, bot.y, bell.x, bell.y) <= BELL.radiusPx) {
-        scene.weapons?.status.apply(bot, 'dazed', 'player', BELL.dazedMs);
+    // Splinters, the bones inside, maybe a health pack.
+    cf.alive = false;
+    cf.body.body.enable = false;
+    cf.look.clear();
+    this.scene.sfx?.play('dirtCrumble', cf);
+    for (let i = 0; i < 10; i++) this.scene.effects?.piece(cf.x, cf.y, { w: Phaser.Math.Between(6, 16), h: 4, color: i % 3 ? COFFIN.color : COFFIN.edge }, true);
+    for (let i = 0; i < 3; i++) this.scene.effects?.piece(cf.x, cf.y, { w: 10, h: 3, color: 0xe9e4d4 }, false);
+    if (Math.random() < COFFIN.healthChance) this.scene.airdrops?.dropItems(cf.x, cf.y - 10, [{ type: 'health', key: 'healthPack' }]);
+    cf.backAt = this.scene.time.now + COFFIN.backMs;
+  }
+
+  // Bullets hitting coffins; broken ones come back once nobody's in the way.
+  updateCoffins(now) {
+    const inside = (cf, x, y) => Math.abs(x - cf.x) < COFFIN.width / 2 && Math.abs(y - cf.y) < COFFIN.height / 2;
+    for (const cf of this.coffins) {
+      if (!cf.alive) {
+        if (now < cf.backAt) continue;
+        if (this.characters().some((c) => c.alive && Math.abs(c.x - cf.x) < COFFIN.width && Math.abs(c.y - cf.y) < 50)) continue;
+        cf.alive = true;
+        cf.hp = COFFIN.hp;
+        cf.body.body.enable = true;
+        this.drawCoffin(cf);
+        continue;
+      }
+      for (const b of this.scene.botCombat?.bullets ?? []) {
+        if (b.active && inside(cf, b.x, b.y)) {
+          this.hitCoffin(cf, COFFIN.bulletDamage);
+          this.scene.effects?.piece(b.x, b.y, { w: 4, h: 3, color: COFFIN.color }, false);
+          b.destroy();
+        }
+      }
+      for (const b of this.scene.weapons?.bullets ?? []) {
+        if (!b.active || b.chippedCoffin === cf || !inside(cf, b.x, b.y)) continue;
+        b.chippedCoffin = cf; // your bullets go on to the target, but chip it
+        this.hitCoffin(cf, COFFIN.bulletDamage);
       }
     }
   }
 
-  // ---- Sandstorm ----
+  // ---- The church bell (Graveyard) ----
+
+  makeBell(o) {
+    const scene = this.scene;
+    const bell = { x: o.x, y: o.y + 10, nextAt: scene.time.now + Phaser.Math.Between(...BELL.everyMs) };
+    const g = scene.add.graphics().setDepth(3).setPosition(bell.x, bell.y);
+    g.lineStyle(3, 0x3d3a36, 1).lineBetween(0, -22, 0, -16);
+    g.fillStyle(BELL.color, 1);
+    g.fillTriangle(-6, -16, 6, -16, 0, -20);
+    g.fillRoundedRect(-11, -16, 22, 24, 7);
+    g.fillRect(-16, 4, 32, 6);
+    g.fillStyle(0x3d3a36, 1).fillCircle(0, 12, 3);
+    bell.look = g;
+    return bell;
+  }
+
+  // It rings by itself now and then. Dong: rings spread out and everyone
+  // within reach (you too) is dazed for a moment.
+  // It senses movement: when anyone moves close to it, it rings (then it
+  // rests a while before it can ring again).
+  updateBell(bell, now) {
+    if (now < bell.nextAt) return;
+    const moving = this.characters().some((c) => c.alive && Phaser.Math.Distance.Between(c.x, c.y, bell.x, bell.y) < BELL.senseRadiusPx && Math.hypot(c.body.velocity.x, c.body.velocity.y) > 40);
+    if (!moving) return;
+    bell.nextAt = now + Phaser.Math.Between(...BELL.everyMs);
+    this.ringBell(bell);
+  }
+
+  ringBell(bell) {
+    const scene = this.scene;
+    scene.sfx?.play('bell', bell);
+    scene.tweens.add({ targets: bell.look, angle: { from: -25, to: 25 }, duration: 260, yoyo: true, repeat: 3, onComplete: () => bell.look.setAngle(0) });
+    for (let i = 0; i < 3; i++) {
+      const ring = scene.add.circle(bell.x, bell.y, 20).setStrokeStyle(3, BELL.color, 0.8).setDepth(43);
+      scene.tweens.add({ targets: ring, radius: BELL.radiusPx, alpha: 0, duration: 900, delay: i * 250, onComplete: () => ring.destroy() });
+    }
+    for (const c of this.characters()) {
+      if (c.alive && Phaser.Math.Distance.Between(c.x, c.y, bell.x, bell.y) <= BELL.radiusPx) {
+        scene.weapons?.status.apply(c, 'dazed', 'env', BELL.dazedMs);
+      }
+    }
+  }
+
+  // ---- Monastery: bamboo groves and rockfalls ----
+
+  // A grove of bamboo: tall jointed stalks with leaves. Inside it you're
+  // hidden; it sways and rustles when someone moves through it.
+  makeBamboo(o) {
+    const grove = { bamboo: true, x: o.x, y: o.y, w: o.width, h: o.height, right: o.x + o.width, bottom: o.y + o.height, rustleUntil: 0 };
+    const g = this.scene.add.graphics().setDepth(DEPTH_BUSH);
+    const n = Math.max(4, Math.round(o.width / 9));
+    for (let i = 0; i < n; i++) {
+      const x = o.x + 4 + (i / (n - 1)) * (o.width - 8) + Phaser.Math.Between(-3, 3);
+      const top = o.y + Phaser.Math.Between(0, 18);
+      const color = BAMBOO.colors[i % BAMBOO.colors.length];
+      g.lineStyle(5, color, 1).lineBetween(x, grove.bottom, x, top);
+      g.lineStyle(2, 0x344e41, 1);
+      for (let y = grove.bottom - 14; y > top + 6; y -= 16) g.lineBetween(x - 3, y, x + 3, y); // joints
+      g.fillStyle(BAMBOO.colors[(i + 2) % BAMBOO.colors.length], 1);
+      for (let k = 0; k < 3; k++) {
+        const ly = top + 8 + k * 14;
+        const d = k % 2 ? 1 : -1;
+        g.fillTriangle(x, ly, x + d * 16, ly - 4, x + d * 14, ly + 2);
+      }
+    }
+    grove.gfx = g;
+    this.scene.tweens.add({ targets: g, x: { from: -1, to: 1 }, duration: 1800, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    return grove;
+  }
+
+  // Under the cliffs: pebbles trickle down (a warning), then a rock drops.
+  updateRockfall(z, now, dt) {
+    const cfg = z.cfg;
+    const r = z.rock;
+    if (r) {
+      if (r.state === 'warn' && now >= r.at) {
+        r.state = 'fall';
+        r.marker?.destroy();
+        r.gfx = this.scene.add.graphics().setDepth(41);
+        if (cfg.meteor) {
+          r.gfx.fillStyle(0xff9f1c, 0.35).fillCircle(0, 0, cfg.radius * 1.8);
+          r.gfx.fillStyle(cfg.color, 1).fillCircle(0, 0, cfg.radius).fillStyle(0xffd166, 1).fillCircle(-3, -3, cfg.radius * 0.5);
+        } else {
+          r.gfx.fillStyle(cfg.color, 1).fillCircle(0, 0, cfg.radius).fillStyle(0x5e5850, 1).fillCircle(5, 6, cfg.radius * 0.6);
+        }
+        r.gfx.setPosition(r.x, r.y);
+      }
+      if (r.state === 'fall') {
+        // Moved in small steps so a slow frame can't skip it past someone or the floor.
+        const from = r.y;
+        const to = r.y + cfg.fallSpeed * fallScale(this.scene) * Math.min(dt, 0.1);
+        let landed = false;
+        for (r.y = from; r.y < to && !landed; r.y = Math.min(to, r.y + 8)) {
+          if (isSolidAt(this.layer, r.x, r.y + cfg.radius)) landed = true;
+        }
+        r.gfx.setPosition(r.x, r.y).setRotation(r.gfx.rotation + dt * 4);
+        if (cfg.meteor && Math.random() < 0.7) {
+          const t = this.scene.add.circle(r.x + Phaser.Math.Between(-4, 4), r.y - 10, Phaser.Math.Between(3, 6), Phaser.Utils.Array.GetRandom([0xff9f1c, 0xffd166, 0xe85d04]), 0.8).setDepth(40);
+          this.scene.tweens.add({ targets: t, alpha: 0, scale: 0.2, duration: 400, onComplete: () => t.destroy() });
+        }
+        for (const c of this.characters()) {
+          if (!c.alive || r.hit.has(c)) continue;
+          if (Math.abs(c.x - r.x) < cfg.radius + c.width / 2 && r.y + cfg.radius > c.body.top && from - cfg.radius < c.body.bottom) {
+            r.hit.add(c);
+            c.takeDamage(cfg.damage, cfg.cause, 'blast');
+            c.applyKnockback?.(Math.sign(c.x - r.x || 1) * 200, -120);
+            this.scene.sfx?.play('meleeHit', c);
+          }
+        }
+        if (landed || r.y > this.layer.tilemap.heightInPixels) {
+          if (cfg.meteor) {
+            // It bursts on impact: a small blast hurts anyone close by.
+            this.scene.blastFx?.explosion(r.x, r.y, cfg.blastRadius, 'frag');
+            this.scene.sfx?.play('explosion', r, { volume: 0.5 });
+            for (const c of this.characters()) {
+              if (!c.alive || r.hit.has(c)) continue;
+              const d = Phaser.Math.Distance.Between(c.x, c.y, r.x, r.y);
+              if (d < cfg.blastRadius) c.takeDamage(Math.round(cfg.damage * (1 - d / cfg.blastRadius)), cfg.cause, 'blast');
+            }
+          } else {
+            this.scene.sfx?.play('boulderCrash', r, { volume: 0.5 });
+          }
+          for (let i = 0; i < 6; i++) this.scene.effects?.piece(r.x, r.y, { w: 5, h: 5, color: cfg.color }, true);
+          r.gfx.destroy();
+          z.rock = null;
+        }
+      }
+      return;
+    }
+    if (now < z.nextAt) return;
+    z.nextAt = now + Phaser.Math.Between(...cfg.everyMs);
+    // Aim at someone standing in the zone, else anywhere in it.
+    const under = this.characters().filter((c) => c.alive && c.x > z.x && c.x < z.right && c.y > z.y && c.y < z.bottom + 40);
+    const x = under.length ? Phaser.Utils.Array.GetRandom(under).x : Phaser.Math.Between(z.x + 10, z.right - 10);
+    // It breaks off the first open air at the top of the zone.
+    let y = z.y;
+    while (y < z.bottom && isSolidAt(this.layer, x, y)) y += 8;
+    z.rock = { state: 'warn', at: now + cfg.warnMs, x, y, hit: new Set() };
+    if (cfg.meteor) {
+      // Meteors: a red ring flashes where it will hit.
+      let ground = y;
+      while (ground < this.layer.tilemap.heightInPixels && !isSolidAt(this.layer, x, ground)) ground += 8;
+      const ring = this.scene.add.ellipse(x, ground - 4, 60, 14).setStrokeStyle(3, 0xe63946, 0.9).setDepth(41);
+      this.scene.tweens.add({ targets: ring, alpha: 0.2, duration: 180, yoyo: true, repeat: -1 });
+      z.rock.marker = ring;
+      this.scene.sfx?.play('geyserWarn', { x, y: ground }, { volume: 0.5 });
+      return;
+    }
+    this.scene.sfx?.play('pebbles', { x, y });
+    for (let i = 0; i < 8; i++) {
+      const p = this.scene.add.circle(x + Phaser.Math.Between(-10, 10), y, Phaser.Math.Between(1, 3), cfg.color).setDepth(41);
+      this.scene.tweens.add({ targets: p, y: p.y + Phaser.Math.Between(80, 200), alpha: 0, duration: 700, delay: i * 90, onComplete: () => p.destroy() });
+    }
+  }
+
+  // ---- Wastelands: radiation, acid rain, fuel barrels ----
+
+  // A cloud of radioactive gas: soft green puffs drifting and swelling in
+  // an oval (no hard edges), a glow of specks, the warning sign. You're in
+  // it inside the oval.
+  makeRadiation(o) {
+    const scene = this.scene;
+    const z = { cx: o.x + o.width / 2, cy: o.y + o.height / 2, rx: o.width / 2, ry: o.height / 2 };
+    z.has = (c) => ((c.x - z.cx) / z.rx) ** 2 + ((c.y - z.cy) / z.ry) ** 2 < 1;
+    const n = Math.max(6, Math.round((o.width * o.height) / 9000));
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const d = Math.sqrt(Math.random()) * 0.7;
+      const px = z.cx + Math.cos(a) * z.rx * d;
+      const py = z.cy + Math.sin(a) * z.ry * d;
+      const r = Phaser.Math.Between(30, 60) * Math.min(1, z.ry / 80 + 0.4);
+      const puff = scene.add.circle(px, py, r, RADIATION.color, 0.1).setDepth(36);
+      scene.tweens.add({
+        targets: puff,
+        x: px + Phaser.Math.Between(-24, 24),
+        y: py + Phaser.Math.Between(-14, 10),
+        scale: Phaser.Math.FloatBetween(1.1, 1.4),
+        alpha: 0.2,
+        duration: Phaser.Math.Between(2200, 3800),
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+        delay: Phaser.Math.Between(0, 1500),
+      });
+    }
+    scene.add
+      .particles(0, 0, 'hz-dot', {
+        emitZone: { type: 'random', source: new Phaser.Geom.Ellipse(z.cx, z.cy, z.rx * 1.6, z.ry * 1.6) },
+        lifespan: 2400,
+        speedY: { min: -14, max: -4 },
+        speedX: { min: -8, max: 8 },
+        scale: { min: 0.15, max: 0.4 },
+        alpha: { values: [0, 0.5, 0] },
+        tint: RADIATION.color,
+        blendMode: 'ADD',
+        frequency: 90,
+      })
+      .setDepth(36);
+    // The radiation sign.
+    const g = scene.add.graphics().setDepth(4);
+    const cx = z.cx;
+    const cy = o.y + 18;
+    g.fillStyle(0xffd60a, 1).fillCircle(cx, cy, 11);
+    g.fillStyle(0x1b1b1b, 1).fillCircle(cx, cy, 2.5);
+    for (let k = 0; k < 3; k++) {
+      const ang = -Math.PI / 2 + (k * Math.PI * 2) / 3;
+      g.slice(cx, cy, 9, ang - 0.45, ang + 0.45, false);
+      g.fillPath();
+    }
+    return z;
+  }
+
+  // Anything solid over this character's head? (the overpass, the sewer roof)
+  exposed(c) {
+    for (let y = c.body.top - 8; y > 0; y -= this.layer.tilemap.tileHeight) {
+      if (isSolidAt(this.layer, c.x, y)) return false;
+    }
+    return true;
+  }
+
+  makeRain() {
+    const scene = this.scene;
+    this.rain = { level: 0, active: false, nextAt: scene.time.now + Phaser.Math.Between(...ACID_RAIN.everyMs) * 0.4 };
+    if (!scene.textures.exists('raindrop')) {
+      const g = scene.add.graphics();
+      g.lineStyle(2, 0xffffff, 1).lineBetween(1, 0, 4, 14);
+      g.generateTexture('raindrop', 6, 16);
+      g.destroy();
+    }
+    this.rain.veil = scene.add.rectangle(0, 0, 1280, 720, ACID_RAIN.color, 0).setOrigin(0, 0).setScrollFactor(0).setDepth(45);
+    this.rain.drops = scene.add
+      .particles(0, 0, 'raindrop', {
+        x: { min: -100, max: 1380 },
+        y: -20,
+        lifespan: 1100,
+        speedY: { min: 700, max: 900 },
+        speedX: { min: 120, max: 180 },
+        alpha: { start: 0.7, end: 0.4 },
+        tint: ACID_RAIN.color,
+        frequency: 6,
+        quantity: 3,
+        emitting: false,
+      })
+      .setScrollFactor(0)
+      .setDepth(46);
+  }
+
+  updateRain(now) {
+    const r = this.rain;
+    if (!r.active && now >= r.nextAt) {
+      r.active = true;
+      r.startAt = now;
+      r.until = now + ACID_RAIN.lastMs;
+      r.drops.start();
+      this.scene.effects?.notice('Acid rain!  Take cover');
+    }
+    if (r.active) {
+      r.level = Math.max(0, Math.min(1, (now - r.startAt) / ACID_RAIN.fadeMs, (r.until - now) / ACID_RAIN.fadeMs));
+      this.scene.sfx?.hold('acidrain', 'rain', null, 0.3 + r.level * 0.7);
+      if (now >= r.until) {
+        r.active = false;
+        r.level = 0;
+        r.drops.stop();
+        r.nextAt = now + Phaser.Math.Between(...ACID_RAIN.everyMs);
+      }
+    }
+    r.veil.setAlpha(0.12 * r.level);
+  }
+
+  // A red fuel barrel: type its word (or blast it) and it goes up.
+  makeBarrel(o) {
+    const scene = this.scene;
+    const barrel = { x: o.x, y: o.y };
+    const trig = new Trigger(scene, o.x, o.y - 18, {
+      name: 'Fuel Barrel', width: 24, height: 34, rearmMs: BARREL.rearmMs, labelOffset: 14,
+      draw: (g, ready) => {
+        if (!ready) {
+          g.fillStyle(0x2b2b2b, 1).fillEllipse(0, 16, 30, 6); // a scorch where it was
+          return;
+        }
+        g.fillStyle(BARREL.color, 1).fillRoundedRect(-12, -17, 24, 34, 4);
+        g.fillStyle(0x780000, 1).fillRect(-12, -8, 24, 3).fillRect(-12, 6, 24, 3);
+        g.fillStyle(0xffd60a, 1).fillTriangle(-5, 3, 5, 3, 0, -5);
+        g.fillStyle(0x1b1b1b, 1).fillRect(-1, -2, 2, 3);
+      },
+      onTrigger: () => this.blowBarrel(barrel),
+    });
+    this.triggers.push(trig);
+    barrel.trigger = trig;
+    return barrel;
+  }
+
+  blowBarrel(barrel) {
+    const config = { ...BARREL, key: 'fuelBarrel', name: 'Fuel Barrel', kind: 'frag', selfDamage: 0.6 };
+    this.scene.weapons?.explode(barrel.x, barrel.y - 16, config);
+  }
+
+  // ---- Sky Islands: updrafts and wind ----
+
+  makeUpdraft(o) {
+    const z = { x: o.x, y: o.y, right: o.x + o.width, bottom: o.y + o.height };
+    this.scene.add
+      .particles(0, 0, 'hz-dot', {
+        x: { min: o.x, max: o.x + o.width },
+        y: o.y + o.height,
+        lifespan: 2600,
+        speedY: { min: -420, max: -260 },
+        scale: { min: 0.1, max: 0.3 },
+        alpha: { start: 0.6, end: 0 },
+        tint: 0xffffff,
+        frequency: 60,
+      })
+      .setDepth(36);
+    this.scene.add.rectangle(o.x + o.width / 2, o.y + o.height / 2, o.width, o.height, 0xffffff, 0.06).setDepth(36);
+    return z;
+  }
+
+  makeWind() {
+    const scene = this.scene;
+    this.wind = { level: 0, dir: 1, active: false, nextAt: scene.time.now + Phaser.Math.Between(...WIND.everyMs) * 0.4 };
+    if (!scene.textures.exists('streak')) {
+      const g = scene.add.graphics();
+      g.lineStyle(2, 0xffffff, 1).lineBetween(0, 1, 40, 1);
+      g.generateTexture('streak', 40, 3);
+      g.destroy();
+    }
+    // Streaks blowing across the screen, one emitter per direction.
+    this.wind.streaks = [1, -1].map((dir) =>
+      scene.add
+        .particles(0, 0, 'streak', {
+          x: dir > 0 ? { min: -40, max: 600 } : { min: 680, max: 1320 },
+          y: { min: 0, max: 720 },
+          lifespan: 700,
+          speedX: dir > 0 ? { min: 900, max: 1300 } : { min: -1300, max: -900 },
+          alpha: { start: 0.5, end: 0 },
+          frequency: 25,
+          emitting: false,
+        })
+        .setScrollFactor(0)
+        .setDepth(46)
+    );
+  }
+
+  updateWind(now) {
+    const w = this.wind;
+    if (!w.active && now >= w.nextAt) {
+      w.active = true;
+      w.dir = Math.random() < 0.5 ? -1 : 1;
+      w.startAt = now;
+      w.until = now + WIND.lastMs;
+      w.streaks[w.dir > 0 ? 0 : 1].start();
+      this.scene.effects?.notice(`Strong wind from the ${w.dir > 0 ? 'west' : 'east'}!`);
+    }
+    if (w.active) {
+      w.level = Math.max(0, Math.min(1, (now - w.startAt) / WIND.fadeMs, (w.until - now) / WIND.fadeMs));
+      if (now >= w.until) {
+        w.active = false;
+        w.level = 0;
+        w.streaks.forEach((e) => e.stop());
+        w.nextAt = now + Phaser.Math.Between(...WIND.everyMs);
+      }
+      this.scene.sfx?.hold('gust', 'wind', null, 0.3 + w.level * 0.7);
+    }
+  }
+
+    // ---- Sandstorm ----
 
   makeStorm() {
     const scene = this.scene;
@@ -724,7 +1213,7 @@ export default class HazardSystem {
         duration: ms,
         onUpdate: (tw) => {
           const t = (tw.getValue() * ms) / 1000; // seconds in flight: up, then back down
-          d.setPosition(x0 + vx * t, pool.y + vy * t + 450 * power * t * t).setAlpha(1 - tw.getValue() * 0.7);
+          d.setPosition(x0 + vx * t, pool.y + vy * t + 450 * power * gravityK(this.scene) * t * t).setAlpha(1 - tw.getValue() * 0.7);
         },
         onComplete: () => d.destroy(),
       });
@@ -733,7 +1222,7 @@ export default class HazardSystem {
 
   // A blast near (above) a surface whips up spray.
   surfaceSplash(x, y, radius) {
-    for (const p of [...this.waters, ...this.lavas]) {
+    for (const p of [...this.waters, ...this.lavas, ...this.toxics, ...this.sands]) {
       if (x < p.x - 20 || x > p.right + 20) continue;
       const above = p.y - y;
       if (above < 0 || above > radius * 0.6) continue;
@@ -759,6 +1248,29 @@ export default class HazardSystem {
     scene.cameras.main.shake(140, 0.004);
   }
 
+  // A blast in toxic sludge: muffled, a green column, and a puff of
+  // poison gas drifting up off it.
+  sludgeBlast(x, y, radius, pool) {
+    const scene = this.scene;
+    const sx = Phaser.Math.Clamp(x, pool.x + 8, pool.right - 8);
+    this.splash(pool, sx, pool.cfg.surfaceColor, 18, 1.8);
+    this.splash(pool, sx, pool.cfg.color, 12, 1.2);
+    for (let i = 0; i < 8; i++) {
+      const c = scene.add.circle(sx + Phaser.Math.Between(-30, 30), pool.y - 6, Phaser.Math.Between(10, 18), RADIATION.color, 0.25).setDepth(DEPTH_WATER + 2);
+      scene.tweens.add({ targets: c, y: c.y - Phaser.Math.Between(40, 90), x: c.x + Phaser.Math.Between(-20, 20), scale: 2.2, alpha: 0, duration: Phaser.Math.Between(1200, 2000), onComplete: () => c.destroy() });
+    }
+    scene.cameras.main.shake(140, 0.004);
+  }
+
+  // A blast in quicksand: a dull thump and a fountain of sand.
+  sandBlast(x, y, radius, pool) {
+    const sx = Phaser.Math.Clamp(x, pool.x + 8, pool.right - 8);
+    this.splash(pool, sx, pool.cfg.surfaceColor, 22, 1.6);
+    this.splash(pool, sx, pool.cfg.color, 14, 1.1);
+    this.scene.effects?.poof?.(sx, pool.y - 10, pool.cfg.surfaceColor);
+    this.scene.cameras.main.shake(120, 0.004);
+  }
+
   // Lava thrown everywhere by a blast in it.
   lavaBlast(x, y, pool) {
     this.splash(pool, Phaser.Math.Clamp(x, pool.x + 8, pool.right - 8), pool.cfg.surfaceColor, 16, 1.8);
@@ -771,7 +1283,7 @@ export default class HazardSystem {
   // or lava: splash when they go in, then each acts its own way.
   liquidObjects(now, dt) {
     const scene = this.scene;
-    if (!this.waters.length && !this.lavas.length) return;
+    if (!this.waters.length && !this.lavas.length && !this.toxics.length && !this.sands.length) return;
     const enter = (obj, x, y, size) => {
       const pool = this.poolAt(x, y);
       if (!pool) {
@@ -781,7 +1293,7 @@ export default class HazardSystem {
       if (obj.inPool !== pool) {
         obj.inPool = pool;
         this.splash(pool, x, pool.cfg.surfaceColor, size);
-        if (size >= 4) scene.sfx?.play(pool.kind === 'lava' ? 'lavaSizzle' : 'splashSmall', { x, y }, { volume: size >= 6 ? 0.7 : 0.35 });
+        if (size >= 4) scene.sfx?.play(pool.kind === 'lava' ? 'lavaSizzle' : pool.kind === 'quicksand' ? 'sandSink' : 'splashSmall', { x, y }, { volume: size >= 6 ? 0.7 : 0.35 });
         obj.justEntered = true;
       } else {
         obj.justEntered = false;
@@ -798,12 +1310,18 @@ export default class HazardSystem {
       // A molotov breaking on water or lava: no fire patch, just steam / a flare.
       if (g.kind === 'molotov' && g.justEntered) {
         if (pool.kind === 'water') this.steam(g.x, pool.y);
+        else if (pool.kind === 'quicksand') this.scene.effects?.poof?.(g.x, pool.y - 6, pool.cfg.surfaceColor); // smothered
+        else if (pool.kind === 'toxic') this.toxicFlare(g.x, pool); // the chemicals flare up
         else this.splash(pool, g.x, pool.cfg.glowColor, 8, 1.2);
         g.remove();
         continue;
       }
-      g.body.velocity.x *= 0.9;
-      g.body.velocity.y = Math.min(g.body.velocity.y, WATER.sinkSpeed);
+      // Water: they sink slowly. Toxic sludge is thicker; quicksand nearly
+      // stops them and swallows them.
+      const drag = pool.kind === 'quicksand' ? 0.6 : pool.kind === 'toxic' ? 0.8 : 0.9;
+      const sink = pool.kind === 'quicksand' ? 22 : pool.kind === 'toxic' ? 40 : WATER.sinkSpeed;
+      g.body.velocity.x *= drag;
+      g.body.velocity.y = Math.min(g.body.velocity.y, sink);
       if (pool.kind === 'lava' && g.explodeAt !== undefined) g.explodeAt = Math.min(g.explodeAt, now + LAVA.cookOffMs);
     }
 
@@ -818,7 +1336,7 @@ export default class HazardSystem {
       if (!b.active) continue;
       const pool = enter(b, b.x, b.y, 3);
       if (!pool || !b.justEntered) continue;
-      if (pool.kind !== 'water') b.destroy();
+      if (pool.kind !== 'water' && pool.kind !== 'toxic') b.destroy();
       else b.maxRangePx = Math.min(b.maxRangePx, Phaser.Math.Distance.Between(b.startX, b.startY, b.x, b.y) + WATER.bulletRangePx);
     }
 
@@ -833,8 +1351,8 @@ export default class HazardSystem {
         it.remove?.();
         continue;
       }
-      it.body.velocity.x *= 0.85;
-      it.body.velocity.y = Math.min(it.body.velocity.y, WATER.sinkSpeed);
+      it.body.velocity.x *= pool.kind === 'quicksand' ? 0.6 : 0.85;
+      it.body.velocity.y = Math.min(it.body.velocity.y, pool.kind === 'quicksand' ? 22 : pool.kind === 'toxic' ? 40 : WATER.sinkSpeed);
     }
 
     // Body parts sink (or burn up); blood thins out in water.
@@ -874,7 +1392,7 @@ export default class HazardSystem {
       // Water only: cryo does nothing to lava.
       for (const p of this.waters) if (near(p)) this.freeze(p, Math.max(p.x, x - r), Math.min(p.right, x + r));
     } else if (config.effect === 'emp') {
-      for (const p of this.waters) {
+      for (const p of [...this.waters, ...this.toxics]) { // sludge conducts too
         if (!near(p)) continue;
         for (const c of this.characters()) {
           if (!c.alive || !touches(p, c.body)) continue;
@@ -1074,8 +1592,8 @@ export default class HazardSystem {
     }
     pool.body = g;
     pool.surface = this.scene.add.graphics().setDepth(DEPTH_WATER + 1);
-    if (kind === 'lava') {
-      // A glow over lava, and bubbles popping on it.
+    if (kind === 'lava' || kind === 'toxic') {
+      // A glow over lava (or toxic sludge), and bubbles popping on it.
       pool.glow = this.scene.add.rectangle(pool.x + pool.w / 2, pool.y - 10, pool.w + 30, 40, cfg.glowColor, 0.18).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH_WATER - 1);
       pool.bubbles = this.scene.add.particles(0, 0, 'hz-dot', {
         x: { min: pool.x + 6, max: pool.right - 6 },
@@ -1121,7 +1639,7 @@ export default class HazardSystem {
       lifespan: 600,
       speedX: { min: -70, max: 70 },
       speedY: { min: -110, max: -40 },
-      gravityY: 300,
+      gravityY: 300 * gravityK(this.scene),
       scale: { start: 0.4, end: 0.1 },
       alpha: { start: 0.9, end: 0 },
       tint: sound === 'lava' ? [cfg.surfaceColor, cfg.glowColor] : [0xffffff, cfg.surfaceColor],

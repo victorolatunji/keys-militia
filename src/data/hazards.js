@@ -161,20 +161,93 @@ export const BOULDER = {
 // ground under whoever stands there (dirt crumbling first), holds them in
 // place for a moment and squeezes a little. Bots too.
 export const HANDS = {
-  everyMs: [2500, 5000], // per zone, how often a hand tries
+  everyMs: [6000, 11000], // per zone: a hand comes up on this interval
   warnMs: 700,
   holdMs: 1400,
   damage: 5,
   color: 0x8a9a5b,
 };
 
-// The church bell (Graveyard): type its word to ring it. Every enemy
-// within radiusPx is dazed. It can ring again after rearmMs.
+// The church bell (Graveyard): it rings when anyone moves near it. Everyone
+// within radiusPx is dazed. Then it rests for everyMs.
 export const BELL = {
   radiusPx: 520,
-  dazedMs: 3500,
-  rearmMs: 20000,
+  dazedMs: 2500,
+  senseRadiusPx: 360,      // it rings when anyone moves this close...
+  everyMs: [15000, 25000], // ...then rests this long before it can again
   color: 0xc9a227,
+};
+
+// Crumbling stone (Monastery): old bridges and stairs break if you stand on
+// them a moment (like thin ice), then get rebuilt a while later.
+// (Uses THIN_ICE's timings.)
+
+// Rockfalls (Monastery): in these zones under the cliffs, a rock breaks off
+// now and then; pebbles trickle down first (move!), then it drops and hits
+// whoever is under it.
+export const ROCKFALL = {
+  everyMs: [4000, 8000],  // per zone
+  warnMs: 900,
+  radius: 16,
+  fallSpeed: 700,
+  damage: 20,
+  color: 0x8d8173,
+};
+
+// Bamboo groves (Monastery): step in and you're hidden (like a bush); it
+// rustles (sound, sway) when someone moves through it.
+export const BAMBOO = {
+  colors: [0x588157, 0x3a5a40, 0x6a994e, 0xa3b18a],
+};
+
+// Toxic puddles (Wastelands): like water to move in, but they eat at you
+// while you're in them (and slowly, nothing like an enemy).
+export const TOXIC = {
+  color: 0x6a994e,
+  deepColor: 0x283618,
+  surfaceColor: 0x9ef01a,
+  alpha: 0.85,
+  waveHeight: 2,
+  moveScale: 0.6,
+  maxSinkSpeed: 90,
+  maxRiseSpeed: 240,
+  damage: 1,              // per tick while in it...
+  tickMs: 500,            // ...(6 HP/s)
+  breathMs: 3000,         // fully under: hold your breath, then...
+  drownDamage: 4,
+  drownTickMs: 500,
+};
+
+// Radiation zones (Wastelands): a geiger counter ticks and a green haze
+// hangs there. Standing in one drains you slowly.
+export const RADIATION = {
+  damage: 2,
+  tickMs: 500,            // (4 HP/s)
+  color: 0x9ef01a,
+};
+
+// Acid rain (Wastelands): every so often it pours for a while. Out in the
+// open (nothing solid over your head) it burns a little; take cover.
+export const ACID_RAIN = {
+  everyMs: [40000, 60000],
+  lastMs: 12000,
+  fadeMs: 2000,
+  damage: 2,
+  tickMs: 600,            // (about 3 HP/s while exposed)
+  color: 0xb5e48c,
+};
+
+// Fuel barrels (Wastelands): type the word on one and it explodes (your
+// blast, it counts as your kills). A new barrel turns up later.
+export const BARREL = {
+  blastRadius: 150,
+  directHitRadius: 40,
+  damage: 70,
+  knockback: 520,
+  knockbackLift: 200,
+  knockbackFullAt: 60,
+  rearmMs: 30000,
+  color: 0xc1121f,
 };
 
 // Waterfall / lavafall: standing in it pushes you down.
@@ -251,4 +324,44 @@ export const DECOR = {
   critters: { walk: 22, flee: 120, scarePx: 140, respawnMs: 40000 }, // penguins / scorpions (killed by blasts, back after respawnMs)
   camels: { count: 5, speed: 14, spacing: 80, color: 0x6b4f3a },
   whales: { everyMs: [5000, 11000] },
+};
+
+// Meteor showers (Space): a red ring flashes where one will hit, then it
+// streaks down and bursts. Get under a roof.
+export const METEOR = {
+  everyMs: [20000, 32000], // per zone (3 zones: about one every 8-9s)
+  warnMs: 1100,
+  radius: 12,
+  fallSpeed: 900,
+  damage: 15,
+  blastRadius: 70,
+  color: 0xe85d04,
+};
+
+// Wind gusts (Sky Islands): they push everyone sideways, hard in the air.
+export const WIND = {
+  everyMs: [18000, 28000],
+  lastMs: 9000,
+  fadeMs: 1500,
+  speed: 260,       // px/s drift in the air at full strength
+  groundFactor: 0.25, // on the ground you only get pushed a little
+};
+
+// Updrafts (Sky Islands): columns of rising air between islands.
+export const UPDRAFT = {
+  lift: 1800,       // px/s per second
+  maxRise: 420,
+};
+
+// Coffins (Graveyard): solid wooden cover lying around and in open graves.
+// Enemy bullets stop in them; bullets and blasts break them.
+export const COFFIN = {
+  width: 64,
+  height: 22,
+  hp: 60,
+  bulletDamage: 10,
+  healthChance: 0.3, // a broken one spills a health pack this often
+  backMs: 45000,
+  color: 0x5c3d2e,
+  edge: 0x2b1d14,
 };

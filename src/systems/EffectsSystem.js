@@ -1,3 +1,4 @@
+import { gravityK, fallScale } from './Gravity.js';
 import Phaser from 'phaser';
 import { isSolid } from './Terrain.js';
 import { TILE_FAMILY } from '../data/maps.js';
@@ -155,7 +156,7 @@ export default class EffectsSystem {
     const lvl = this.level;
     const size = Phaser.Math.FloatBetween(lvl.dropSize[0], lvl.dropSize[1]);
     const obj = this.scene.add.circle(x, y, size, color).setDepth(DEPTH);
-    this.drops.push({ obj, vx, vy, color, splat, until: this.scene.time.now + lvl.dropLifeMs * Phaser.Math.FloatBetween(0.7, 1.3) });
+    this.drops.push({ obj, vx, vy: vy * fallScale(this.scene), color, splat, until: this.scene.time.now + lvl.dropLifeMs * Phaser.Math.FloatBetween(0.7, 1.3) });
   }
 
   // Sparks: machines at every gore level (they're not gore).
@@ -380,7 +381,7 @@ export default class EffectsSystem {
     this.pieces.push({
       obj,
       vx: aimed ? Math.cos(shape.angle) * shape.speed : dir * Phaser.Math.Between(GIBS.speed[0], GIBS.speed[1]) * Phaser.Math.FloatBetween(0.3, 1) * boost,
-      vy: aimed ? Math.sin(shape.angle) * shape.speed - 60 : -Phaser.Math.Between(GIBS.lift[0], GIBS.lift[1]) * boost,
+      vy: (aimed ? Math.sin(shape.angle) * shape.speed - 60 : -Phaser.Math.Between(GIBS.lift[0], GIBS.lift[1]) * boost) * fallScale(this.scene),
       spin: Phaser.Math.FloatBetween(-GIBS.spin, GIBS.spin),
       until: this.scene.time.now + (shape.lifeMs ?? (this.level.gibLifeMs ?? 2500) * Phaser.Math.FloatBetween(0.8, 1.2)),
       trailAt: 0,
@@ -446,7 +447,7 @@ export default class EffectsSystem {
         d.obj.destroy();
         return false;
       }
-      d.vy += GRAVITY * dt;
+      d.vy += GRAVITY * gravityK(this.scene) * dt;
       const nx = d.obj.x + d.vx * dt;
       const ny = d.obj.y + d.vy * dt;
       if (isSolid(this.layer, nx, ny)) {
@@ -466,7 +467,7 @@ export default class EffectsSystem {
         this.scene.tweens.add({ targets: o, alpha: 0, duration: 300, onComplete: () => o.destroy() });
         return false;
       }
-      p.vy += GRAVITY * dt;
+      p.vy += GRAVITY * gravityK(this.scene) * dt;
       let nx = o.x + p.vx * dt;
       let ny = o.y + p.vy * dt;
       if (isSolid(this.layer, nx, o.y)) {

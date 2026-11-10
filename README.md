@@ -1,7 +1,7 @@
 # Keys Militia
 *A VAO game. Living plan book: update it whenever the plan changes.*
 
-**Version:** 0.18
+**Version:** 0.19
 **Owner:** Victor Olatunji / VAO
 **Budget:** $0, free tools and free assets only
 **Status:** Phase 7 (Maps) in progress: Forest, Hell, Glacier, Desert, Catacombs and Graveyard done, four launch maps to go.
@@ -281,7 +281,7 @@ Stats live in `src/data/weapons.js` (guns, specials, throwables), `src/data/item
 - **The sea:** freezing water like the lake (you're frozen for a moment when you fall in, you can swim and hide under), but it goes down forever: sink past the death line deep under the surface and you're gone ("Sank into the icy deep"). Bots and crates stay out of it.
 - **Ice:** slippery. Your speed only slowly follows what you press, so you skid to a stop and take a moment to get going (`ICE.gripMs`).
 - **Thin spots** on the frozen lake are traps for everyone, bots too: stand on one and it cracks (0.5s) then breaks (1.1s) into freezing water, and you have to find the hole to get out. **Explosions smash thin ice** (frags, stickies, rockets, even under the water). It freezes over again after 12s.
-- **Advantage: icicles.** They hang from ceilings and show a word. Type it (that takes a shot) and the icicle snaps off and drops on whoever is below: 45 damage and frozen (it counts as your kill). Grows back after 15s. **Igloos:** step inside one and you're hidden (like a bush), and its warmth thaws you out.
+- **Icicles (0.19: automatic, no typing).** They hang from ceilings and snap off by themselves every 9-18s, as soon as someone is under one (a creak and a shake warn you first): 45 damage (27 to you) and frozen. A blast nearby knocks them down too. They grow back after 15s. **Igloos:** step inside one and you're hidden (like a bush), and its warmth thaws you out.
 
 **Desert ("Dune Sea"), done in 0.16, more life in 0.17:** a hot sky with a big sun, mesas in the distance, heat shimmer, and a **camel caravan** (with a rider) walking along the far dunes. Rolling dunes with a quicksand pit, a mesa with a natural arch through its base, an oasis with palms, a buried temple (a shaft down into a pillared chamber, a hole out the bottom, ruins on top) and a second quicksand pit, floating sandstone and scaffolds in the sky, islands underneath. Cacti, rocks, bones, scorpions that scuttle in short bursts and raise their tails when you come close (harmless; a blast kills them, they come back later), and tumbleweeds (dry plants rolled by the wind, looks only; a blast bursts them).
 - **Quicksand:** you can barely move and it keeps pulling you down while you don't fight it. The jetpack (or a jump) pulls you out, slowly (fixed in 0.17: it used to cancel the jetpack and trap you). Fully under it you suffocate: 3s, then 6 HP/s. No hiding in it.
@@ -291,26 +291,59 @@ Stats live in `src/data/weapons.js` (guns, specials, throwables), `src/data/item
 
 **Catacombs, done in 0.18:** **enclosed, no void.** A roof and floor of rock pieces, every wall and floor made of rough stones in mortar (no sand), on a black background with everything clearly visible (no darkness or torches). Three levels of tunnels joined by shafts: an upper gallery with pillars, a middle hall and a lower crypt hall with stone coffins, ossuaries full of bones, a low tunnel and a flooded crypt at the bottom (hide in it). Cobwebs, candles, chains, rubble heaps for cover, dust drifting in the dark.
 - **Hazard: rolling boulders.** Every 14–22s a boulder rumbles (dust falls at the top of the ramp), then rolls down one of the two long ramps and along the hall below, and smashes on the far wall. It hits each character once per roll: 35 damage and thrown out of its way. It doesn't kill a healthy character outright, but it can finish off a hurt one.
-- **Advantage: the levers.** A lever at the top of each ramp shows a word: type it to send the boulder down early, onto the enemies in its path (its hits count as yours). Tight tunnels for ambushes.
+- **Advantage:** tight tunnels for ambushes. (0.19: the levers are gone; the boulders roll on their own timer.)
 - Crates and drops come down inside the tunnels (no sky to fall from).
 
-**Graveyard, done in 0.18:** night under a big moon, **solid ground to the bottom (no void).** A hill of tombstones, a stone chapel with an upstairs floor and doors each side, a bell tower, iron fences, dead trees, wooden grave crosses, flickering lanterns, open graves leading down into a pillared crypt, floating rubble and plank platforms, fog creeping along the ground, bats flitting overhead.
-- **Hazard: grabbing hands.** On the grave hill (and by the fences) the ground cracks under whoever stands there, then a rotting hand bursts out and grabs them: held in place for 1.4s and 5 damage. Bots too.
-- **Advantage:** tombstones are solid stone and block bullets. **The church bell** shows a word: type it to ring it and every enemy within 520px is dazed for 3.5s (rings again after 20s).
+**Graveyard, done in 0.18:** night under a big moon, **solid ground to the bottom (no void).** One walkable main floor with a low, gentle rise (0.19: fewer graves, nothing floating), a stone chapel with an upstairs floor and doors each side, a bell tower, a wooden watch tower standing on the ground in the east (two platforms with a hatch and a lookout roof; you pass between its legs), iron fences, dead trees, wooden grave crosses, flickering lanterns, open graves leading down into a pillared crypt, fog creeping along the ground, bats flitting overhead.
+- **Hazard: grabbing hands.** On the grave hill (and by the fences) a hand comes up on an interval (every 6-11s per area): the ground cracks first, under whoever stands there or at a random spot, then a rotting hand bursts out and grabs anyone on that spot: held for 1.4s and 5 damage. Bots too.
+- **Hollow graves (0.19):** open trenches dug into the hill to drop into for cover, some with a wooden coffin in them.
+- **Coffins (0.19):** wooden coffins lie in graves and around the yard: solid cover you can stand on. Enemy bullets stop in them; your bullets chip them and blasts smash them. A broken coffin spills its bones and sometimes a health pack (30%), and a new one is put back after 45s.
+- **Two kinds of grave:** solid grey stone headstones block you and bullets; dark see-through "shadow" graves with a faint cold glow are only shadows: you pass right through them.
+- **Advantage:** tombstones are solid stone and block bullets. **The church bell** senses movement: when anyone moves within 360px of it, it rings and everyone within 520px (you too) is dazed for 2.5s; then it rests 15-25s. The bell tower's walls are drawn behind you (you pass through them; 0.19 fix).
+
+**Monastery, done in 0.19:** a monastery built into a mountain at dawn, over a sea of cloud (it has a void). **No stairs: you walk and fly.** Three levels: the temple roofs (level 1), the stone courtyard (level 2) and the cloisters and stupa terrace below it (level 3). Three temples stand on the courtyard, each a closed hall with thick walls, tall doorways at both ends and a clean curved pagoda roof that is solid (an invisible solid row under the drawing blocks you and you stand on it; one shaft, wide enough for two, is the shortcut, framed like the pagoda's deck with a little red railing each side): the scripture hall (scroll shelves), **the Oracle's temple** in the middle (a hooded oracle on her dais with a glowing orb floating over her hands, fire braziers either side, a pagoda tier on red posts above: a wooden deck with a railing and its own solid pagoda roof) and the gong hall (a great bronze gong). Three openings in the courtyard drop you to the cloisters, roofed by the courtyard on red columns you pass through, with prayer wheels and a white stupa with a gold spire on the open terrace. Cliff walls at both ends, prayer flags, stone lanterns, cherry blossom, statues, petals drifting, incense smoke.
+- **Hazard: rockfalls** over the open courtyard (pebbles trickle down first as a warning; a roof keeps you safe). 20 damage a hit.
+- **Advantage: bamboo groves.** Hide in them like bushes (no word shows on you), but moving inside makes them rustle and gives you away.
+
+**Wastelands, done in 0.19:** a ruined city under a smoggy sky, **no void** (the sewer floor is solid ground). Three levels: the broken highway overpass on pillars (level 1), the street with craters, wrecked cars and a tank (level 2), the sewer under it with a sludge channel and a manhole (level 3). Ruined skyline, bent lampposts tyre piles, ash drifting. The overpass and sewer pillars are drawn behind you: you walk straight past them (0.19).
+- **Hazards:** toxic puddles (slow you, 1 damage every 0.5s) and **radiation clouds** (soft drifting green gas in an oval, no hard edges: 2 damage every 0.5s, a geiger counter clicks).
+- **Advantage:** wrecked cars and the tank are solid cover; the overpass and sewer give you roofs.
+
+**Sky Islands, done in 0.19:** grassy islands floating high in a bright sky over a sea of cloud (void). Three levels of thick, tapered islands, a rope bridge, boulders and bushes, trees, birds. **Low gravity** (200), a little heavier than Space.
+- **Hazard: wind.** Every 18-28s a strong gust blows from the west or east for 9s: it pushes everyone sideways (hard in the air, a little on the ground) and can blow you off the edge.
+- **Advantage:** low gravity and the wind: ride a gust for a long flight.
+
+**Space, done in 0.19:** asteroids drifting in open space (void: "Lost in space"), stars, a ringed planet and a moon. A moon base on the middle asteroid: metal walls with doors, a roof with a glass dome, an antenna, solar panels. **Very low gravity** (110 instead of 800): big floaty jumps and long jetpack flights. `gravity` in a map's config sets it.
+- **Hazard: meteor showers** (rare: about one every 8-9s across the map). A red ring flashes where a meteor will hit, then it streaks down and bursts (15 damage, a small blast). A roof (the base, an asteroid above you) keeps you safe.
+- **Advantage:** low gravity, and the base is cover.
+
+**Gravity rule (0.19, `src/systems/Gravity.js`):** everything that rises and falls is tuned to the map's gravity so it all feels like one world. Lower gravity: a softer jetpack (just as much over gravity, scaled down), slower falling and drifting, the jetpack lasts longer, knockback is softened; throwables are thrown slower so they land about as far, the aim preview matches; blood, gibs, debris, sparks, splashes, crates, icicles, rocks and meteors all fall slower.
+
+**Liquids rule (0.19):** every liquid reacts to throwables. Water: grenades sink slowly, a blast is a muffled column of water, molotovs fizzle to steam. Lava: grenades cook off, molotovs flare. **Toxic sludge:** thicker (grenades and items sink slower), a blast is muffled and throws a green column and a puff of poison gas, a molotov lights the chemicals in a green flash that burns anyone in it, it carries a blast and an EMP like water, bullets slow in it. **Quicksand:** grenades and items nearly stop and get swallowed, a blast is a dull thump and a fountain of sand, molotovs are smothered, bullets stop.
+
+**Navigation rule (0.19):** realistic architecture you can move through: few obstructions, plenty of shortcuts, no dead ends, roofed enclosures (Catacombs is the model). Supports, posts, pillars and tower walls are drawn behind you, not solid, and anything you can walk through is drawn see-through and shadowy so you can tell it from a solid wall; square cover blocks (boulders, rock piles, spikes, ice blocks, rubble heaps, crates) were taken out; new shortcuts: a well from Forest's hilltop into its tunnel, a crack from Glacier's ice cave down to the lower layer. Solid blocks that stay (Wastelands' cars and tank, Monastery's roofs) are drawn over as real shapes, so nothing reads as a square. **Glacier's lower layer** (between the ice sheets and the sea) is a dark, cold ice cave you pass through (deep-blue see-through ice, faint cracks, glinting crystals, drips), with slabs of ice at the waterline to stand and fight on and open water between them.
+
+**Room-for-two rule (0.19):** every opening is wide enough for two players at once: shafts, holes, hatches, crevasses, open graves and the water gaps between platforms are at least 4 tiles wide; tunnels, arches and doorways at least 4 tiles tall.
+
+**Gas rule (0.19):** anything gas-like (gas grenades, toxic sludge, radiation) never hurts machines or cyborgs: they don't breathe.
+
+**Typing rule (0.19):** typing is only for shooting enemies. Map hazards and advantages work on their own, on intervals (icicles, boulders, the bell, the hands).
+
+**Map rule (0.19):** each map has three main levels with enough air between them for jetpack fights. Floors and walls stay thick enough to feel solid (not paper-thin).
 
 **Map list (draft, tune while prototyping):**
 | Map | Sky | Hazard | Advantage |
 |---|---|---|---|
 | Forest ✅ | Open | Water: stay fully under too long and you drown (partly in is safe); waterfall pushes you down | Hide under water or in bushes (no word shows on you) |
 | Hell ✅ | Open | Lava (pit, crater, the sea below), fire geysers | Heat vents refill jetpack fuel; hide in the hot spring |
-| Glacier ✅ | Open | Slippery ice, thin spots over freezing water, an endless icy sea below | Type a word on an icicle to drop it on enemies; hide in igloos |
-| Catacombs ✅ | Enclosed (no void) | Rolling boulders down the ramps | Type a lever's word to send a boulder onto enemies; tight tunnels |
-| City | Open | Live power lines | Tall buildings for cover and height |
+| Glacier ✅ | Open | Slippery ice, thin spots over freezing water, an endless icy sea below, icicles that drop on whoever's under them | Hide in igloos |
+| Catacombs ✅ | Enclosed (no void) | Rolling boulders down the ramps (on a timer) | Tight tunnels for ambushes |
+| Monastery ✅ | Open | Rockfalls over the courtyard | Hide in bamboo groves (they rustle when you move) |
 | Desert ✅ | Open | Quicksand pits, cacti, dust devils | Sandstorms: nobody sees far (words only close up) |
-| Factory | Enclosed | Crushers and conveyors | Type a word on a crusher to trigger it |
-| Sky Islands | Open | Strong winds push you | Ride the wind for long flights |
-| Space Station | Enclosed | Airlocks pull you into the void | Low gravity, big jumps on less fuel |
-| Graveyard ✅ | Open (no void) | Hands grab you from the ground | Tombstones block bullets; ring the bell to daze enemies |
+| Wastelands ✅ | Open (no void) | Toxic puddles and radiation zones that drain HP slowly | Wrecks and roofs for cover |
+| Sky Islands ✅ | Open | Gusts of wind push you sideways | Low gravity; ride the wind for long flights |
+| Space ✅ | Open (space) | Meteor showers (a red ring warns you) | Very low gravity; the moon base is cover |
+| Graveyard ✅ | Open (no void) | Hands grab you from the ground; the bell rings by itself and dazes everyone near | Tombstones block bullets |
 
 ---
 
@@ -431,7 +464,7 @@ keys-militia/
 ├── src/
 │   ├── main.js                  ✅ Phaser config
 │   ├── scenes/                  # Boot ✅ (loads maps, builds icons), Game ✅, Menu, Lobby, GameOver, Settings
-│   ├── entities/                # Player ✅, Dummy ✅, Icicle ✅ (Glacier), Trigger ✅ (levers, bell), Bot ✅, Grenade ✅ (every throwable), Crate ✅, Pickup ✅, Projectile ✅ (launcher rounds), Bullet ✅, EnemyBullet ✅, Saw ✅, FirePatch ✅, Cloud ✅ (smoke and gas)
+│   ├── entities/                # Player ✅, Dummy ✅, Icicle ✅ (Glacier), Trigger ✅ (typeable map objects, unused now), Bot ✅, Grenade ✅ (every throwable), Crate ✅, Pickup ✅, Projectile ✅ (launcher rounds), Bullet ✅, EnemyBullet ✅, Saw ✅, FirePatch ✅, Cloud ✅ (smoke and gas)
 │   ├── systems/
 │   │   ├── VoidSystem.js        ✅ void visuals (Hell: lava sea, Glacier: the deep under the icy sea), fall detection
 │   │   ├── TypingSystem.js      ✅ typing state, words, lock-on, typos, word refresh
@@ -450,7 +483,7 @@ keys-militia/
 │   │   ├── BotCombat.js         ✅ bots attacking: turns, reaction, typing time, aim error, bullets, melee, launchers, grenades, bombers
 │   │   ├── BotGear.js           ✅ what a bot carries: loadout, ammo, gun choice, loot, drops
 │   │   ├── EnemySpawner.js      ✅ spawn slots, random types, family rotation
-│   │   ├── HazardSystem.js      ✅ water, lava, quicksand, geysers, vents, bushes, falls, hiding, breath, splashes, blasts and throwables in liquids, icebergs, slippery and thin ice (blasts smash it), icicles, igloos, cacti, dust devils, sandstorms, boulders and levers, grabbing hands, the church bell
+│   │   ├── HazardSystem.js      ✅ water, lava, quicksand, geysers, vents, bushes, falls, hiding, breath, splashes, blasts and throwables in liquids, icebergs, slippery and thin ice (blasts smash it), icicles, igloos, cacti, dust devils, sandstorms, boulders and levers, grabbing hands, the church bell, rockfalls and meteors, bamboo, toxic, radiation, wind and updrafts
 │   │   ├── BackdropSystem.js    ✅ sky, sun, clouds, parallax hills/spires/mountains/mesas, birds, camel caravan, far icebergs and whales, heat shimmer, leaves, snow, northern lights, embers, fireflies, tumbleweeds, penguins, scorpions, moon, bats, fog, coffins, cobwebs, candles, lanterns, fences, dead trees, crosses, trees, pines, palms, cacti, rocks, caves, grass
 │   │   └── ScoreSystem.js       # kills, assists, fall credit, MVP
 │   ├── ui/
@@ -497,7 +530,7 @@ keys-militia/
 | 5 | Enemies | Enemy roster with jetpack, walker, leaper and flyer movement; shooters, rushers and a bomber; smart Military gear; spawn slots; attack turns, flinch, regen | ✅ |
 | 5.5 | Arsenal II | Status effects, saw gun, nail gun, laser, flamethrower, sticky grenade (also the trip mine), molotov, combat axe, smoke, flashbang, concussion, EMP, cryo bomb, Jet Boost, riot shield, health pack, armor vest, mouse aiming, two throwable slots, crates and supply lanes | ✅ |
 | 6 | Effects | Blood, gibs, gore toggle, explosions, smoke/gas clouds with night vision, sounds made in code (shots, explosions, loops, voices, death cries), finishing touches | ✅ |
-| 7 | Maps | All launch maps with hazards and advantages, open and enclosed | 🔄 Forest ✅ Hell ✅ Glacier ✅ Desert ✅ Catacombs ✅ Graveyard ✅, 4 to go |
+| 7 | Maps | All launch maps with hazards and advantages, open and enclosed | ✅ Forest, Hell, Glacier, Desert, Catacombs, Graveyard, Monastery, Wastelands, Sky Islands, Space |
 | 8 | Offline modes | You vs Military, Zombies, Endless vs Enemies, scoring, awards | |
 | 9 | Menus and guest | Menu, settings, name and character select, local saves | |
 | 9.5 | Art pass | Replace placeholders with final sprites, tiles, backgrounds and effects | |
@@ -509,7 +542,6 @@ keys-militia/
 
 ## 17. Open decisions
 - [ ] Final hazard and advantage behavior per map (Forest and Hell starting values in `hazards.js`)
-- [ ] Remaining maps: City, Factory, Sky Islands, Space Station (each its own layout and rules)
 - [ ] Map art: code-drawn placeholders for now (rounded edges, rocks, decor); final tiles in the art pass (9.5)
 - [ ] Match length and kill targets (starting values in section 10; measure the real kill pace)
 - [ ] Exact weapon stats (damage, word length, range falloff)
@@ -528,6 +560,7 @@ keys-militia/
 ---
 
 ## 18. Changelog
+- **0.19:** Phase 7 done: the last four maps, each with three thick levels and room to fly. Monastery: halls, a courtyard and terraces on a mountain over the clouds; rockfalls with a warning, bamboo groves to hide in (they rustle). Wastelands: no void, an overpass, a street of wrecks and a sewer; toxic puddles and radiation zones. Sky Islands: floating islands, low gravity, gusts of wind that push everyone. Space: very low gravity, asteroids, a moon base, meteor showers with a red warning ring. Gravity tuning: jetpack, falls, knockback, throws, aim preview and all effects follow each map's gravity. Liquids: toxic sludge and quicksand react to grenades, blasts, molotovs, bullets and items. Radiation is a drifting gas cloud now. No more typing for map objects: icicles drop on their own, the Catacombs levers are gone. Navigation pass on every map (pass-through supports, no square cover blocks, more shortcuts, fewer dead ends). Monastery rebuilt with no stairs: three temple enclosures (the Oracle's temple, the scripture hall, the gong hall), roof hatches, courtyard openings down to the cloisters, a stupa. Wastelands: pillars you walk past, no road signs. Graveyard: a walkable floor with fewer graves, a watch tower, nothing floating, hollow graves, breakable coffins (cover, sometimes a health pack), see-through shadow graves vs solid stone ones, hands on an interval, a bell that rings when it senses movement; the bell tower's walls no longer block you. New sounds: geiger clicks, bamboo rustle, pebbles. Last polish: clean pagoda roofs (solid but drawn), a dark ice cave under Glacier's sheets, every opening wide enough for two players, cars and the tank drawn as real shapes, walk-through things drawn see-through, gas can't hurt machines.
 - **0.18:** Phase 7 part 3: Catacombs and Graveyard, both with no void. Catacombs: enclosed, everything built of rock pieces on a black background, three levels of tunnels, coffins, ossuaries and a flooded crypt; boulders roll down the ramps (hurt and throw you, no instant kill) and a lever's word sends one early onto enemies. Graveyard: night, a hill of tombstones that block bullets, a chapel and bell tower (type the bell's word to daze enemies), open graves into a crypt, fog, bats, lanterns; hands burst out of the ground and grab whoever stands on the graves. Crates drop inside tunnels on enclosed maps.
 - **0.17:** Glacier now floats on an endless icy sea instead of the void (swim in it, sink too deep and you're gone), with a sea cave, a grotto, floes, igloos you can hide in (they thaw you out), penguins, far icebergs and whales. The frozen lake is solid ice with thin spots that trap anyone, bots too, and explosions smash thin ice. Desert: quicksand fixed (the jetpack or a jump gets you out now), a shallower pit, a camel caravan on the far dunes instead of vultures, dust devils that toss you about, scorpions, heat shimmer, tumbleweeds that look like tumbleweeds. Wildlife moves naturally (no jitter: penguins waddle and belly-slide, scorpions scuttle and raise their tails) and dies in blasts.
 - **0.16:** Phase 7 part 2: Glacier and Desert, each with its own layout, rules and advantage. Glacier: an icicle cave, a frozen lake of thin ice over freezing water, a slippery glacier with crevasses, northern lights and snow; ice makes you slide, thin ice cracks and breaks under you, and typing the word on an icicle drops it on whoever is below. Desert: dunes with quicksand, a mesa with an arch, an oasis, a buried temple with a pillared chamber, vultures and tumbleweeds; quicksand pulls you under, cacti prick, and sandstorms roll through so nobody sees far. Hell tweaks: cryo no longer affects lava, cryo on water now makes a rough-cut iceberg, darker white smoke. Bots no longer drop in inside ragged rock.

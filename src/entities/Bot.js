@@ -1,10 +1,13 @@
 import Player from './Player.js';
+import { FAMILY_MATERIAL } from '../data/effects.js';
 import WordLabel from '../ui/WordLabel.js';
 import BotBrain from '../systems/BotBrain.js';
 import BotGear from '../systems/BotGear.js';
 import { iconKey } from '../ui/Icons.js';
 import { BOT_AI } from '../data/enemies.js';
 import { PLAYER } from '../data/player.js';
+
+const GAS_IMMUNE = ['machine', 'cyborg']; // they don't breathe (same as the gas grenade)
 
 const HP_WIDTH = 40;
 const HP_HEIGHT = 6;
@@ -152,6 +155,9 @@ export default class Bot extends Player {
   // Your hits make it flinch: its aim is thrown off and its next shot waits.
   takeDamage(amount, cause = 'player', kind = 'bullet') {
     if (!this.alive) return;
+    // Anything gas-like (gas grenades, toxic sludge fumes, radiation) can't
+    // hurt machines and cyborgs: they don't breathe.
+    if (kind === 'gas' && GAS_IMMUNE.includes(this.config.material ?? FAMILY_MATERIAL[this.config.family] ?? 'flesh')) return;
     if (cause === 'player') {
       const now = this.scene.time.now;
       this.hurtLog.push({ at: now, amount });

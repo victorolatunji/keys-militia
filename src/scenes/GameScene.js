@@ -38,11 +38,17 @@ const DEATH_MESSAGES = {
   cactus: 'Pricked to death by a cactus',
   boulder: 'Crushed by a boulder',
   hands: 'Dragged under by the dead',
+  rockfall: 'Hit by falling rock',
+  toxic: 'Poisoned by toxic waste',
+  radiation: 'Radiation poisoning',
+  acid: 'Burned by acid rain',
+  meteor: 'Hit by a meteor',
+  icicle: 'Speared by an icicle',
 };
 
 // Deaths to the map itself (not a weapon). A bot you hurt badly just before
 // counts as your kill, like a fall into the void.
-const MAP_DEATHS = new Set(['void', 'lava', 'drown', 'geyser', 'env', 'quicksand', 'cactus', 'boulder', 'hands']);
+const MAP_DEATHS = new Set(['void', 'lava', 'drown', 'geyser', 'env', 'quicksand', 'cactus', 'boulder', 'hands', 'rockfall', 'toxic', 'radiation', 'acid', 'meteor', 'icicle']);
 
 export default class GameScene extends Phaser.Scene {
   constructor() {
@@ -71,6 +77,7 @@ export default class GameScene extends Phaser.Scene {
     // World bounds: walls left, right and top. No floor: below is the void
     // (maps with no void, like Catacombs and Graveyard, get a floor too).
     this.physics.world.setBounds(0, 0, width, height, true, true, true, !this.map.void);
+    this.physics.world.gravity.y = this.map.gravity ?? 800; // Space: very low
 
     this.player = new Player(this, spawn.x, spawn.y);
     this.physics.add.collider(this.player, this.groundLayer);

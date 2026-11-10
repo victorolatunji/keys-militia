@@ -26,6 +26,8 @@ export default class BackdropSystem {
 
     this.groundY = this.sky.horizonY ?? mainGroundY(groundLayer);
     this.drawSky();
+    if (this.sky.stars) this.drawStars();
+    if (this.sky.planet) this.drawPlanet();
     if (this.sky.sun) this.drawSun();
     if (this.sky.moon) this.drawMoon();
     if (this.sky.clouds) this.drawClouds();
@@ -40,6 +42,8 @@ export default class BackdropSystem {
     if (this.sky.haze) this.makeHaze();
     if (this.sky.bats) this.makeBats();
     if (this.sky.dust) this.makeCaveDust();
+    if (this.sky.petals) this.makeDrift([0xffc8dd, 0xffafcc, 0xffffff], 5, 'leaf');
+    if (this.sky.ash) this.makeDrift([0xadb5bd, 0x6c757d, 0xdee2e6], 8, 'hz-dot');
     this.tumbleweeds = [];
     this.nextWeedAt = scene.time.now + 1500;
     this.layer = groundLayer;
@@ -72,6 +76,31 @@ export default class BackdropSystem {
       else if (o.name === 'lantern') this.addLantern(o.x, o.y);
       else if (o.name === 'fence') this.drawFence(o);
       else if (o.name === 'fog') this.makeFog(o);
+      else if (o.name === 'roof') this.drawRoof(o);
+      else if (o.name === 'roofhatch') this.drawRoofHatch(o);
+      else if (o.name === 'icewall') this.drawIceWall(o);
+      else if (o.name === 'balcony') this.drawBalcony(o);
+      else if (o.name === 'wreck') this.drawWreck(o);
+      else if (o.name === 'stonewall') this.drawStoneWall(o);
+      else if (o.name === 'ghoststone') this.drawGhostStone(o);
+      else if (o.name === 'dome') this.drawDome(o.x, o.y);
+      else if (o.name === 'antenna') this.drawAntenna(o.x, o.y);
+      else if (o.name === 'solar') this.drawSolar(o.x, o.y);
+      else if (o.name === 'woodpost') this.drawWoodPost(o);
+      else if (o.name === 'pillar') this.drawPillar(o);
+      else if (o.name === 'oracle') this.drawOracle(o.x, o.y);
+      else if (o.name === 'brazier') this.drawBrazier(o.x, o.y);
+      else if (o.name === 'gong') this.drawGong(o.x, o.y);
+      else if (o.name === 'stupa') this.drawStupa(o.x, o.y);
+      else if (o.name === 'prayerwheels') this.drawPrayerWheels(o.x, o.y);
+      else if (o.name === 'scrolls') this.drawScrolls(o.x, o.y);
+      else if (o.name === 'flags') this.drawFlags(o);
+      else if (o.name === 'stonelantern') this.drawStoneLantern(o.x, o.y);
+      else if (o.name === 'blossom') this.drawBlossom(o.x, o.y);
+      else if (o.name === 'statue') this.drawStatue(o.x, o.y);
+      else if (o.name === 'lamppost') this.drawLamppost(o.x, o.y);
+      else if (o.name === 'sign') this.drawSign(o.x, o.y);
+      else if (o.name === 'tires') this.drawTires(o.x, o.y);
     }
     if (this.critters.length) this.critterGfx = scene.add.graphics().setDepth(3);
     if (map.key === 'forest') this.drawGrass(groundLayer);
@@ -148,6 +177,14 @@ export default class BackdropSystem {
       const tex = this.scene.textures.createCanvas(key, w, h);
       const ctx = tex.getContext();
       const top = (x) => {
+        if (r.skyline) {
+          // A ruined city: blocks of buildings, some broken off.
+          const bw = 70 + (i * 23) % 40;
+          const k = Math.floor(x / bw);
+          const tall = 0.35 + 0.5 * Math.abs(Math.sin(k * 3.7 + i));
+          const broken = Math.sin(k * 5.1) > 0.4 ? ((x % bw) / bw) * 0.25 : 0;
+          return (x % bw) < bw * 0.85 ? r.height * (1 - tall + broken) : r.height * 0.97;
+        }
         if (r.mesa) {
           // Flat-topped mesas with steep sides.
           const period = 260;
@@ -467,6 +504,403 @@ export default class BackdropSystem {
     if (this.haze) this.haze.forEach((h, i) => h.setAlpha(0.06 + Math.sin(now / 300 + i * 1.7) * 0.04));
     if (this.flames) for (const f of this.flames) f.setScale(0.85 + Math.sin(now / 70 + f.phase) * 0.15 + Math.random() * 0.08).setAlpha(0.75 + Math.random() * 0.25);
     if (this.bats) this.updateBats(now, dt);
+  }
+
+  // ---- Monastery ----
+
+  // Something drifting down across the screen (petals, ash).
+  makeDrift(colors, perSecond, key) {
+    if (key === 'leaf' && !this.scene.textures.exists('leaf')) {
+      const g = this.scene.add.graphics();
+      g.fillStyle(0xffffff, 1).fillEllipse(6, 3, 12, 6);
+      g.generateTexture('leaf', 12, 6);
+      g.destroy();
+    }
+    this.scene.add
+      .particles(0, 0, key, {
+        x: { min: 0, max: VIEW_W },
+        y: -10,
+        lifespan: 10000,
+        speedX: { min: -25, max: 15 },
+        speedY: { min: 20, max: 45 },
+        rotate: { start: 0, end: 360 },
+        scale: key === 'leaf' ? { min: 0.4, max: 0.7 } : { min: 0.08, max: 0.18 },
+        alpha: 0.85,
+        tint: colors,
+        frequency: 1000 / perSecond,
+      })
+      .setScrollFactor(0)
+      .setDepth(34);
+  }
+
+  // A pagoda roof: dark tiles sweeping up at the ends, a red beam under it.
+  drawRoof(o) {
+    // Drawn over the solid roof row (in front of the tiles).
+    const g = this.scene.add.graphics().setDepth(0); // over the tiles, under characters
+    const x0 = o.x;
+    const x1 = o.x + o.width;
+    const y = o.y + o.height;
+    g.fillStyle(0x8c2f1e, 1).fillRect(x0 + 12, y - 6, o.width - 24, 6);
+    g.fillStyle(0x2b2d42, 1);
+    g.beginPath();
+    g.moveTo(x0 - 6, y - 14);
+    g.lineTo(x0 + 18, y - 8);
+    g.lineTo(x0 + o.width * 0.3, y - o.height);
+    g.lineTo(x1 - o.width * 0.3, y - o.height);
+    g.lineTo(x1 - 18, y - 8);
+    g.lineTo(x1 + 6, y - 14);
+    g.lineTo(x1 - 10, y - 4);
+    g.lineTo(x0 + 10, y - 4);
+    g.closePath();
+    g.fillPath();
+    g.lineStyle(1, 0x4a4e69, 1);
+    for (let x = x0 + 24; x < x1 - 24; x += 10) g.lineBetween(x, y - 6, x + (x < (x0 + x1) / 2 ? 4 : -4), y - o.height + 4);
+  }
+
+  // The opening of a roof shaft, built like the pagoda's deck: a wooden
+  // frame with a red railing on either side, open in the middle (fly
+  // through it).
+  drawRoofHatch(o) {
+    const g = this.scene.add.graphics().setDepth(0); // over the tiles, under characters
+    const x0 = o.x;
+    const x1 = o.x + o.width;
+    const y = o.y;
+    g.fillStyle(0x1a110b, 0.75).fillRect(x0 + 6, y, o.width - 12, o.height);   // the dim shaft below
+    g.fillStyle(0x3d2416, 1).fillRect(x0 - 10, y - 4, 16, 10).fillRect(x1 - 6, y - 4, 16, 10); // deck edges
+    g.fillStyle(0x8c2f1e, 1).fillRect(x0 - 12, y + 6, 20, 5).fillRect(x1 - 8, y + 6, 20, 5);
+    g.lineStyle(2, 0x8c2f1e, 0.9);
+    for (const side of [x0 - 6, x1 + 6]) {
+      g.lineBetween(side - 8, y - 18, side + 8, y - 18);                         // a short rail each side
+      for (let px = side - 8; px <= side + 8; px += 8) g.lineBetween(px, y - 18, px, y - 4);
+    }
+  }
+
+  // Prayer flags strung across: little coloured triangles on a sagging line.
+  drawFlags(o) {
+    const g = this.back;
+    const colors = [0x3a86ff, 0xffffff, 0xe63946, 0x52b788, 0xffd166];
+    const sag = (t) => Math.sin(t * Math.PI) * o.height * 0.8;
+    g.lineStyle(1, 0x3d3a36, 1);
+    g.beginPath();
+    for (let k = 0; k <= 20; k++) {
+      const t = k / 20;
+      const px = o.x + o.width * t;
+      const py = o.y + sag(t);
+      if (k === 0) g.moveTo(px, py);
+      else g.lineTo(px, py);
+    }
+    g.strokePath();
+    let i = 0;
+    for (let x = o.x + 14; x < o.x + o.width - 10; x += 18) {
+      const t = (x - o.x) / o.width;
+      const y = o.y + sag(t);
+      g.fillStyle(colors[i++ % colors.length], 0.9).fillTriangle(x - 6, y, x + 6, y, x, y + 12);
+    }
+  }
+
+  drawStoneLantern(x, y) {
+    const g = this.back;
+    g.fillStyle(0x8d8173, 1).fillRect(x - 4, y - 22, 8, 22).fillRect(x - 10, y - 26, 20, 5);
+    g.fillStyle(0x6f655b, 1).fillRect(x - 8, y - 38, 16, 12).fillTriangle(x - 13, y - 38, x + 13, y - 38, x, y - 48);
+    g.fillStyle(0xffd166, 0.9).fillRect(x - 3, y - 35, 6, 6);
+  }
+
+  // A cherry tree in blossom.
+  drawBlossom(x, y) {
+    const g = this.back;
+    g.lineStyle(7, 0x4a3b2c, 1).lineBetween(x, y, x + 4, y - 60);
+    g.lineStyle(4, 0x4a3b2c, 1).lineBetween(x + 3, y - 45, x - 24, y - 70).lineBetween(x + 4, y - 55, x + 28, y - 78);
+    const pinks = [0xffc8dd, 0xffafcc, 0xffe5ec, 0xf4acb7];
+    for (let k = 0; k < 10; k++) {
+      g.fillStyle(pinks[k % pinks.length], 1);
+      g.fillCircle(x + Phaser.Math.Between(-36, 40), y - 62 - Phaser.Math.Between(0, 30), Phaser.Math.Between(12, 20));
+    }
+  }
+
+  // A seated stone figure on a plinth.
+  drawStatue(x, y) {
+    const g = this.back;
+    g.fillStyle(0x6f655b, 1).fillRect(x - 18, y - 10, 36, 10);
+    g.fillStyle(0x9c9287, 1).fillEllipse(x, y - 18, 34, 18).fillEllipse(x, y - 34, 20, 26).fillCircle(x, y - 52, 9);
+    g.fillStyle(0x8d8173, 1).fillCircle(x, y - 60, 4);
+  }
+
+  // Walls and posts you pass through (drawn behind everyone).
+  // Everything you can walk through is drawn see-through and shadowy, so
+  // you can tell it apart from solid walls at a glance.
+  drawStoneWall(o) {
+    const g = this.back;
+    g.fillStyle(0x1b1d22, 0.35).fillRect(o.x, o.y, o.width, o.height);
+    g.lineStyle(1, 0x8ecae6, 0.25);
+    for (let y = o.y + 10; y < o.y + o.height; y += 10) g.lineBetween(o.x, y, o.x + o.width, y);
+    g.strokeRect(o.x, o.y, o.width, o.height);
+  }
+
+  // A "shadow" grave: a dark see-through headstone with a faint cold glow.
+  // You pass right through it (solid ones are plain grey stone).
+  drawGhostStone(o) {
+    const g = this.scene.add.graphics().setDepth(2);
+    const x = o.x + 4;
+    const w = o.width - 8;
+    const y = o.y + 4;
+    const h = o.height - 4;
+    g.fillStyle(0x0d1b2a, 0.45).fillRoundedRect(x, y, w, h, { tl: w / 2, tr: w / 2, bl: 0, br: 0 });
+    g.lineStyle(2, 0x8ecae6, 0.35).strokeRoundedRect(x, y, w, h, { tl: w / 2, tr: w / 2, bl: 0, br: 0 });
+    this.scene.tweens.add({ targets: g, alpha: 0.55, duration: Phaser.Math.Between(1400, 2200), yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+  }
+
+  // A concrete / brick pillar holding something up, drawn behind you.
+  drawPillar(o) {
+    const g = this.back;
+    const color = this.palette.rock ?? 0x8a4b2a;
+    g.fillStyle(color, 0.3).fillRect(o.x, o.y, o.width, o.height);
+    g.fillStyle(0x000000, 0.15).fillRect(o.x + o.width - 8, o.y, 8, o.height);
+    g.lineStyle(1, 0xffffff, 0.15);
+    for (let y = o.y + 12; y < o.y + o.height; y += 12) g.lineBetween(o.x, y, o.x + o.width - 8, y);
+    g.strokeRect(o.x, o.y, o.width, o.height);
+  }
+
+  drawWoodPost(o) {
+    const g = this.back;
+    const w = Math.min(o.width, 12);
+    g.fillStyle(0x8c2f1e, 0.35).fillRect(o.x + (o.width - w) / 2, o.y, w, o.height);
+    g.fillStyle(0x5e1f14, 0.35).fillRect(o.x + (o.width - w) / 2, o.y, 3, o.height);
+  }
+
+  // ---- Space ----
+
+  // Stars: tiny dots far away, a few twinkling.
+  drawStars() {
+    const g = this.scene.add.graphics().setScrollFactor(0.02).setDepth(-99);
+    for (let i = 0; i < this.sky.stars; i++) {
+      const x = Phaser.Math.Between(0, VIEW_W * 1.3);
+      const y = Phaser.Math.Between(0, VIEW_H * 1.3);
+      g.fillStyle(Phaser.Utils.Array.GetRandom([0xffffff, 0xcaf0f8, 0xffe5ec]), Phaser.Math.FloatBetween(0.4, 1)).fillCircle(x, y, Phaser.Math.FloatBetween(0.6, 1.8));
+    }
+    for (let i = 0; i < 12; i++) {
+      const s = this.scene.add.circle(Phaser.Math.Between(0, VIEW_W), Phaser.Math.Between(0, VIEW_H), 2, 0xffffff).setScrollFactor(0.02).setDepth(-99);
+      this.scene.tweens.add({ targets: s, alpha: 0.1, duration: Phaser.Math.Between(600, 1600), yoyo: true, repeat: -1 });
+    }
+  }
+
+  // A big planet with a ring.
+  drawPlanet() {
+    const { color, x, y, size = 1, ring } = this.sky.planet;
+    const factor = 0.04;
+    const sx = VIEW_W * x;
+    const sy = this.placeY(VIEW_H * y, factor);
+    const r = 70 * size;
+    const g = this.scene.add.graphics().setScrollFactor(factor).setDepth(-99);
+    g.fillStyle(color, 0.15).fillCircle(sx, sy, r * 1.25);
+    g.fillStyle(color, 1).fillCircle(sx, sy, r);
+    g.fillStyle(0x3a0ca3, 0.5).fillEllipse(sx + r * 0.25, sy + r * 0.2, r * 1.4, r * 0.5);
+    g.fillStyle(0xffffff, 0.15).fillCircle(sx - r * 0.35, sy - r * 0.35, r * 0.4);
+    if (ring) {
+      g.lineStyle(5, ring, 0.7);
+      g.strokeEllipse(sx, sy, r * 3, r * 0.7);
+    }
+  }
+
+  // The moon base's glass dome.
+  drawDome(x, y) {
+    const g = this.back;
+    g.fillStyle(0x90e0ef, 0.35).slice(x, y, 60, Math.PI, 0, false).fillPath();
+    g.lineStyle(2, 0xcaf0f8, 0.8).beginPath().arc(x, y, 60, Math.PI, 0, false).strokePath();
+    g.lineStyle(1, 0xcaf0f8, 0.4).lineBetween(x - 30, y - 52, x - 30, y).lineBetween(x + 30, y - 52, x + 30, y).lineBetween(x - 56, y - 22, x + 56, y - 22);
+  }
+
+  drawAntenna(x, y) {
+    const g = this.back;
+    g.lineStyle(3, 0x8d99ae, 1).lineBetween(x, y, x, y - 70).lineBetween(x, y - 40, x - 14, y).lineBetween(x, y - 40, x + 14, y);
+    g.fillStyle(0xadb5bd, 1).fillEllipse(x + 10, y - 66, 26, 10);
+    const light = this.scene.add.circle(x, y - 72, 3, 0xe63946).setDepth(-1);
+    this.scene.tweens.add({ targets: light, alpha: 0.1, duration: 700, yoyo: true, repeat: -1 });
+  }
+
+  drawSolar(x, y) {
+    const g = this.back;
+    g.lineStyle(3, 0x8d99ae, 1).lineBetween(x, y, x, y - 20);
+    g.fillStyle(0x1d3557, 1).fillRect(x - 26, y - 34, 52, 16);
+    g.lineStyle(1, 0x4895ef, 1);
+    for (let k = -26; k <= 26; k += 13) g.lineBetween(x + k, y - 34, x + k, y - 18);
+    g.lineBetween(x - 26, y - 26, x + 26, y - 26);
+  }
+
+  // The Oracle on her dais: a stone seat, a hooded figure, a glowing orb
+  // floating over her hands, a soft halo pulsing.
+  drawOracle(x, y) {
+    const g = this.back;
+    g.fillStyle(0x6f655b, 1).fillRect(x - 40, y - 12, 80, 12).fillRect(x - 30, y - 18, 60, 6);
+    g.fillStyle(0x4a1942, 1).fillTriangle(x - 18, y - 18, x + 18, y - 18, x, y - 62); // robe
+    g.fillStyle(0x2b0f28, 1).fillCircle(x, y - 60, 9);                                // hood
+    g.fillStyle(0xe9c46a, 0.9).fillCircle(x, y - 62, 4);                               // face in shadow
+    const halo = this.scene.add.circle(x, y - 60, 22, 0xffd166, 0.12).setDepth(-1);
+    this.scene.tweens.add({ targets: halo, scale: 1.4, alpha: 0.04, duration: 1600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    const orb = this.scene.add.circle(x, y - 34, 7, 0x90e0ef, 0.9).setDepth(-1);
+    this.scene.tweens.add({ targets: orb, y: y - 40, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    const glow = this.scene.add.circle(x, y - 34, 18, 0x90e0ef, 0.2).setDepth(-1).setBlendMode(Phaser.BlendModes.ADD);
+    this.scene.tweens.add({ targets: glow, y: y - 40, scale: 1.3, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+  }
+
+  // A bronze fire bowl on legs: flames and a curl of incense smoke.
+  drawBrazier(x, y) {
+    const g = this.back;
+    g.lineStyle(3, 0x5e3b1e, 1).lineBetween(x - 10, y, x - 6, y - 22).lineBetween(x + 10, y, x + 6, y - 22);
+    g.fillStyle(0xb08968, 1).slice(x, y - 26, 14, 0, Math.PI, false).fillPath();
+    this.scene.add
+      .particles(x, y - 28, 'hz-dot', {
+        x: { min: -8, max: 8 },
+        lifespan: 500,
+        speedY: { min: -70, max: -30 },
+        scale: { start: 0.5, end: 0.05 },
+        tint: [0xffd166, 0xff9f1c, 0xe85d04],
+        blendMode: 'ADD',
+        frequency: 50,
+      })
+      .setDepth(-1);
+    this.scene.add
+      .particles(x, y - 40, 'hz-dot', {
+        lifespan: 2600,
+        speedY: { min: -30, max: -15 },
+        speedX: { min: -8, max: 8 },
+        scale: { start: 0.3, end: 1.2 },
+        alpha: { start: 0.25, end: 0 },
+        tint: 0xdddddd,
+        frequency: 300,
+      })
+      .setDepth(-1);
+  }
+
+  // The great gong on its wooden frame.
+  drawGong(x, y) {
+    const g = this.back;
+    g.lineStyle(5, 0x8c2f1e, 1).lineBetween(x - 34, y, x - 34, y - 86).lineBetween(x + 34, y, x + 34, y - 86).lineBetween(x - 40, y - 84, x + 40, y - 84);
+    g.lineStyle(2, 0x3d3a36, 1).lineBetween(x - 10, y - 84, x - 6, y - 72).lineBetween(x + 10, y - 84, x + 6, y - 72);
+    g.fillStyle(0xc9a227, 1).fillCircle(x, y - 46, 27);
+    g.lineStyle(2, 0x8d6e1a, 1).strokeCircle(x, y - 46, 27).strokeCircle(x, y - 46, 12);
+  }
+
+  // A white stupa: a stepped base, a dome, a gold spire with rings.
+  drawStupa(x, y) {
+    const g = this.back;
+    g.fillStyle(0xd8d2c4, 1).fillRect(x - 56, y - 10, 112, 10).fillRect(x - 46, y - 18, 92, 8);
+    g.fillStyle(0xf1ece2, 1).slice(x, y - 18, 40, Math.PI, 0, false).fillPath();
+    g.fillStyle(0xd8d2c4, 1).fillRect(x - 12, y - 66, 24, 10);
+    g.fillStyle(0xc9a227, 1).fillTriangle(x - 9, y - 66, x + 9, y - 66, x, y - 110);
+    g.lineStyle(2, 0x8d6e1a, 1);
+    for (let k = 0; k < 4; k++) g.lineBetween(x - 7 + k * 1.6, y - 72 - k * 8, x + 7 - k * 1.6, y - 72 - k * 8);
+    g.fillStyle(0x2b2220, 1).fillCircle(x - 4, y - 46, 2).fillCircle(x + 4, y - 46, 2); // the painted eyes
+  }
+
+  // A row of prayer wheels on a rail.
+  drawPrayerWheels(x, y) {
+    const g = this.back;
+    g.lineStyle(3, 0x5e3b1e, 1).lineBetween(x - 44, y - 40, x + 44, y - 40).lineBetween(x - 44, y, x - 44, y - 40).lineBetween(x + 44, y, x + 44, y - 40);
+    for (let k = -3; k <= 3; k++) {
+      g.fillStyle(k % 2 ? 0xc9a227 : 0x9c2a1b, 1).fillRoundedRect(x + k * 12 - 5, y - 34, 10, 20, 3);
+      g.lineStyle(1, 0x3d2b1f, 1).lineBetween(x + k * 12, y - 14, x + k * 12, y - 4);
+    }
+  }
+
+  // Shelves of scripture scrolls.
+  drawScrolls(x, y) {
+    const g = this.back;
+    g.fillStyle(0x5e3b1e, 1).fillRect(x - 30, y - 70, 60, 70);
+    for (let row = 0; row < 4; row++) {
+      for (let k = 0; k < 5; k++) g.fillStyle(row % 2 ? 0xf1e3c6 : 0xe9c46a, 1).fillCircle(x - 22 + k * 11, y - 60 + row * 16, 4);
+    }
+  }
+
+  // Glacier's lower layer: a dark, cold ice cave you pass through. Deep blue
+  // ice walls (see-through, so they read as "not solid"), faint cracks,
+  // glinting crystals, a cold glow under the ice sheet, drips.
+  drawIceWall(o) {
+    const g = this.back;
+    g.fillStyle(0x061424, 0.82).fillRect(o.x, o.y, o.width, o.height);
+    g.fillStyle(0x0b2a4a, 0.5).fillRect(o.x, o.y, o.width, 10);               // the ice sheet's underside
+    g.lineStyle(1, 0x48cae4, 0.18);
+    for (let x = o.x + 40; x < o.x + o.width; x += 70) g.lineBetween(x, o.y, x - 24, o.y + o.height * 0.7);
+    for (let i = 0; i < Math.round(o.width / 40); i++) {
+      const cx = o.x + Phaser.Math.Between(6, o.width - 6);
+      const cy = o.y + Phaser.Math.Between(10, Math.max(12, o.height - 10));
+      const glint = this.scene.add.circle(cx, cy, Phaser.Math.FloatBetween(1, 2.2), 0x90e0ef, 0.8).setDepth(-5);
+      this.scene.tweens.add({ targets: glint, alpha: 0.1, duration: Phaser.Math.Between(900, 2200), yoyo: true, repeat: -1, delay: Phaser.Math.Between(0, 2000) });
+    }
+    this.scene.add
+      .particles(0, 0, 'hz-dot', {
+        x: { min: o.x, max: o.x + o.width },
+        y: o.y + 10,
+        lifespan: 1400,
+        speedY: { min: 160, max: 260 },
+        scale: { min: 0.08, max: 0.14 },
+        alpha: { start: 0.7, end: 0.2 },
+        tint: 0xcaf0f8,
+        frequency: Math.max(60, 9000 / o.width),
+      })
+      .setDepth(-5);
+  }
+
+  // The pagoda tier's floor: a dark wooden deck with a red railing.
+  drawBalcony(o) {
+    const g = this.scene.add.graphics().setDepth(0); // over the tiles, under characters
+    g.fillStyle(0x3d2416, 1).fillRect(o.x - 8, o.y, o.width + 16, 12);
+    g.fillStyle(0x5e3b1e, 1).fillRect(o.x - 8, o.y + 12, o.width + 16, 8);
+    g.fillStyle(0x8c2f1e, 1).fillRect(o.x - 12, o.y + 20, o.width + 24, 6);
+    g.lineStyle(2, 0x8c2f1e, 0.9).lineBetween(o.x - 8, o.y - 18, o.x + o.width + 8, o.y - 18);
+    for (let x = o.x - 8; x <= o.x + o.width + 8; x += 16) g.lineBetween(x, o.y - 18, x, o.y);
+  }
+
+  // A burnt-out car drawn over its solid block (so it reads as a car).
+  drawWreck(o) {
+    const g = this.scene.add.graphics().setDepth(0); // over the tiles, under characters
+    const x = o.x;
+    const y = o.y + o.height;
+    const w = o.width;
+    if (o.height > 70) {
+      // The tank (its hull is the solid part at x+64 on; the gun is only drawn).
+      const hx = x + 64;
+      const hw = w - 64;
+      g.fillStyle(0x2b2d1b, 1).fillRoundedRect(hx, y - 30, hw, 30, 12);
+      g.fillStyle(0x4a4e2f, 1);
+      for (let k = 14; k < hw; k += 28) g.fillCircle(hx + k, y - 14, 10);
+      g.fillStyle(0x5c6138, 1).fillRoundedRect(hx - 4, y - 66, hw + 8, 40, 10);
+      g.fillStyle(0x6b7044, 1).fillRoundedRect(x + 118, y - 98, 84, 36, 14);
+      g.lineStyle(12, 0x4a4e2f, 1).lineBetween(x + 4, y - 84, x + 124, y - 82);
+      g.fillStyle(0x3d3a36, 0.7).fillCircle(x + 180, y - 46, 9); // a scorch
+      return;
+    }
+    g.fillStyle(0x6b4f2e, 1).fillRoundedRect(x - 2, y - 34, w + 4, 30, 8);           // rusted body
+    g.fillStyle(0x5e3b1e, 1).fillRoundedRect(x + w * 0.2, y - 66, w * 0.6, 36, 12);  // cabin
+    g.fillStyle(0x1b1b1f, 1).fillRect(x + w * 0.27, y - 58, w * 0.19, 16).fillRect(x + w * 0.54, y - 58, w * 0.19, 16); // empty windows
+    g.fillStyle(0x1b1b1f, 1).fillCircle(x + w * 0.2, y - 10, 10).fillCircle(x + w * 0.8, y - 10, 10);
+    g.fillStyle(0x3d3a36, 0.6).fillCircle(x + w * 0.4, y - 24, 6);
+  }
+
+  // ---- Wastelands ----
+
+  drawLamppost(x, y) {
+    const g = this.back;
+    const bent = (x * 7) % 3 === 0;
+    g.lineStyle(4, 0x343a40, 1).lineBetween(x, y, x, y - 70);
+    if (bent) g.lineBetween(x, y - 70, x + 22, y - 58);
+    else g.lineBetween(x, y - 70, x + 18, y - 74);
+    g.fillStyle(0x495057, 1).fillRect(x + (bent ? 18 : 14), y - (bent ? 60 : 77), 10, 5);
+  }
+
+  drawSign(x, y) {
+    const g = this.back;
+    g.lineStyle(3, 0x495057, 1).lineBetween(x - 20, y, x - 20, y - 50).lineBetween(x + 20, y, x + 20, y - 50);
+    g.fillStyle(0x2d6a4f, 1).fillRect(x - 30, y - 70, 60, 26);
+    g.lineStyle(2, 0xffffff, 0.8).strokeRect(x - 27, y - 67, 54, 20);
+    g.fillStyle(0x6b4f2e, 0.7).fillCircle(x + 10, y - 60, 6); // rust hole
+  }
+
+  drawTires(x, y) {
+    const g = this.back;
+    for (const [dx, dy] of [[-10, 0], [10, 0], [0, -10]]) {
+      g.fillStyle(0x1b1b1f, 1).fillEllipse(x + dx, y + dy - 6, 22, 12);
+      g.fillStyle(0x495057, 1).fillEllipse(x + dx, y + dy - 6, 8, 4);
+    }
   }
 
   // ---- Graveyard and Catacombs ----

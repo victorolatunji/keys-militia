@@ -15,20 +15,22 @@ export const TILE_FAMILY = {
   1: 'top', 8: 'top', 9: 'top', 10: 'top',
   2: 'soil', 3: 'deep',
   4: 'sand', 14: 'sand', 15: 'sand', 16: 'sand',
-  5: 'plank',
+  5: 'plank', 26: 'plank', // 26: invisible solid (under a drawn roof)
   6: 'under', 17: 'under', 18: 'under', 19: 'under',
   7: 'rock', 11: 'rock', 12: 'rock', 13: 'rock',
   20: 'ice', 21: 'ice', 22: 'ice', 23: 'ice',
   24: 'thin',
+  25: 'crumble',
 };
 
 // Tile families you slide on (see ICE in hazards.js).
 export const SLIPPERY = new Set(['ice', 'thin']);
 
 // Testing: F6 switches to the next map (remembered in this browser), or
-// open the game with ?map=forest / hell / glacier / desert / catacombs / graveyard / test.
+// open the game with ?map= and a map's key (forest, hell, glacier, desert,
+// catacombs, graveyard, monastery, wastelands, test).
 export const MAP_SELECT = {
-  order: ['forest', 'hell', 'glacier', 'desert', 'catacombs', 'graveyard', 'test'],
+  order: ['forest', 'hell', 'glacier', 'desert', 'catacombs', 'graveyard', 'monastery', 'wastelands', 'skyislands', 'space', 'test'],
   default: 'forest',
   key: 'F6',
   storageKey: 'keys-militia.map',
@@ -299,5 +301,150 @@ export const MAPS = {
     },
     palette: { top: 0x3a5a40, soil: 0x4a3b2c, deep: 0x3b3a3f, sand: 0x8a8580, plank: 0x5c4033, under: 0x3b2f24, rock: 0x9aa0a6, cave: 0x0d0b10 },
     void: null,
+  },
+  // Monastery: built into a mountain over a sea of cloud. Three levels with
+  // air to fight in (the halls' upper floors and a pagoda roof, the
+  // courtyard, the lower terraces), slim floors, crumbling bridges and
+  // stairs, bamboo groves, cherry blossom, prayer flags, stone lanterns.
+  // Hazard: crumbling stone (it breaks under you, then is rebuilt) and
+  // rockfalls off the cliffs (a trickle of pebbles warns you).
+  // Advantage: hide in the bamboo groves (it rustles when someone moves in it).
+  monastery: {
+    key: 'monastery',
+    name: 'Monastery',
+    background: '#f4a261',
+    tilemapKey: 'map-monastery',
+    tilemapFile: 'assets/maps/monastery.json',
+    tilesetName: 'monastery-tiles',
+    tilesetKey: 'tiles-monastery',
+    tilesetFile: 'assets/tilesets/monastery-tiles.png',
+    enemies: {
+      slots: { main: 2, machine: 1, animal: 1 },
+      families: ['military', 'scifi', 'undead'],
+    },
+    sky: {
+      colors: [0x355070, 0x6d597a, 0xb56576, 0xeaac8b, 0xffe5d9],
+      sun: { color: 0xffd6a5, x: 0.25, y: 0.3, size: 1.3 },
+      clouds: { count: 9, color: 0xffe5d9 },
+      ridges: [
+        { color: 0x8d7aa0, factor: 0.1, height: 300, rough: 1, spiky: true, snowCaps: true },
+        { color: 0x5e548e, factor: 0.22, height: 240, rough: 1.1, spiky: true, snowCaps: true },
+      ],
+      petals: true,          // cherry blossom petals drifting
+      horizonY: 1024,
+    },
+    palette: { top: 0xb7a99a, soil: 0x8d8173, deep: 0x6f655b, sand: 0xc2b6a3, plank: 0x8c2f1e, under: 0x7a6f63, rock: 0x9c9287, crumble: 0xa9a094, cave: 0x2b2220 },
+    void: {
+      top: 1700,
+      deathY: 1980,
+      color: 0xf1e9e4,       // a sea of cloud far below
+      glowColor: 0xffffff,
+      deathMessage: 'Fell off the mountain',
+    },
+  },
+
+  // Wastelands: a ruined city. Three levels: the
+  // broken highway overpass, the street (wrecked cars, a tank, craters), the
+  // sewer under it. Dead trees, lampposts, tyres, a smoggy sky.
+  // No void: the sewer floor is solid ground.
+  // Hazard: toxic puddles and radiation zones drain you slowly.
+  // Advantage: wrecks for cover.
+  wastelands: {
+    key: 'wastelands',
+    name: 'Wastelands',
+    background: '#6b705c',
+    tilemapKey: 'map-wastelands',
+    tilemapFile: 'assets/maps/wastelands.json',
+    tilesetName: 'wastelands-tiles',
+    tilesetKey: 'tiles-wastelands',
+    tilesetFile: 'assets/tilesets/wastelands-tiles.png',
+    enemies: {
+      slots: { main: 2, machine: 1, animal: 1 },
+      families: ['military', 'undead', 'scifi'],
+    },
+    sky: {
+      colors: [0x3d405b, 0x6b705c, 0xa5a58d, 0xb7b7a4, 0x6b705c],
+      sun: { color: 0xe9edc9, x: 0.7, y: 0.18, size: 0.8 },
+      clouds: { count: 8, color: 0x8a8d7a },
+      ridges: [
+        { color: 0x5c5f52, factor: 0.1, height: 260, skyline: true },
+        { color: 0x3f4238, factor: 0.22, height: 200, skyline: true },
+      ],
+      ash: true,             // ash drifting down
+      horizonY: 1024,
+    },
+    palette: { top: 0x4a4a4f, soil: 0x7d7a73, deep: 0x5e5b55, sand: 0x8c7b5e, plank: 0x6b4f2e, under: 0x5e5b55, rock: 0x8a4b2a, crumble: 0x8f8b82, cave: 0x15140f },
+    void: null,              // no void: the sewer floor is solid ground
+  },
+
+  // Sky Islands: grassy islands floating high in the sky over a sea of
+  // cloud. Three levels of islands, a rope bridge.
+  // Hazard: gusts of wind push everyone sideways (hard in the air).
+  // Low gravity (a bit heavier than Space). Advantage: ride the wind.
+  skyislands: {
+    key: 'skyislands',
+    name: 'Sky Islands',
+    background: '#8ecae6',
+    tilemapKey: 'map-skyislands',
+    tilemapFile: 'assets/maps/skyislands.json',
+    tilesetName: 'skyislands-tiles',
+    tilesetKey: 'tiles-skyislands',
+    tilesetFile: 'assets/tilesets/skyislands-tiles.png',
+    enemies: {
+      slots: { main: 2, machine: 1, animal: 1 },
+      families: ['military', 'scifi', 'undead'],
+    },
+    sky: {
+      colors: [0x219ebc, 0x5fb4d6, 0x8ecae6, 0xc6e6f2, 0xffffff],
+      sun: { color: 0xfff3b0, x: 0.75, y: 0.2, size: 1.1 },
+      clouds: { count: 14, color: 0xffffff },
+      birds: true,
+      horizonY: 1600,
+    },
+    palette: { top: 0x70c26a, soil: 0x9c6b3f, deep: 0x7a5230, sand: 0xe0c98a, plank: 0x8a5a2b, under: 0x6e4a2a, rock: 0xa7a9ac, cave: 0x2b2220 },
+    wind: true,
+    gravity: 200,            // low: floaty, a bit heavier than Space
+    void: {
+      top: 1800,
+      deathY: 2050,
+      color: 0xffffff,       // a sea of cloud far below
+      glowColor: 0xffffff,
+      deathMessage: 'Fell from the sky',
+    },
+  },
+
+  // Space: asteroids drifting in open space, a moon base on the middle one.
+  // Very low gravity: big floaty jumps, the jetpack goes a long way.
+  // Hazard: meteor showers (a red ring shows where one will hit).
+  // Advantage: low gravity; the base's roof and walls are cover.
+  space: {
+    key: 'space',
+    name: 'Space',
+    background: '#03001c',
+    tilemapKey: 'map-space',
+    tilemapFile: 'assets/maps/space.json',
+    tilesetName: 'space-tiles',
+    tilesetKey: 'tiles-space',
+    tilesetFile: 'assets/tilesets/space-tiles.png',
+    enemies: {
+      slots: { main: 2, machine: 1, animal: 1 },
+      families: ['scifi', 'military'],
+    },
+    sky: {
+      colors: [0x03001c, 0x0b0530, 0x1b1045, 0x0b0530, 0x03001c],
+      stars: 220,
+      planet: { color: 0x4361ee, x: 0.78, y: 0.28, size: 1.6, ring: 0xbde0fe },
+      moon: { color: 0xe0e1dd, x: 0.15, y: 0.18 },
+      horizonY: 1600,
+    },
+    palette: { top: 0xc9c9d6, soil: 0x8e8ea3, deep: 0x5f5f75, sand: 0xb8b8c8, plank: 0x6c7a89, under: 0x55556a, rock: 0x6d5a7a, cave: 0x10142a },
+    gravity: 110,            // very low (normal is 800)
+    void: {
+      top: 1800,
+      deathY: 2050,
+      color: 0x03001c,
+      glowColor: 0x7209b7,
+      deathMessage: 'Lost in space',
+    },
   },
 };

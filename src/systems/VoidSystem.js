@@ -20,18 +20,21 @@ export default class VoidSystem {
   // the death line, solid lava below it.
   drawLavaSea() {
     const surfaceY = this.deathY - 40;
+    // seaColors: [body, deep, glow, surface] (Wastelands: toxic sludge)
+    const [bodyC, deepC, glowC, surfC] = this.map.void.seaColors ?? [0xe85d04, 0x9d0208, 0xff5400, 0xffba08];
+    this.surfaceColor = surfC;
     this.lavaY = surfaceY;
     this.scene.add
-      .rectangle(0, surfaceY - 220, this.width, 220, 0xff5400, 0.12)
+      .rectangle(0, surfaceY - 220, this.width, 220, glowC, 0.12)
       .setOrigin(0, 0)
       .setBlendMode(Phaser.BlendModes.ADD)
       .setDepth(10);
     this.scene.add
-      .rectangle(0, surfaceY, this.width, this.height - surfaceY, 0xe85d04)
+      .rectangle(0, surfaceY, this.width, this.height - surfaceY, bodyC)
       .setOrigin(0, 0)
       .setDepth(10);
     this.scene.add
-      .rectangle(0, surfaceY + 50, this.width, this.height - surfaceY, 0x9d0208)
+      .rectangle(0, surfaceY + 50, this.width, this.height - surfaceY, deepC)
       .setOrigin(0, 0)
       .setDepth(10);
     this.lavaSurface = this.scene.add.graphics().setDepth(10);
@@ -44,7 +47,7 @@ export default class VoidSystem {
     const x0 = Math.max(0, Math.floor(cam.scrollX / 16) * 16 - 16);
     const x1 = Math.min(this.width, cam.scrollX + cam.width + 32);
     g.clear();
-    g.fillStyle(0xffba08, 1);
+    g.fillStyle(this.surfaceColor, 1);
     g.beginPath();
     g.moveTo(x0, this.lavaY + 14);
     for (let x = x0; x <= x1; x += 16) {
@@ -114,7 +117,7 @@ export default class VoidSystem {
   update(player) {
     if (player === this.scene.player) this.drawLavaSurface(this.scene.time.now);
     if (player.alive && player.y > this.deathY) {
-      if (this.map.void.lava) this.scene.sfx?.play('lavaSizzle', player);
+      if (this.map.void.lava) this.scene.sfx?.play(this.map.void.seaColors ? 'sandSink' : 'lavaSizzle', player);
       this.onFall(player);
     }
   }
