@@ -4,6 +4,12 @@ import { RIG, RIG_FOLDERS, OVERRIDES, WEAPON_LENGTH, MELEE_LENGTH, GRIPS, MELEE_
 import { WEAPONS } from '../data/weapons.js';
 import { blendColor } from '../ui/color.js';
 
+// Multiply two colors (a tint over a tint).
+const multiply = (a, b) => {
+  const ch = (c, s) => (c >> s) & 255;
+  return [16, 8, 0].reduce((out, s) => out | (Math.round((ch(a, s) * ch(b, s)) / 255) << s), 0);
+};
+
 const LIMBS = ['back-upper-arm', 'back-forearm', 'back-thigh', 'back-shin'];
 export const partKey = (folder, part) => `spr-${folder}-${part}`;
 export const gunKey = (key) => `spr-gun-${key}`;
@@ -32,7 +38,11 @@ export default class CharacterRig {
     this.headAt = { ...RIG.head, ...(o.head ?? {}) };
     this.packAt = { ...RIG.jetpack, ...(o.jetpack ?? {}) };
     this.phase = 0;
+    // Army green: some Military spawn with their clothes tinted green.
+    const rc = o.recolor;
+    this.recolor = rc && Math.random() < rc.chance ? rc : null;
     this.images = [];
+    this.lastFlash = 'unset'; // so the first frame paints the tints
     this.heldKey = null;
     this.build();
   }
@@ -44,6 +54,7 @@ export default class CharacterRig {
     const img = this.scene.add.image(x, y, partKey(this.folder, part));
     img.setOrigin(...(origin ?? [p.top[0] / p.w, p.top[1] / p.h]));
     img.baseTint = LIMBS.includes(part) ? RIG.backTint : 0xffffff;
+    if (this.recolor?.parts.includes(part)) img.baseTint = multiply(img.baseTint, this.recolor.tint);
     this.images.push(img);
     return img;
   }
@@ -86,13 +97,27 @@ export default class CharacterRig {
       const P = this.packAt;
       this.pack = s.add.container(...at(A.back));
       const img = this.image('jetpack', 0, 0, P.strap);
-      img.baseTint = 0xffffff;
+      img.baseTint = this.recolor?.parts.includes('jetpack') ? this.recolor.tint : 0xffffff;
       this.pack.add(img);
       if (this.parts['jet-flame']) {
         const F = this.parts['jet-flame'];
         this.flame = this.image('jet-flame', J.w * (P.nozzle[0] - P.strap[0]), J.h * (P.nozzle[1] - P.strap[1]), [0.5, 0.04]);
         this.flame.baseTint = 0xffffff;
         this.pack.addAt(this.flame, 0); // behind the pack
+      }
+    }
+
+    // Machines with no jetpack (Robot, Android, Scrap Bot) fly on thruster
+    // boots: a flame under each sole.
+    this.bootFlames = [];
+    if (!this.parts.jetpack && this.parts['jet-flame']) {
+      for (const [leg, shin] of [[this.frontLeg, 'front-shin'], [this.backLeg, 'back-shin']]) {
+        const S = this.parts[shin];
+        const f = this.image('jet-flame', S.w * RIG.bootFlame.at[0] - S.top[0], S.h * RIG.bootFlame.at[1] - S.top[1], [0.5, 0.04]);
+        f.baseTint = 0xffffff;
+        f.setScale(RIG.bootFlame.scale);
+        leg.joint.addAt(f, 0); // behind the boot
+        this.bootFlames.push(f);
       }
     }
 
@@ -146,6 +171,9 @@ export default class CharacterRig {
       };
       lean = R.run.lean;
       bob = -R.run.bob * Math.abs(Math.sin(this.phase));
+    } else if (o.crouching) {
+      pose = R.crouch;
+      lean = R.crouch.lean;
     } else if (!ground && o.thrusting) {
       pose = R.fly;
       lean = R.fly.lean;
@@ -182,16 +210,63 @@ export default class CharacterRig {
     turn(this.head, Phaser.Math.Clamp(aim * A.headFollow, -14, 14));
 
     // Jet flame: on while thrusting, flickering.
+    // Walkers (Zombie, Skeleton, Mutant) only wear their jetpack when
+    // they're you or your partner; anything that flies always does.
+    if (this.pack) this.pack.setVisible(o === this.scene.player || o.isPartner || o.movement === 'jetpack');
+    for (const f of this.bootFlames) {
+      f.setVisible(o.thrusting);
+      if (o.thrusting) f.setScale(RIG.bootFlame.scale * Phaser.Math.FloatBetween(0.85, 1.15), RIG.bootFlame.scale * Phaser.Math.FloatBetween(0.75, 1.2));
+    }
     if (this.flame) {
-      this.flame.setVisible(o.thrusting);
+      this.flame.setVisible(o.thrusting && this.pack.visible);
       if (o.thrusting) this.flame.setScale(Phaser.Math.FloatBetween(0.85, 1.15), Phaser.Math.FloatBetween(0.75, 1.2));
     }
 
     // Place it: feet on the bottom of the physics box, flipped to face the way it faces.
     if (this.drawHeight !== o.height * R.heightScale) this.resize();
     this.root.setScale(this.scale * facing, this.scale);
-    this.root.setPosition(o.x, o.body.bottom - this.legLength * this.scale + bob * this.scale);
+    // Bent legs lift the feet: lower the hips by as much, so they stay on the ground.
+    const drop = ground ? this.legDrop() : 0;
+    this.root.setPosition(o.x, o.body.bottom - this.legLength * this.scale + (bob + drop) * this.scale);
     this.updateTint(visible);
+  }
+
+  // How much higher the foot is with the front leg bent as it is now.
+  legDrop() {
+    const T = this.parts['front-thigh'];
+    const thigh = T.bot[1] - T.top[1];
+    const shin = this.legLength - thigh;
+    const a1 = Phaser.Math.DegToRad(this.frontLeg.root.angle);
+    const a2 = a1 + Phaser.Math.DegToRad(this.frontLeg.joint.angle);
+    return Math.max(0, thigh + shin - (thigh * Math.cos(a1) + shin * Math.cos(a2)));
+  }
+
+  // Where every visible body part is right now (for the death scatter):
+  // texture, world position, angle, size, flip and tint.
+  pieces() {
+    const out = [];
+    const flip = (this.owner.facing ?? 1) < 0;
+    for (const img of [...this.images, this.held]) {
+      if (!this.isShown(img)) continue;
+      const m = img.getWorldTransformMatrix().decomposeMatrix();
+      out.push({
+        key: img.texture.key,
+        x: m.translateX,
+        y: m.translateY,
+        angle: Phaser.Math.RadToDeg(m.rotation) * (flip ? -1 : 1),
+        scale: Math.abs(m.scaleX),
+        flipX: flip,
+        tint: img === this.held ? 0xffffff : img.baseTint,
+        origin: [img.originX, img.originY],
+      });
+    }
+    return out;
+  }
+
+  // Is it showing (it and every container above it)?
+  isShown(obj) {
+    for (let o = obj; o; o = o.parentContainer) if (!o.visible) return false;
+    return true;
   }
 
   // The direction the weapon points (degrees, 0 = straight ahead, + = down),
@@ -199,7 +274,7 @@ export default class CharacterRig {
   aimDeg(facing) {
     const o = this.owner;
     const t = o.aimTarget?.();
-    let deg = RIG.aim.restDeg;
+    let deg = o.restAim ?? RIG.aim.restDeg; // Training's coaches hold theirs lowered
     if (t) {
       const dx = (t.x - o.x) * facing;
       const dy = t.y - (o.y - o.height * 0.15);

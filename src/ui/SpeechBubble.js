@@ -58,7 +58,7 @@ export default class SpeechBubble {
     }
     const s = this.speaker;
     const x = Phaser.Math.Clamp(s.x - this.w / 2, 8, this.scene.physics.world.bounds.width - this.w - 8);
-    const y = s.y - s.height / 2 - 34 - this.h - TAIL;
+    const y = (s.visualTop ?? s.y - s.height / 2) - 26 - this.h - TAIL;
     const g = this.bg.clear();
     g.fillStyle(0x000000, 0.25).fillRoundedRect(x + 3, y + 4, this.w, this.h, 12); // soft shadow
     g.fillStyle(0xfdfcf7, 0.97).fillRoundedRect(x, y, this.w, this.h, 12);

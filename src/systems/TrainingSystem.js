@@ -242,6 +242,7 @@ export default class TrainingSystem {
     for (const [who, c] of Object.entries(TRAINING.coaches)) {
       const bot = new Bot(scene, spot.x + 40 + k * 90, this.groundY - 40, BOTS[c.bot], scene.groundLayer, () => null, 'coach');
       bot.isCoach = true;
+      bot.restAim = 62; // weapon lowered: they're teaching, not fighting
       bot.team = 'players';
       bot.hpBg.setVisible(false);
       bot.hpFill.setVisible(false);
@@ -275,7 +276,7 @@ export default class TrainingSystem {
     }
     coach.updateVisuals();
     coach.layout();
-    coach.tag.setPosition(coach.x, coach.y - coach.height / 2 - 18);
+    coach.tag.setPosition(coach.x, coach.visualTop - 10);
     coach.bubble.update(delta);
   }
 

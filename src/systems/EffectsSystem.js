@@ -3,6 +3,7 @@ import Phaser from 'phaser';
 import { isSolid } from './Terrain.js';
 import { TILE_FAMILY } from '../data/maps.js';
 import {
+
   GORE,
   GORE_LEVELS,
   FAMILY_MATERIAL,
@@ -11,6 +12,8 @@ import {
   GIBS,
   SPARKS,
 } from '../data/effects.js';
+
+const RIG_PIECE_MS = 4500; // a body's parts lie where they fell this long
 
 const GRAVITY = 900;      // px/s² for drops and pieces (close to the world's)
 const MAX_DROPS = 300;    // drops in the air at once
@@ -320,6 +323,20 @@ export default class EffectsSystem {
     // A last burst of blood (or oil, dust, straw).
     if (lvl.blood) this.hit(target, 60, 'blast');
 
+    // Drawn from body parts (art pass): those parts fly apart.
+    if (target.rig) {
+      const landSound0 = { metal: 'landScrap', bone: 'landBone', flesh: 'landFlesh' }[mat.gibs] ?? null;
+      const drip0 = mat.gibs === 'flesh' ? mat.colors[0] : null;
+      for (const part of target.rig.pieces()) this.piece(part.x, part.y, { image: part, landSound: landSound0, lifeMs: RIG_PIECE_MS }, blast, drip0);
+      target.rig.root.setVisible(false);
+      for (let i = 0; i < lvl.gibRedBits && mat.gibs === 'flesh'; i++) {
+        const size = Phaser.Math.Between(4, 7);
+        const c = Phaser.Utils.Array.GetRandom(mat.colors);
+        this.piece(x, y, { w: size, h: size, color: c }, blast, c);
+      }
+      return;
+    }
+
     // The body breaks into pieces.
     const color = target.baseColor ?? target.config?.color ?? target.fillColor ?? 0xffffff;
     // Body chunks drip blood in full gore (machines and bones don't).
@@ -372,9 +389,12 @@ export default class EffectsSystem {
     // otherwise flung out sideways and up (body parts, blast debris).
     const aimed = shape.angle !== undefined;
     const jitter = aimed ? 0 : 1;
-    const obj = this.scene.add
-      .rectangle(x + Phaser.Math.Between(-8, 8) * jitter, y + Phaser.Math.Between(-12, 8) * jitter, shape.w, shape.h, shape.color)
-      .setDepth(DEPTH - 1);
+    const img = shape.image; // a body part (art pass): flies off from where it was
+    const obj = img
+      ? this.scene.add.image(x, y, img.key).setOrigin(...img.origin).setScale(img.scale).setAngle(img.angle).setFlipX(img.flipX).setTint(img.tint).setDepth(DEPTH - 1)
+      : this.scene.add
+          .rectangle(x + Phaser.Math.Between(-8, 8) * jitter, y + Phaser.Math.Between(-12, 8) * jitter, shape.w, shape.h, shape.color)
+          .setDepth(DEPTH - 1);
     if (shape.outline) obj.setStrokeStyle(1, 0x000000, 0.8);
     const boost = blast ? 1.4 : 1;
     const dir = shape.dir ?? (Math.random() < 0.5 ? -1 : 1);
@@ -474,7 +494,7 @@ export default class EffectsSystem {
         p.vx = -p.vx * GIBS.bounce;
         nx = o.x;
       }
-      if (isSolid(this.layer, o.x, ny + o.height / 2)) {
+      if (isSolid(this.layer, o.x, ny + (o.displayHeight ?? o.height) / 2)) {
         if (p.vy > 0) {
           // Landing sound for a body piece (scrap, flesh, bone), first few bounces.
           if (p.landSound && p.vy > 120 && (p.bounces = (p.bounces ?? 0) + 1) <= 2) {

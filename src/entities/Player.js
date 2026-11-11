@@ -97,6 +97,7 @@ export default class Player extends Phaser.GameObjects.Rectangle {
     const { left, right, up, down } = this.cursors;
 
     this.regenerate(dt);
+    this.updateCrouch(down);
 
     if (this.staggered) {
       this.updateStaggered(dt);        // flying from a blast, no control
@@ -339,8 +340,19 @@ export default class Player extends Phaser.GameObjects.Rectangle {
     this.refillFuel(dt);
   }
 
+  // Down on the ground: crouch. A smaller target (the hitbox shrinks from
+  // the top), and you shuffle slowly. Let go (or leave the ground) to stand.
+  updateCrouch(down) {
+    const want = this.onGround && down.isDown && !this.staggered && !this.pinned && !this.aiming;
+    if (want === Boolean(this.crouching)) return;
+    this.crouching = want;
+    const h = this.height * (want ? PLAYER.crouch.height : 1);
+    this.body.setSize(this.width, h, false);
+    this.body.setOffset(0, this.height - h);
+  }
+
   updateHorizontal(left, right) {
-    const speed = (this.onGround ? this.stats.runSpeed : this.stats.airSpeed) * this.moveScale;
+    const speed = (this.onGround ? this.stats.runSpeed : this.stats.airSpeed) * this.moveScale * (this.crouching ? PLAYER.crouch.speed : 1);
 
     if (left.isDown && !right.isDown) {
       this.body.setVelocityX(-speed);
@@ -461,6 +473,12 @@ export default class Player extends Phaser.GameObjects.Rectangle {
 
   // ---- Art (rig) ----
 
+  // The top of the character as drawn (the rig's head is above the hitbox):
+  // HP bars, words, tags and speech bubbles sit above this.
+  get visualTop() {
+    return this.rig ? this.body.bottom - this.rig.drawHeight : this.y - this.height / 2;
+  }
+
   // Draw this character from its cut body parts (folder in public/assets/sprites),
   // or as the plain square if it has none (null). Rebuilt when it changes.
   setRig(folder) {
@@ -496,6 +514,7 @@ export default class Player extends Phaser.GameObjects.Rectangle {
   // ---- Death and respawn ----
 
   die() {
+    if (this.crouching) this.updateCrouch({ isDown: false }); // stand the hitbox back up
     this.alive = false;
     this.staggerUntil = 0;
     this.thrusting = false;

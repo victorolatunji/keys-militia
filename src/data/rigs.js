@@ -36,12 +36,14 @@ export const RIG = {
   },
   head: { neck: [0.45, 0.96], scale: 1 },   // the bottom of the neck; scale >1 for a bigger, cartoonier head
   jetpack: { strap: [0.78, 0.35], nozzle: [0.3, 0.97] },
+  bootFlame: { at: [0.42, 0.98], scale: 0.55 }, // machines: under each sole (fraction of the shin art)
 
   // Poses (degrees)
   stand: { thighF: -3, shinF: 2, thighB: 4, shinB: 2, lean: 0 },
   run: { swing: 34, knee: 38, lean: 6, bob: 3, stride: 0.055 }, // stride: run cycle per px moved
   fly: { thighF: 22, shinF: 38, thighB: 8, shinB: 48, lean: 8 },
   fall: { thighF: -8, shinF: 30, thighB: 14, shinB: 26, lean: -2 },
+  crouch: { thighF: -72, shinF: 112, thighB: -38, shinB: 104, lean: 10 }, // Down on the ground
   aim: {
     restDeg: 12,          // where the gun points when there's no target (a little down)
     clamp: [-80, 80],     // how far up / down it can point
@@ -53,9 +55,13 @@ export const RIG = {
 };
 
 // Per-character fixes (same keys as RIG.torso / RIG.head / RIG.jetpack).
+// recolor: a share of them spawn in army green (a tint over their clothes)
+// so the Military aren't all brown; parts lists what gets tinted.
+const ARMY_GREEN = { chance: 0.5, tint: 0xa3c27a, parts: ['torso', 'front-thigh', 'back-thigh', 'front-shin', 'back-shin', 'jetpack'] };
 export const OVERRIDES = {
   player: {},
-  soldier: {},
+  soldier: { recolor: ARMY_GREEN },
+  mercenary: { head: { neck: [0.5, 0.6] }, recolor: ARMY_GREEN }, // her braid hangs below the neck
 };
 
 // Held weapons. Lengths are fractions of the character's drawn height (the

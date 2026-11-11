@@ -232,7 +232,7 @@ export default class Bot extends Player {
   }
 
   layout() {
-    const top = this.y - this.height / 2;
+    const top = this.visualTop;
 
     this.hpBg.setPosition(this.x, top - 10);
     this.hpFill.setPosition(this.x - HP_WIDTH / 2, top - 10);

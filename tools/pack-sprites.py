@@ -29,6 +29,10 @@ MANIFEST = os.path.join(ROOT, 'src', 'data', 'spriteManifest.js')
 CHARACTERS = sys.argv[1:] or ['player', 'soldier']
 CHARACTER_HEIGHT = 230   # a character's assembled standing height in the packed art (px)
 WEAPON_SCALE = 0.17      # every gun, melee weapon and throwable
+# Heads whose art hangs below the neck (long hair): where the neck is, as a
+# fraction of the head art's height (default: the bottom). Keep in step with
+# OVERRIDES in src/data/rigs.js.
+NECK = {'mercenary': 0.6}
 
 
 def joints(a):
@@ -70,7 +74,7 @@ def character(folder):
     # One factor for the whole character, from its standing height.
     size = {p: Image.open(os.path.join(src, p + '.png')).getbbox() for p in parts}
     tall = lambda p: size[p][3] - size[p][1]
-    standing = tall('head') + tall('torso') * 0.86 + tall('front-thigh') * 0.82 + tall('front-shin') * 0.9
+    standing = tall('head') * NECK.get(folder, 1) + tall('torso') * 0.86 + tall('front-thigh') * 0.82 + tall('front-shin') * 0.9
     scale = CHARACTER_HEIGHT / standing
     out = {}
     for p in parts:

@@ -1569,7 +1569,7 @@ export default class HazardSystem {
       ? Math.max(0, 1 - (p.hazard.heat ?? 0) / LAVA.holdMs)
       : Math.max(0, p.hazard.breath / (p.hazard.breathMax ?? WATER.breathMs));
     const x = p.x - 18;
-    const y = p.body.top - 14;
+    const y = (p.visualTop ?? p.body.top) - 14; // above the drawn head
     g.fillStyle(0x000000, 0.6).fillRect(x - 1, y - 1, 38, 6);
     const color = p.melting ? 0xff9f1c : share > 0.3 ? 0x90e0ef : 0xe63946;
     g.fillStyle(color, 1).fillRect(x, y, 36 * share, 4);

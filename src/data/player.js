@@ -28,6 +28,7 @@ export const PLAYER = {
 
   // Typing state
   typingFallSpeed: 60,  // max fall speed while typing mid-air (slow drift)
+  crouch: { height: 0.65, speed: 0.35 }, // Down on the ground: a smaller target (hitbox height share), shuffling slowly
   typoJamMs: 500,       // gun jam after a typo; letters are ignored
 
   // Blast knockback: no control for this long, so the push isn't cancelled

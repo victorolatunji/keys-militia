@@ -75,7 +75,7 @@ export default class PartnerSystem {
       if (now >= this.nextAttackAt) this.attack(now);
     }
     bot.layout();
-    this.tag.setVisible(bot.alive).setPosition(bot.x, bot.y - bot.height / 2 - 26);
+    this.tag.setVisible(bot.alive).setPosition(bot.x, bot.visualTop - 26);
     for (const b of this.bullets) b.update(delta);
     this.bullets = this.bullets.filter((b) => b.active);
   }
@@ -174,7 +174,7 @@ export default class PartnerSystem {
       const d = Math.max(1, Math.hypot(dx, dy));
       body.setAllowGravity(false);
       body.setVelocity((dx / d) * speed, (dy / d) * speed);
-      bot.thrusting = dy < -4 && bot.movement === 'jetpack';
+      bot.thrusting = dy < -4; // your partner always has its jetpack (or boots) on
     }
     this.checkStuck(now, target);
   }

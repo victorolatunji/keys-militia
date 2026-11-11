@@ -142,7 +142,7 @@ export default class StatusSystem {
 
   // Dazed: little stars circling over the head.
   star(target) {
-    const top = target.y - target.height / 2 - 6;
+    const top = (target.visualTop ?? target.y - target.height / 2) - 6;
     const st = this.scene.add.star(target.x - 12, top, 5, 2, 4, STATUS.dazed.fxColor).setDepth(44);
     this.scene.tweens.add({
       targets: st,
@@ -150,7 +150,7 @@ export default class StatusSystem {
       angle: 180,
       alpha: 0,
       duration: 500,
-      onUpdate: () => (st.y = target.y - target.height / 2 - 6),
+      onUpdate: () => (st.y = (target.visualTop ?? target.y - target.height / 2) - 6),
       onComplete: () => st.destroy(),
     });
   }
