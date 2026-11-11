@@ -97,6 +97,7 @@ export default class GameScene extends Phaser.Scene {
     this.physics.world.gravity.y = this.map.gravity ?? 800; // Space: very low
 
     this.player = new Player(this, spawn.x, spawn.y);
+    this.player.setRig('player'); // drawn from its body parts (art pass)
     this.physics.add.collider(this.player, this.groundLayer);
     this.player.on('died', (cause) => this.handlePlayerDeath(cause));
 

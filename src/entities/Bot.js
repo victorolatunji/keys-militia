@@ -2,6 +2,7 @@ import Player from './Player.js';
 import { tuneStats } from '../systems/Gravity.js';
 import { FAMILY_MATERIAL } from '../data/effects.js';
 import WordLabel from '../ui/WordLabel.js';
+import CharacterRig from './CharacterRig.js';
 import BotBrain from '../systems/BotBrain.js';
 import BotGear from '../systems/BotGear.js';
 import { iconKey } from '../ui/Icons.js';
@@ -76,6 +77,9 @@ export default class Bot extends Player {
     // Flyers ignore gravity.
     const flyer = this.movement === 'flyer';
     this.body.setAllowGravity(!flyer);
+
+    // Art: its body parts, if they're packed (else the square for now).
+    this.setRig(CharacterRig.folderFor(config.name));
 
   }
 
@@ -176,6 +180,17 @@ export default class Bot extends Player {
     super.applyKnockback(vx * k, vy * k);
   }
 
+  // The rig points its weapon at you while it can see you (your partner: at
+  // the enemy it's watching), and draws what it's holding.
+  aimTarget() {
+    if (this.isPartner) return this.lookTarget ?? null;
+    return this.brain?.sees ? this.brain.target : null;
+  }
+
+  heldWeapon() {
+    return this.gear?.current?.key ?? null;
+  }
+
   get flinching() {
     return this.scene.time.now < this.flinchUntil;
   }
@@ -227,7 +242,7 @@ export default class Bot extends Player {
 
     // Weapon in hand, at its side, facing the way it faces
     // (none for claws, fists and the like).
-    this.heldIcon.setVisible(this.alive && !this.gear.current.natural);
+    this.heldIcon.setVisible(this.alive && !this.gear.current.natural && !this.rig); // the rig holds its own
     const key = iconKey({ type: 'gun', key: this.gear.current.key });
     if (this.heldIcon.texture.key !== key) this.heldIcon.setTexture(key);
     this.heldIcon.setPosition(this.x + this.facing * 14, this.y + 4).setFlipX(this.facing < 0);

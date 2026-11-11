@@ -241,6 +241,7 @@ export default class PartnerSystem {
         nearDist = d;
       }
     }
+    bot.lookTarget = near;
     if (near) {
       bot.faceToward(near.x);
       return;

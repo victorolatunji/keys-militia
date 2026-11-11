@@ -3,6 +3,7 @@ import Phaser from 'phaser';
 import { PLAYER } from '../data/player.js';
 import { STATUS } from '../data/status.js';
 import { blendColor } from '../ui/color.js';
+import CharacterRig from './CharacterRig.js';
 
 const SMOKE_COLOR = 0x9a9a9a;
 const HIT_FLASH_MS = 80;
@@ -208,6 +209,10 @@ export default class Player extends Phaser.GameObjects.Rectangle {
 
   flash() {
     this.flashing = true;
+    if (this.rig) {
+      this.scene.time.delayedCall(HIT_FLASH_MS, () => (this.flashing = false));
+      return;
+    }
     this.setFillStyle(0xffffff);
     this.scene.time.delayedCall(HIT_FLASH_MS, () => {
       this.flashing = false;
@@ -221,6 +226,8 @@ export default class Player extends Phaser.GameObjects.Rectangle {
     const shown = color == null ? this.baseColor : blendColor(this.baseColor, color, strength);
     if (shown === this.displayColor) return;
     this.displayColor = shown;
+    this.envTint = color == null ? null : { color, strength }; // the rig tints its parts
+    if (this.rig) return;
     if (!this.flashing) this.setFillStyle(shown);
   }
 
@@ -384,6 +391,14 @@ export default class Player extends Phaser.GameObjects.Rectangle {
       this.shield.sprite.setPosition(this.x + this.facing * this.shield.config.offsetX, this.y);
     }
 
+    // Drawn from its body parts (art pass): the rig does the rest.
+    if (this.rig) {
+      this.eye.setVisible(false);
+      this.flame.setVisible(false);
+      this.rig.update(this.scene.game.loop.delta);
+      return;
+    }
+
     // Flame comes out of the back, flickers while thrusting.
     // Jet Boost: a longer blue flame.
     const boosted = this.boosted && this.boostConfig;
@@ -444,6 +459,40 @@ export default class Player extends Phaser.GameObjects.Rectangle {
     this.shield = null;
   }
 
+  // ---- Art (rig) ----
+
+  // Draw this character from its cut body parts (folder in public/assets/sprites),
+  // or as the plain square if it has none (null). Rebuilt when it changes.
+  setRig(folder) {
+    if ((this.rig?.folder ?? null) === folder) return;
+    this.rig?.destroy();
+    this.rig = folder ? new CharacterRig(this.scene, this, folder) : null;
+    this.isFilled = !this.rig;
+  }
+
+  // What the rig points the weapon at: what you're typing at, or where
+  // you're aiming a throw. (Bot has its own.)
+  aimTarget() {
+    if (this !== this.scene.player) return null;
+    const lock = this.scene.typing?.lock;
+    if (lock?.alive) return lock;
+    if (this.aiming && this.scene.weapons) {
+      const rad = Phaser.Math.DegToRad(this.scene.weapons.aimAngle);
+      return { x: this.x + Math.cos(rad) * 100 * this.facing, y: this.y + Math.sin(rad) * 100 };
+    }
+    return null;
+  }
+
+  // The throwable in hand while you aim a throw (a THROWABLES key), for the rig.
+  heldThrowable() {
+    return this === this.scene.player && this.aiming ? this.scene.weapons?.throwable?.key ?? null : null;
+  }
+
+  // The weapon in hand (a WEAPONS key), for the rig.
+  heldWeapon() {
+    return this === this.scene.player ? this.scene.weapons?.current?.key ?? null : null;
+  }
+
   // ---- Death and respawn ----
 
   die() {
@@ -459,6 +508,7 @@ export default class Player extends Phaser.GameObjects.Rectangle {
     this.setVisible(false);
     this.eye.setVisible(false);
     this.flame.setVisible(false);
+    this.rig?.root.setVisible(false);
     this.dropShield();
     this.armor = null;
     this.boostUntil = 0;
@@ -475,8 +525,9 @@ export default class Player extends Phaser.GameObjects.Rectangle {
     this.staggerUntil = 0;
     this.body.setAllowGravity(true);
     this.displayColor = this.baseColor;
-    this.setFillStyle(this.baseColor);
+    this.envTint = null;
+    this.setFillStyle(this.baseColor, this.rig ? 0 : 1);
     this.setVisible(true);
-    this.eye.setVisible(true);
+    this.eye.setVisible(!this.rig);
   }
 }

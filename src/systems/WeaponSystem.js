@@ -1446,7 +1446,7 @@ export default class WeaponSystem {
     const p = this.player;
     this.heldIcon ??= this.scene.add.image(p.x, p.y, '__DEFAULT').setScale(0.5).setDepth(1);
     const weapon = this.current;
-    const show = p.alive && (this.aiming ? Boolean(this.throwable) : Boolean(weapon));
+    const show = p.alive && !p.rig && (this.aiming ? Boolean(this.throwable) : Boolean(weapon)); // a rig holds its own
     this.heldIcon.setVisible(show);
     if (!show) return;
     const key = this.aiming ? iconKey({ type: 'throwable', key: this.throwable.key }) : iconKey({ type: 'gun', key: weapon.key });

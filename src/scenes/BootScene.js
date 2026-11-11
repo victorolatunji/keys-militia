@@ -1,4 +1,6 @@
 import Phaser from 'phaser';
+import { SPRITES } from '../data/spriteManifest.js';
+import { partKey, gunKey, meleeKey } from '../entities/CharacterRig.js';
 import { MAPS, MAP_SELECT } from '../data/maps.js';
 import { MODES, MODE_SELECT } from '../data/modes.js';
 import { PARTNER } from '../data/partner.js';
@@ -53,6 +55,14 @@ export default class BootScene extends Phaser.Scene {
 
   preload() {
     const loadedTilesets = new Set();
+
+    // Character parts and weapons (art pass), packed by tools/pack-sprites.py.
+    for (const [folder, c] of Object.entries(SPRITES.characters)) {
+      for (const part of Object.keys(c.parts)) this.load.image(partKey(folder, part), `assets/sprites/${folder}/${part}.png`);
+    }
+    for (const key of Object.keys(SPRITES.weapons)) this.load.image(gunKey(key), `assets/sprites/weapons/${key}.png`);
+    for (const key of Object.keys(SPRITES.melee)) this.load.image(meleeKey(key), `assets/sprites/melee/${key}.png`);
+    for (const key of Object.keys(SPRITES.throwables)) this.load.image(`spr-throw-${key}`, `assets/sprites/throwables/${key}.png`);
 
     for (const map of Object.values(MAPS)) {
       this.load.tilemapTiledJSON(map.tilemapKey, map.tilemapFile);
