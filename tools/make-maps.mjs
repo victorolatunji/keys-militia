@@ -296,6 +296,10 @@ const SKY_PALETTE = {
   top: 0x70c26a, topDepth: 6, soil: 0x9c6b3f, deep: 0x7a5230, deepSpeck: 0x5e3e22, sand: 0xe0c98a, sandSpeck: 0xc4ab6c,
   plank: 0x8a5a2b, plankGap: 0x4a2f14, under: 0x6e4a2a, roots: 0x5a7a3a, rock: 0xa7a9ac, crack: 0x6b6d70, crumble: 0xb0a99a,
 };
+const CAMP_PALETTE = {
+  top: 0x6a7f3a, topDepth: 7, soil: 0x6b5236, deep: 0x564330, deepSpeck: 0x3f3122, sand: 0xc2a878, sandSpeck: 0xa08a5e,
+  plank: 0x8a6a42, plankGap: 0x3f2d18, under: 0x5a4430, roots: 0x7f6a55, rock: 0x8a8578, crack: 0x4a4740, crumble: 0x9a9488,
+};
 const SPACE_PALETTE = {
   top: 0xc9c9d6, topDepth: 5, soil: 0x8e8ea3, deep: 0x5f5f75, deepSpeck: 0x45455a, sand: 0xb8b8c8, sandSpeck: 0x9a9aac,
   plank: 0x6c7a89, plankGap: 0x2f3742, under: 0x55556a, roots: 0x3d3d52, rock: 0x6d5a7a, crack: 0x3f3248, crumble: 0x9a9aac,
@@ -1307,6 +1311,79 @@ function space() {
   ]);
 }
 
+
+// ------------------------------------------------------- Militia Camp ----
+// Training only. 150 x 26 tiles, one flat parade ground (row 20) with a
+// thick floor, no void, no hazards. Stations left to right, each closed
+// off by a gate (a column of invisible solid tiles up to the sky that
+// TrainingSystem draws as a fence and opens when a lesson is done):
+//   move (flag) | fly (watchtower) | type + typos (firing range) | melee |
+//   throw (sandbag wall) | airdrop (helipad) | live fire (yard)
+function camp() {
+  W = 150;
+  H = 26;
+  objectId = 1;
+  const m = grid();
+  const G = 20;
+  const decor = [];
+  const train = [];
+  land(m, 0, W - 1, () => G, () => H - 1);
+  // Gates: from the sky down to the ground.
+  const gates = [27, 43, 69, 87, 109, 125];
+  for (const x of gates) {
+    fill(m, x, 0, x, G - 1, 'hidden');
+    train.push(rect('gate', px(x), 0, px(1), px(G)));
+  }
+  // Watchtower: a plank platform up high (legs and railing are drawn).
+  fill(m, 32, 12, 37, 12, 'plank');
+  train.push(rect('tower', px(32), px(9), px(6), px(3)));
+  decor.push(rect('watchtower', px(32), px(12), px(6), px(G - 12)));
+  // Sandbag wall: solid, chest high, the target hides behind it.
+  fill(m, 98, G - 3, 99, G - 1, 'hidden');
+  decor.push(rect('sandbagwall', px(98), px(G - 3), px(2), px(3)));
+  // Live-fire yard: a low wall of cover in the middle.
+  fill(m, 136, G - 2, 137, G - 1, 'hidden');
+  decor.push(rect('sandbagwall', px(136), px(G - 2), px(2), px(2)));
+
+  // Where each lesson happens (coaches stand at these spots).
+  const spot = (name, x) => train.push(point(name, px(x) + 16, px(G)));
+  spot('move', 12); spot('fly', 30); spot('type', 47); spot('typos', 47); spot('melee', 72);
+  spot('throw', 90); spot('airdrop', 112); spot('fight', 128);
+  train.push(point('flag', px(22) + 16, px(G)));
+  for (const x of [55, 60, 65]) train.push(point('target', px(x) + 16, px(G)));
+  for (const x of [57, 63]) train.push(point('target2', px(x) + 16, px(G)));
+  train.push(point('meleetarget', px(81) + 16, px(G)));
+  train.push(point('blasttarget', px(103) + 16, px(G)));
+  train.push(point('pad', px(117) + 16, px(G)));
+  for (const x of [141, 146]) train.push(point('enemy', px(x) + 16, px(G)));
+
+  // The camp
+  for (const x of [4, 9, 15]) decor.push(point('tent', px(x) + 16, px(G)));
+  decor.push(point('flagpole', px(22) + 16, px(G)));
+  decor.push(point('supplycrates', px(19) + 16, px(G)), point('supplycrates', px(39) + 16, px(G)));
+  for (const x of [52, 67]) decor.push(point('sandbags', px(x) + 16, px(G)));
+  decor.push(rect('range', px(53), px(G - 4), px(15), px(4)));
+  decor.push(point('helipad', px(117) + 16, px(G)));
+  decor.push(point('barbed', px(1) + 16, px(G)), point('barbed', px(148) + 16, px(G)));
+  for (const x of [131, 144]) decor.push(point('hedgehog', px(x) + 16, px(G)));
+  decor.push(point('supplycrates', px(121) + 16, px(G)), point('sandbags', px(76) + 16, px(G)), point('sandbags', px(93) + 16, px(G)));
+  for (const x of [24, 84, 106, 133]) decor.push(point('floodlight', px(x) + 16, px(G)));
+  decor.push(point('smoke', px(70), px(4)), point('smoke', px(140), px(6)));
+
+  const spawns = [point('player', px(6) + 16, px(G) - 30), point('bot', px(141) + 16, px(G) - 30), point('bot', px(146) + 16, px(G) - 30)];
+  const map = tiledMap('camp-tiles', m, [
+    { name: 'spawns', objects: spawns },
+    { name: 'hazards', objects: [] },
+    { name: 'decor', objects: decor },
+    { name: 'training', objects: train },
+  ]);
+  // Under a gate the ground looks like the ground next to it (the gate's
+  // invisible column above it would otherwise turn its grass to soil).
+  const data = map.layers[0].data;
+  for (const x of [...gates, 98, 99, 136, 137]) for (let y = G; y < H; y++) data[y * W + x] = data[y * W + 97 - (x > 120 ? -38 : 0)];
+  return map;
+}
+
 // ---------------------------------------------------------------- out ----
 
 const out = (rel, data) => {
@@ -1346,3 +1423,6 @@ seed = 1010;
 out('public/assets/tilesets/space-tiles.png', tileset(paletteTiles(SPACE_PALETTE)));
 out('public/assets/maps/skyislands.json', JSON.stringify(skyislands()));
 out('public/assets/maps/space.json', JSON.stringify(space()));
+seed = 1111;
+out('public/assets/tilesets/camp-tiles.png', tileset(paletteTiles(CAMP_PALETTE)));
+out('public/assets/maps/camp.json', JSON.stringify(camp()));

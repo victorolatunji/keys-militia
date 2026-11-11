@@ -23,6 +23,7 @@ import { PLAYER } from '../data/player.js';
 import { MODES, MODE_SELECT } from '../data/modes.js';
 import MatchSystem from '../systems/MatchSystem.js';
 import StatsSystem from '../systems/StatsSystem.js';
+import TrainingSystem from '../systems/TrainingSystem.js';
 import PartnerSystem from '../systems/PartnerSystem.js';
 import { PARTNER } from '../data/partner.js';
 
@@ -65,6 +66,8 @@ export default class GameScene extends Phaser.Scene {
     this.mode = MODES[data.modeKey] ?? MODES[this.mode?.key] ?? MODES[MODE_SELECT.default];
     // A mode only plays on maps that fit it (Zombies can't fly).
     if (this.mode.maps && !this.mode.maps.includes(this.map.key)) this.map = MAPS[this.mode.maps[0]];
+    // Training's camp is only for Training.
+    if (this.map.trainingOnly && !this.mode.training) this.map = MAPS[MAP_SELECT.default];
     this.matchOver = false;
     this.partnerKey = data.partnerKey !== undefined ? data.partnerKey : (this.partnerKey ?? null);
     this.deaths = 0;
@@ -142,7 +145,7 @@ export default class GameScene extends Phaser.Scene {
     // A mode with a clock (You vs Military) sets who comes and how many.
     const ramp = this.mode.ramp?.[0];
     const waves = Boolean(this.mode.waves);
-    const settings = ramp ? { slots: { main: ramp.bots }, families: [this.mode.family], allowed: ramp.types } : waves ? { slots: {} } : this.map.enemies;
+    const settings = ramp ? { slots: { main: ramp.bots }, families: [this.mode.family], allowed: ramp.types } : waves || this.mode.training ? { slots: {} } : this.map.enemies;
     this.spawner = new EnemySpawner(this, settings);
     // Everyone's numbers for the end-of-match screen (before anyone spawns).
     this.stats = new StatsSystem(this);
@@ -159,7 +162,7 @@ export default class GameScene extends Phaser.Scene {
     if (ramp) this.airdrops.difficulty = ramp.drops;
 
     // Duo: your AI partner (the character picked with the ` key).
-    this.partner = this.partnerKey ? new PartnerSystem(this, this.partnerKey) : null;
+    this.partner = this.partnerKey && !this.mode.training ? new PartnerSystem(this, this.partnerKey) : null; // Training is solo
 
     this.voidSystem = this.map.void
       ? new VoidSystem(this, this.map, { width, height }, (player) => player.kill('void'))
@@ -190,6 +193,9 @@ export default class GameScene extends Phaser.Scene {
       .text(16, 92, '', { fontFamily: 'monospace', fontSize: '14px', color: '#aaaacc' })
       .setScrollFactor(0)
       .setDepth(100);
+
+    // Training: the lessons on the camp map (after the HUD and debug text).
+    this.training = this.mode.training ? new TrainingSystem(this) : null;
   }
 
   // Hit-stop: everything with physics freezes for a moment when you land a
@@ -334,6 +340,9 @@ export default class GameScene extends Phaser.Scene {
       this.airdrops.dropItems(bot.x, bot.y, bot.gear.items());
     }
 
+    // Training: its enemies don't come back.
+    if (this.training) return;
+
     // Waves: no respawn (the wave sends the next one).
     if (this.match?.waves) {
       this.match.onBotDeath(bot);
@@ -417,6 +426,7 @@ export default class GameScene extends Phaser.Scene {
 
   update(time, delta) {
     this.match?.update();
+    this.training?.update(delta);
     if (this.matchOver) return; // the result is up: everything stops
     this.player.update(delta);
     for (const dummy of this.dummies) dummy.update();

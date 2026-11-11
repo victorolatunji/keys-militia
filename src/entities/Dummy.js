@@ -47,6 +47,11 @@ export default class Dummy extends Phaser.GameObjects.Rectangle {
   // cause is unused (dummies only get hit by you); kind shapes the hit effect.
   takeDamage(amount, cause, kind = 'bullet') {
     if (!this.alive) return;
+    // Training's target behind the sandbags: only a throwable's blast counts.
+    if (this.config.blastOnly && kind !== 'blast') {
+      this.scene.effects?.hit(this, 0, 'bullet');
+      return;
+    }
 
     this.lastHitKind = kind;
     this.scene.effects?.hit(this, amount, kind);

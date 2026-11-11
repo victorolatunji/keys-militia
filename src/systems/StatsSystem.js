@@ -38,7 +38,7 @@ export default class StatsSystem {
   rowOf(who) {
     if (!who) return null;
     if (who === this.scene.player) return this.you;
-    if (!who.config) return null; // practice dummies
+    if (!who.config || who.slot === 'coach') return null; // practice dummies, Training's coaches
     if (who.isPartner || who.slot === 'partner') return this.row('ally', `Ally · ${who.config.name}`, 'ally');
     return this.row(`enemy:${who.config.name}`, who.config.name, 'enemy');
   }

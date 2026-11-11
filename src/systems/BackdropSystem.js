@@ -123,6 +123,13 @@ export default class BackdropSystem {
       else if (o.name === 'lamppost') this.drawLamppost(o.x, o.y);
       else if (o.name === 'sign') this.drawSign(o.x, o.y);
       else if (o.name === 'tires') this.drawTires(o.x, o.y);
+      else if (o.name === 'tent') this.drawTent(o.x, o.y);
+      else if (o.name === 'flagpole') this.drawFlagpole(o.x, o.y);
+      else if (o.name === 'watchtower') this.drawWatchtower(o);
+      else if (o.name === 'sandbagwall') this.drawSandbagWall(o);
+      else if (o.name === 'range') this.drawRange(o);
+      else if (o.name === 'helipad') this.drawHelipad(o.x, o.y);
+      else if (o.name === 'floodlight') this.drawFloodlight(o.x, o.y);
     }
     if (this.critters.length) this.critterGfx = scene.add.graphics().setDepth(3);
     if (map.key === 'forest') this.drawGrass(groundLayer);
@@ -1197,6 +1204,91 @@ export default class BackdropSystem {
     g.fillStyle(0x2d6a4f, 1).fillRect(x - 30, y - 70, 60, 26);
     g.lineStyle(2, 0xffffff, 0.8).strokeRect(x - 27, y - 67, 54, 20);
     g.fillStyle(0x6b4f2e, 0.7).fillCircle(x + 10, y - 60, 6); // rust hole
+  }
+
+  // ---- Militia Camp (Training) ----
+
+  // An army tent: a canvas ridge tent with its flap tied open.
+  drawTent(x, y) {
+    const g = this.warLayer(); // walk-through: see-through
+    g.fillStyle(0x4f5d2f, 1).fillTriangle(x - 70, y, x + 70, y, x, y - 70);
+    g.fillStyle(0x3d4a24, 1).fillTriangle(x - 70, y, x - 20, y, x - 8, y - 60);
+    g.fillStyle(0x1b1b1f, 0.8).fillTriangle(x - 16, y, x + 16, y, x, y - 40);    // the open flap
+    g.lineStyle(2, 0x2b2d1b, 1).lineBetween(x, y - 70, x, y - 82).lineBetween(x - 70, y, x - 86, y - 6).lineBetween(x + 70, y, x + 86, y - 6);
+    g.fillStyle(0xe9edc9, 0.7).fillRect(x + 22, y - 30, 14, 3);                   // a stencil
+  }
+
+  // The camp flag on a tall pole, flying in the wind.
+  drawFlagpole(x, y) {
+    const g = this.back;
+    g.fillStyle(0xadb5bd, 1).fillRect(x - 2, y - 190, 4, 190);
+    g.fillStyle(0x6c757d, 1).fillRect(x - 10, y - 6, 20, 6);
+    const flag = this.scene.add.graphics().setDepth(-6).setPosition(x + 2, y - 186);
+    flag.fillStyle(0x6a7f3a, 1).fillRect(0, 0, 54, 34);
+    flag.fillStyle(0xffd166, 1).fillTriangle(14, 26, 27, 6, 40, 26);             // a militia chevron
+    flag.fillStyle(0x6a7f3a, 1).fillTriangle(20, 26, 27, 14, 34, 26);
+    this.scene.tweens.add({ targets: flag, scaleX: { from: 1, to: 0.86 }, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+  }
+
+  // Watchtower: wooden legs with cross braces under the plank platform
+  // (o: from the platform down to the ground), a railing on top.
+  drawWatchtower(o) {
+    const g = this.warLayer(); // walk-through: see-through
+    const top = o.y + 32;
+    const bottom = o.y + o.height;
+    const l = o.x + 10;
+    const r = o.x + o.width - 10;
+    g.fillStyle(0x6b4f2e, 1).fillRect(l - 6, top, 12, bottom - top).fillRect(r - 6, top, 12, bottom - top);
+    g.lineStyle(5, 0x5a4026, 1);
+    for (let y = top; y < bottom - 40; y += 70) g.lineBetween(l, y, r, y + 70).lineBetween(r, y, l, y + 70);
+    g.lineStyle(4, 0x6b4f2e, 1).lineBetween(o.x, o.y - 30, o.x + o.width, o.y - 30); // railing
+    for (let x = o.x + 4; x <= o.x + o.width - 4; x += 32) g.lineBetween(x, o.y - 30, x, o.y);
+    g.fillStyle(0x495057, 1).fillTriangle(o.x - 12, o.y - 66, o.x + o.width + 12, o.y - 66, o.x + o.width / 2, o.y - 100); // a tin roof up high
+    g.lineStyle(3, 0x6b4f2e, 1).lineBetween(o.x + 4, o.y - 66, o.x + 4, o.y - 30).lineBetween(o.x + o.width - 4, o.y - 66, o.x + o.width - 4, o.y - 30);
+  }
+
+  // A solid wall of sandbags (it's real cover: bullets and you stop at it).
+  drawSandbagWall(o) {
+    const g = this.back;
+    const colors = [0xa68a64, 0x936639, 0xb6ad90];
+    const rows = Math.round(o.height / 16);
+    for (let row = 0; row < rows; row++) {
+      const y = o.y + o.height - 8 - row * 16;
+      const shift = row % 2 ? 13 : 0;
+      for (let bx = o.x - 6 + shift; bx < o.x + o.width + 4; bx += 26) {
+        g.fillStyle(colors[(row + Math.round(bx / 26)) % 3], 1).fillEllipse(bx + 10, y, 28, 18);
+        g.lineStyle(1, 0x5e503f, 0.9).strokeEllipse(bx + 10, y, 28, 18);
+      }
+    }
+  }
+
+  // Firing range: an earth berm behind the targets, and lane posts.
+  drawRange(o) {
+    const g = this.warLayer(); // walk-through: see-through
+    const bottom = o.y + o.height;
+    g.fillStyle(0x6b5236, 1).fillPoints([
+      { x: o.x, y: bottom }, { x: o.x + 40, y: o.y + 10 }, { x: o.x + o.width - 40, y: o.y + 4 }, { x: o.x + o.width, y: bottom },
+    ], true);
+    g.lineStyle(3, 0xd9d9d9, 0.8);
+    for (let x = o.x + 30; x < o.x + o.width; x += 80) g.lineBetween(x, bottom, x, bottom - 26);
+  }
+
+  // Helipad: steel plates with a painted H and corner marks.
+  drawHelipad(x, y) {
+    const g = this.back;
+    g.fillStyle(0x495057, 1).fillRect(x - 110, y - 8, 220, 8);
+    g.lineStyle(1, 0x343a40, 1);
+    for (let k = -110; k <= 110; k += 44) g.lineBetween(x + k, y - 8, x + k, y);
+    g.fillStyle(0xffd166, 1).fillRect(x - 22, y - 7, 6, 6).fillRect(x + 16, y - 7, 6, 6).fillRect(x - 16, y - 5, 32, 2);
+    g.fillStyle(0xffffff, 1).fillRect(x - 108, y - 8, 14, 2).fillRect(x + 94, y - 8, 14, 2);
+  }
+
+  // A floodlight on a pole, aimed down at the camp.
+  drawFloodlight(x, y) {
+    const g = this.warLayer(); // walk-through: see-through
+    g.fillStyle(0x495057, 1).fillRect(x - 2, y - 150, 4, 150);
+    g.fillStyle(0x343a40, 1).fillRect(x - 14, y - 158, 28, 12);
+    g.fillStyle(0xfff3b0, 1).fillRect(x - 11, y - 148, 22, 3);
   }
 
   drawTires(x, y) {

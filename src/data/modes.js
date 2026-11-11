@@ -5,10 +5,11 @@
 //   enemies:  You vs Enemies: waves of every enemy type, 3 respawns, then game over
 //   maps:     which maps fit the mode (F6 cycles only these). Zombies walk and
 //             leap (no jetpacks), so only maps with ground to walk on.
+//   training: the guided lessons on the Militia Camp map (src/data/training.js)
 //   military: You vs Military: first to killTarget on a countdown, you
 //             respawn until the clock runs out. More kills when time is up wins.
 export const MODE_SELECT = {
-  order: ['free', 'military', 'zombies', 'enemies'],
+  order: ['free', 'training', 'military', 'zombies', 'enemies'],
   default: 'free',
   key: 'F8', // (F7 opens browser tools in some browsers)
   storageKey: 'keys-militia.mode',
@@ -61,6 +62,12 @@ export const MODES = {
     key: 'free',
     name: 'Free play',
     maps: null, // all
+  },
+  training: {
+    key: 'training',
+    name: 'Training',
+    maps: ['camp'], // its own map, used for nothing else
+    training: true,
   },
   military: {
     key: 'military',

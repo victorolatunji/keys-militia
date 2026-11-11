@@ -423,6 +423,37 @@ export const MAPS = {
     },
   },
 
+  // Militia Camp: Training only (never in the F6 list). A daytime army
+  // camp, one flat parade ground with a thick floor, no void, no hazards.
+  // Stations left to right behind gates that open as you finish lessons
+  // (src/data/training.js, src/systems/TrainingSystem.js).
+  camp: {
+    key: 'camp',
+    name: 'Militia Camp',
+    trainingOnly: true,
+    background: '#9fb3c8',
+    tilemapKey: 'map-camp',
+    tilemapFile: 'assets/maps/camp.json',
+    tilesetName: 'camp-tiles',
+    tilesetKey: 'tiles-camp',
+    tilesetFile: 'assets/tilesets/camp-tiles.png',
+    enemies: { slots: {}, families: ['military'] }, // Training brings its own
+    sky: {
+      colors: [0x5c6b7a, 0x7d8c99, 0x9fb3c8, 0xc2ccd4, 0xd8d2c0], // overcast, a dusty horizon
+      sun: { color: 0xf1ede0, x: 0.8, y: 0.2, size: 0.7 },
+      clouds: { count: 10, color: 0xdde3e8 },
+      war: { smoke: 3 },
+      ridges: [
+        { color: 0x7a8577, factor: 0.1, height: 180, rough: 0.5 },
+        { color: 0x5e6b52, factor: 0.22, height: 130, rough: 0.8, trees: true },
+      ],
+      birds: true,
+      horizonY: 700,
+    },
+    palette: { top: 0x6a7f3a, soil: 0x6b5236, deep: 0x564330, sand: 0xc2a878, plank: 0x8a6a42, under: 0x5a4430, rock: 0x8a8578, cave: 0x2b2420 },
+    void: null,
+  },
+
   // Space: asteroids drifting in open space, a moon base on the middle one.
   // Very low gravity: big floaty jumps, the jetpack goes a long way.
   // Hazard: meteor showers (a red ring shows where one will hit).

@@ -78,6 +78,7 @@ export default class AirdropSystem {
     this.supplies = this.supplies.filter((s) => s.active);
     for (const supply of this.supplies) supply.update(delta);
 
+    if (this.paused) return; // Training: no drops on a timer
     if (now >= this.nextDropAt) {
       if (this.crates.length < AIRDROPS.maxCrates) this.drop();
       this.nextDropAt = now + AIRDROPS.intervalMs;
@@ -114,6 +115,14 @@ export default class AirdropSystem {
     this.collisions.addCrate(crate);
     this.crates.push(crate);
     this.dropped += 1;
+  }
+
+  // A crate straight down at x (Training's airdrop lesson).
+  dropAt(x, item = this.crateItem()) {
+    const crate = new Crate(this.scene, x, AIRDROPS.spawnY, item, this.groundLayer, this.height);
+    this.collisions.addCrate(crate);
+    this.crates.push(crate);
+    return crate;
   }
 
   // A loose item falls from the top of the map, spinning (random by weight).

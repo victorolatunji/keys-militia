@@ -1,7 +1,7 @@
 # Keys Militia
 *A VAO game. Living plan book: update it whenever the plan changes.*
 
-**Version:** 0.24.1
+**Version:** 0.25
 **Owner:** Victor Olatunji / VAO
 **Budget:** $0, free tools and free assets only
 **Status:** Phase 7 (Maps) in progress: Forest, Hell, Glacier, Desert, Catacombs and Graveyard done, four launch maps to go.
@@ -37,7 +37,8 @@ A 2D arena shooter **influenced by Mini Militia**, but its own game: **typing is
 | Sound on/off | F4 (remembered in your browser) |
 | Next map (testing) | F6 (Forest → Hell → Glacier → Desert → Catacombs → Graveyard → Monastery → Wastelands → Sky Islands → Space → Test, remembered in your browser), or open the game with `?map=` and the map's name |
 | Partner (testing, until the menus) | `` ` `` (the key left of 1): Solo → each character as your AI partner → Solo (remembered), or `?partner=commando` / `?partner=none` |
-| Next mode (testing, until the menus) | F8 (Free play → You vs Military → Zombies → You vs Enemies, remembered), or `?mode=enemies`; at the end of a match, R plays again. Each mode only plays on the maps that fit it (F6 cycles those). Menus with the mouse come in Phase 9; these keys stay as shortcuts |
+| Next mode (testing, until the menus) | F8 (Free play → Training → You vs Military → Zombies → You vs Enemies, remembered), or `?mode=enemies`; at the end of a match, R plays again. Each mode only plays on the maps that fit it (F6 cycles those). Menus with the mouse come in Phase 9; these keys stay as shortcuts |
+| Training | Enter: skip the current lesson · Esc: leave Training (to Free play) · after graduating, R trains again |
 | Alt movement (setting) | Hold right-click to fly toward the cursor |
 
 **Move or type rule:**
@@ -319,6 +320,8 @@ Stats live in `src/data/weapons.js` (guns, specials, throwables), `src/data/item
 - **Hazard: meteor showers** (rare: about one every 8-9s across the map). A red ring flashes where a meteor will hit, then it streaks down and bursts (15 damage, a small blast). A roof (the base, an asteroid above you) keeps you safe.
 - **Advantage:** low gravity, and the base is cover.
 
+**Militia Camp (Training only), done in 0.25:** an army camp under an overcast sky with smoke far off, forested ridges behind. **No void, no hazards, normal gravity:** one flat parade ground with a thick floor, laid out left to right as Training's stations (tents and a flagpole, a watchtower, a firing range, a sandbag wall, a helipad, a live-fire yard), each closed off by a gate that opens when you finish the lesson before it (see section 10). It never shows up in the F6 list or in any other mode.
+
 **Gravity rule (0.19, `src/systems/Gravity.js`):** everything that rises and falls is tuned to the map's gravity so it all feels like one world. Lower gravity: a softer jetpack (just as much over gravity, scaled down), slower falling and drifting, the jetpack lasts longer, knockback is softened; throwables are thrown slower so they land about as far, the aim preview matches; blood, gibs, debris, sparks, splashes, crates, icicles, rocks and meteors all fall slower.
 
 **Liquids rule (0.19):** every liquid reacts to throwables. Water: grenades sink slowly, a blast is a muffled column of water, molotovs fizzle to steam. Lava: grenades cook off, molotovs flare. **Toxic sludge:** thicker (grenades and items sink slower), a blast is muffled and throws a green column and a puff of poison gas, a molotov lights the chemicals in a green flash that burns anyone in it, it carries a blast and an EMP like water, bullets slow in it. **Quicksand:** grenades and items nearly stop and get swallowed, a blast is a dull thump and a fountain of sand, molotovs are smothered, bullets stop.
@@ -418,26 +421,27 @@ New enemies of a step arrive after a 4s calm. Drops get more generous each step.
 
 **You vs Enemies, built in 0.22:** waves of every enemy type mixed together, **3 respawns, then game over**. Almost every wave adds a new kind, so each one plays differently: Soldiers and Zombies → + Robots and Zombie K9s → + Mercenaries, Skeletons and Drones → + Commandos, Androids, Scrap Bots and Aliens → + Infected Soldiers and Cyborgs → + Armoured Troopers and Mutants, then it keeps growing (more HP, damage and speed every wave). The top shows the wave, how many are left, your kills and respawns left; an 8s breather between waves. Game over shows waves survived, kills, deaths, K/D and time. Maps: every map with ground to fight on (not Sky Islands or Space: walkers can't fly).
 
-**Modes pick their maps:** each mode lists the maps that fit it (`maps` in `modes.js`). Free play and You vs Military: all ten. Zombies: Graveyard, Catacombs, Wastelands. You vs Enemies: all but Sky Islands and Space. Training will get its own map.
+**Modes pick their maps:** each mode lists the maps that fit it (`maps` in `modes.js`). Free play and You vs Military: all ten. Zombies: Graveyard, Catacombs, Wastelands. You vs Enemies: all but Sky Islands and Space. Training: Militia Camp only.
 
 **Drops keep it fair:** airdrops scale with the difficulty. The harder the enemies get, the more often crates bring specials and helpful gear (launchers, special guns, health packs, armor, shields, Jet Boost, tacticals). Weaker weapons (pistols, basic SMGs and rifles) drop less as it gets harder, but they never disappear: you still see them now and then.
 
 **Mode intro (comes with the menus and the art pass, Phases 9 and 9.5):** before a mode starts, a pop-up shows what to expect: a few real gameplay screenshots of that mode, its rules in a line or two (goal, respawns, timer or waves) and a **Skip** button to go straight into the game.
 
-**Training plan (agreed in 0.24.1, built next: Phase 8 step 5):**
-- **Map: Militia Camp, used only for Training.** A war-zone base laid out left to right as a row of stations: barracks tents, a flagpole, a watchtower, a trench, a firing range with targets, a sandbag wall, a helipad for the airdrop and a small live-fire yard. Normal gravity, thick floor, no void (it can't kill you by a fall), no hazards, room for two everywhere. A fixed map means every lesson is built for its station, and a new player always sees the same, clear setup.
-- **Coaches:** the Commando (drill sergeant: moving and fighting) and the Android (tech: typing and gear). They walk ahead to the next station and talk in **speech bubbles** above their heads (typed out letter by letter). A hint bar at the bottom shows the keys for the current lesson.
+**Training, built in 0.25** (`src/data/training.js`, `src/systems/TrainingSystem.js`, `src/ui/SpeechBubble.js`, the camp map in `tools/make-maps.mjs`):
+- **Map: Militia Camp, used only for Training** (never in the F6 list; another mode opened on it goes to Forest). A war-zone base laid out left to right as a row of stations: army tents and a flagpole, a watchtower, a firing range with its berm, a sandbag wall, a helipad for the airdrop and a live-fire yard with a low wall of cover; floodlights, supply crates, hedgehogs and barbed wire. Each station is closed off by a gate: a chain-link fence from the ground to the sky with a striped boom and a STATION sign, which sinks into the ground when you finish the lesson before it. Normal gravity, thick floor, no void (it can't kill you by a fall), no hazards, room for two everywhere. A fixed map means every lesson is built for its station, and a new player always sees the same, clear setup.
+- **Coaches:** the Commando (the Sergeant: moving and fighting) and the Android (the Tech: typing and gear), with name tags. They walk ahead to the next station and talk in **speech bubbles** above their heads, typed out letter by letter; each line stays up until it's typed out and you've had time to read it. The title at the top shows the lesson (LESSON 3/8 · TYPE TO SHOOT) and a hint bar at the bottom shows its keys.
 - **Fixed series of lessons:** one at a time, in order. Each lesson is a station with a task; the game checks when you've done it, the coach says "Good", and the gate to the next station opens. Lessons live as data (`src/data/training.js`: coach, lines, keys, the check, the station) and `src/systems/TrainingSystem.js` runs them, so a lesson can be changed or added without touching code.
   1. **Move:** Left / Right, run to the flag. Done: you reach it.
   2. **Fly:** hold Up to fly, land on the watchtower; fuel refills only on the ground; Down to drop. Done: you stand on the tower.
   3. **Type to shoot:** type the word on a target (the first letter locks on). Done: 3 targets down.
   4. **Typos and moving:** a wrong letter jams your gun; an arrow stops typing and your half-typed word waits. Done: 2 more targets down.
   5. **Switch weapons:** Shift switches gun 1 → gun 2 → melee; melee words only show up close. Done: a target down with melee.
-  6. **Throw:** hold the left mouse button, aim, release (or Space + Up/Down); Tab switches throwable. Done: a grenade takes out a target behind the sandbags.
-  7. **Airdrop:** a crate parachutes onto the helipad; walk to it and press 1-6 to take a gun (it goes straight to your hand). Done: you took one.
-  8. **Live fire:** two easy Soldiers. You can't lose (you're back in a moment if you go down). Done: both down.
+  6. **Throw:** hold the left mouse button, aim, release (or Space + Up/Down); Tab switches throwable. Done: a grenade takes out a target behind the sandbags (only a blast hurts it; your grenades refill in this lesson).
+  7. **Airdrop:** a crate parachutes onto the helipad; walk to it and press 1-6 to take a gun (it goes straight to your hand). Done: you took one. No other airdrops come in Training; left too long, the crate expires and another comes down.
+  8. **Live fire:** two easy Soldiers drop into the yard (60% HP, 35% damage, slower to react and shoot). You can't lose: you're back at the station in a moment if you go down. Done: both down.
+- Training targets go down in one finished word (20 HP). The melee target only counts a melee kill (a gun kill puts it back, and the Sergeant tells you to switch). Training is always solo (no Duo partner).
 - **Skip:** Enter skips the current lesson, Esc leaves Training (to Free play).
-- **Graduation:** a short summary (time, words, accuracy, WPM) and what to play next. Training is about 25-40s per lesson, 3-5 minutes in all.
+- **Graduation:** TRAINING COMPLETE with time, words finished of started, accuracy, WPM, typos and enemies down, and what to play next (F8 a mode, R train again, Esc Free play). It's remembered in the browser (`keys-militia.trained`) for the menus to use later. Training is about 25-40s per lesson, 3-5 minutes in all.
 - **Open:** the coaches' names come with the story (pending).
 
 **Online** (Phase 11, after launch):
@@ -559,12 +563,14 @@ keys-militia/
 │   │   ├── BackdropSystem.js    ✅ sky, sun, clouds, parallax hills/spires/mountains/mesas, birds, camel caravan, far icebergs and whales, heat shimmer, leaves, snow, northern lights, embers, fireflies, tumbleweeds, penguins, scorpions, moon, bats, fog, coffins, cobwebs, candles, lanterns, fences, dead trees, crosses, trees, pines, palms, cacti, rocks, caves, grass
 │   │   ├── MatchSystem.js       ✅ a mode's match: countdown or waves, hidden difficulty ramp, lives, HUD, end-of-match screen
 │   │   ├── PartnerSystem.js     ✅ your Duo partner: follows your path, watches, fights, respawns
+│   │   ├── TrainingSystem.js    ✅ Training: lessons, coaches, gates, targets, the crate, live fire, graduation
 │   │   └── StatsSystem.js       ✅ everyone's match numbers (kills, assists, damage, streaks, lives, typing), awards, local leaderboard
 │   ├── ui/
 │   │   ├── Hud.js               ✅ HP, fuel and armor bars, weapon panel + icon, throwable slots, state tag
 │   │   ├── Icons.js             ✅ builds item icon textures at boot
 │   │   ├── color.js             ✅ color blending helper
 │   │   ├── PickupPanel.js       ✅ pickup panel (icon, name, keys) at the bottom of the screen
+│   │   ├── SpeechBubble.js      ✅ Training coaches' speech bubbles (typed out, follow the speaker)
 │   │   └── WordLabel.js         ✅ word plates above targets
 │   └── data/
 │       ├── player.js            ✅ movement, HP, regen, typing and knockback tuning (bots scale it)
@@ -583,12 +589,13 @@ keys-militia/
 │       ├── modes.js             ✅ offline modes, the Military ramp, Zombie and Enemy waves, mode select (F8)
 │       ├── partner.js           ✅ Duo partner tuning, partner select (` key)
 │       ├── scoring.js           ✅ score points, assist window, awards, leaderboard size
+│       ├── training.js          ✅ Training's coaches and its 8 lessons (lines, keys, checks), target HP, easy enemies
 │       └── characters.js
 ├── public/assets/
 │   ├── maps/                    # Tiled maps (.json): test, forest, hell, glacier, desert, catacombs, graveyard ✅
 │   └── tilesets/                # tile images: placeholder, forest, hell, glacier, desert, catacombs, graveyard ✅
 ├── tools/
-│   └── make-maps.mjs            ✅ builds the Forest, Hell, Glacier, Desert, Catacombs and Graveyard maps and tilesets (no packages)
+│   └── make-maps.mjs            ✅ builds every map and its tileset (Forest to Space, and Training's Militia Camp; no packages)
 ├── README.md                    ✅ this plan book
 └── CREDITS.md                   ✅ asset licenses
 ```
@@ -608,7 +615,7 @@ keys-militia/
 | 5.5 | Arsenal II | Status effects, saw gun, nail gun, laser, flamethrower, sticky grenade (also the trip mine), molotov, combat axe, smoke, flashbang, concussion, EMP, cryo bomb, Jet Boost, riot shield, health pack, armor vest, mouse aiming, two throwable slots, crates and supply lanes | ✅ |
 | 6 | Effects | Blood, gibs, gore toggle, explosions, smoke/gas clouds with night vision, sounds made in code (shots, explosions, loops, voices, death cries), finishing touches | ✅ |
 | 7 | Maps | All launch maps with hazards and advantages, open and enclosed | ✅ Forest, Hell, Glacier, Desert, Catacombs, Graveyard, Monastery, Wastelands, Sky Islands, Space |
-| 8 | Offline modes | 🔄 You vs Military, Zombies, You vs Enemies ✅, Duo (AI partner) ✅, stats + end screen + awards + local leaderboard ✅. Solo or Duo (you + an AI partner of your chosen character): You vs Military (25 kills / 10 min, respawns), Zombies (waves, no respawns), You vs Enemies (waves, 3 respawns), Training (guided 3-5 min); difficulty that ramps for flow, drops that scale with it; K/D and stats, awards, MVP, local leaderboard | |
+| 8 | Offline modes | Solo or Duo (you + an AI partner of your chosen character): You vs Military (25 kills / 10 min, respawns, a hidden difficulty ramp), Zombies (waves, no respawns), You vs Enemies (waves, 3 respawns), Training (Militia Camp, 2 coaches, 8 lessons); drops that scale with difficulty; stats, scoreboard, awards, MVP, local leaderboard | ✅ |
 | 9 | Menus and guest | Menu, settings, name and character select, local saves | |
 | 9.5 | Art pass | Replace placeholders with final sprites, tiles, backgrounds and effects; mode intro pop-ups with real gameplay screenshots and a Skip button | |
 | 10 | Launch | Published on itch.io, linked from the VAO site | |
@@ -637,6 +644,7 @@ keys-militia/
 ---
 
 ## 18. Changelog
+- **0.25:** Phase 8 done: Training. Its own map (Militia Camp: tents, a flagpole, a watchtower, a firing range, a sandbag wall, a helipad, a live-fire yard, gates between stations that sink into the ground as you go). Two coaches, the Sergeant (Commando) and the Tech (Android), teach 8 fixed lessons in speech bubbles: move, fly, type to shoot, typos and moving, switching to melee, throwing over a wall, taking a gun from an airdrop, and a live fight against two easy Soldiers. Enter skips a lesson, Esc leaves; a graduation screen sums it up. F8 now goes Free play → Training → the match modes.
 - **0.24.1:** Partner picks: 12 characters (no Drone, Scrap Bot or Zombie K9; a saved pick of one of them falls back to Solo). Training plan agreed (Militia Camp map, 2 coaches, 8 fixed lessons). Duo partner reworked: it replays your exact path (tunnels, flying, drops) instead of steering on its own, catches up as fast as it needs to, waits at the edge instead of following you into the void, and attacks more often but lighter (every 1-1.6s, 7-12 hits a kill). Fix: enemies no longer drop through the ground when a spawn point ended up buried by a map's new floors (they rise out of the rock before dropping in).
 - **0.24:** Phase 8 step 4: stats and the end-of-match screen. Every match keeps kills, deaths, assists, score (kills ×100 + assists ×50 − deaths ×25), K/D, best streak, damage dealt and taken, longest life, and your typing accuracy and WPM. The end screen has a scoreboard of you, your partner and each enemy type, six awards (MVP, Most Kills, Best K/D, Sharpshooter, Fastest Fingers, Survivor), and your top 5 on this mode and map, saved in the browser.
 - **0.23:** Phase 8 step 2: Duo. An AI partner of any character (`` ` `` key or `?partner=`; F-keys open browser tools), in every mode: it walks your path a moment behind you (through tunnels, up and down, in the air), gives you room, watches for enemies instead of staring at you, shoots or strikes the nearest enemy every few seconds (3-5 hits a kill), its kills are its own, enemies ignore it, it can't be typed at, it heals and only a fall can kill it (then it's back beside you). Its kills show on the result screen.
