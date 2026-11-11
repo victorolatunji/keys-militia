@@ -249,11 +249,15 @@ export default class WeaponSystem {
     this.belt[slot] = 0;
     this.reloadUntil[slot] = 0;
 
-    // Holding nothing, or only your melee weapon? Take the new gun in hand
-    // (unless your Riot Shield doesn't allow it).
-    const fromMelee = this.active === MELEE_SLOT && slot !== MELEE_SLOT;
-    if ((!this.slots[this.active] || fromMelee) && this.usable(config)) this.active = slot;
-    if (slot === this.active) {
+    // A gun you pick up goes straight into your hand (unless your Riot
+    // Shield doesn't allow it: then you keep what you hold).
+    if (this.usable(config) && slot !== this.active) {
+      this.cancelAim();
+      this.active = slot;
+      this.scene.sfx?.play('switch');
+      this.typing.onWeaponChanged(GUN_SWITCH_MS);
+      this.blockIfReloading();
+    } else if (slot === this.active) {
       this.typing.onWeaponChanged(GUN_SWITCH_MS);
     }
     return old;
@@ -833,10 +837,15 @@ export default class WeaponSystem {
   takeThrowable(key, count) {
     const config = THROWABLES[key];
 
-    const same = this.throwSlots.find((t) => t.config?.key === key);
-    if (same) {
+    const sameIndex = this.throwSlots.findIndex((t) => t.config?.key === key);
+    if (sameIndex !== -1) {
+      const same = this.throwSlots[sameIndex];
       const taken = Math.max(0, Math.min(count, config.maxCarry - same.count));
       same.count += taken;
+      if (taken > 0 && sameIndex !== this.throwActive) {
+        this.cancelAim();
+        this.throwActive = sameIndex; // what you just picked up is ready to throw
+      }
       return { taken, returned: null };
     }
 

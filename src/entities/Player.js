@@ -76,7 +76,7 @@ export default class Player extends Phaser.GameObjects.Rectangle {
     let scale = 1;
     if (this.hasStatus('dazed')) scale = Math.min(scale, STATUS.dazed.moveScale);
     if (this.hasStatus('frozen')) scale = Math.min(scale, STATUS.frozen.moveScale);
-    return scale;
+    return scale * (this.speedBoost ?? 1); // your partner speeds up to catch up
   }
 
   // Shocked (EMP) or frozen: the jetpack and Jet Boost don't work.

@@ -117,7 +117,7 @@ export default class PickupSystem {
     const w = this.weapons;
 
     if (item.type === 'crate') {
-      const slot = this.crateSlot();
+      const slot = this.crateSlot(item);
       const replacing = w.slots[slot] ? `next pick replaces ${w.slots[slot].name}` : 'next pick fills an empty slot';
       const title = `SUPPLY CRATE · take ${item.picksLeft} more\n${replacing}`;
       const options = [];
@@ -245,12 +245,15 @@ export default class PickupSystem {
     }
   }
 
-  // Which gun slot the next crate pick goes into: an empty one, else the gun
-  // in your hand (gun 1 if you're holding your melee weapon).
-  crateSlot() {
+  // Which gun slot the next crate pick goes into: an empty one; else, on a
+  // second pick from the same crate, the slot you didn't just fill; else the
+  // gun in your hand (gun 1 if you're holding your melee weapon).
+  crateSlot(item) {
     const w = this.weapons;
     const empty = GUN_SLOTS.find((i) => !w.slots[i]);
     if (empty !== undefined) return empty;
+    const filled = item?.filledSlot;
+    if (filled !== undefined) return GUN_SLOTS.find((i) => i !== filled) ?? GUN_SLOTS[0];
     return GUN_SLOTS.includes(w.active) ? w.active : GUN_SLOTS[0];
   }
 
@@ -270,14 +273,11 @@ export default class PickupSystem {
       w.refillGun(held, WEAPONS[key].ammo);
       this.picked(`${WEAPONS[key].name} ammo`);
     } else {
-      const slot = this.crateSlot();
-      const old = w.setGun(slot, key);
+      const slot = this.crateSlot(item);
+      const old = w.setGun(slot, key); // the new gun goes straight into your hand
       if (old) this.airdrops.dropItems(crate.x, crate.y - 10, [{ type: 'gun', key: old.key, ammo: old.ammo }]);
       this.picked(WEAPONS[key].name);
-
-      // Suggest swapping your other old gun next.
-      const other = GUN_SLOTS.find((i) => i !== slot && w.slots[i]);
-      if (item.picksLeft > 1 && other !== undefined) w.selectSlot(other);
+      item.filledSlot = slot; // a second pick replaces your other gun, not this one
     }
 
     item.options[index] = null;

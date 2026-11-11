@@ -1,6 +1,8 @@
 import Phaser from 'phaser';
 import { MAPS, MAP_SELECT } from '../data/maps.js';
 import { MODES, MODE_SELECT } from '../data/modes.js';
+import { PARTNER } from '../data/partner.js';
+import { BOTS } from '../data/enemies.js';
 import { createIconTextures } from '../ui/Icons.js';
 
 // Which map to open: ?map=forest in the address, else the last one picked
@@ -30,6 +32,20 @@ function startingMode() {
   return MODES[saved] ? saved : MODE_SELECT.default;
 }
 
+// Your partner: ?partner=commando (or ?partner=none), else the last one picked with the ` key.
+function startingPartner() {
+  const fromUrl = new URLSearchParams(window.location.search).get('partner');
+  if (fromUrl === 'none') return null;
+  if (BOTS[fromUrl]) return fromUrl;
+  let saved = null;
+  try {
+    saved = window.localStorage.getItem(PARTNER.select.storageKey);
+  } catch {
+    // storage blocked
+  }
+  return BOTS[saved] ? saved : null;
+}
+
 export default class BootScene extends Phaser.Scene {
   constructor() {
     super('Boot');
@@ -51,6 +67,6 @@ export default class BootScene extends Phaser.Scene {
 
   create() {
     createIconTextures(this); // item icons for crates, drops, the pickup panel and the HUD
-    this.scene.start('Game', { mapKey: startingMap(), modeKey: startingMode() });
+    this.scene.start('Game', { mapKey: startingMap(), modeKey: startingMode(), partnerKey: startingPartner() });
   }
 }

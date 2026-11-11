@@ -22,6 +22,8 @@ import { MAPS, MAP_SELECT } from '../data/maps.js';
 import { PLAYER } from '../data/player.js';
 import { MODES, MODE_SELECT } from '../data/modes.js';
 import MatchSystem from '../systems/MatchSystem.js';
+import PartnerSystem from '../systems/PartnerSystem.js';
+import { PARTNER } from '../data/partner.js';
 
 const BOT_DROP_Y = 40;     // bots drop in from no higher than this...
 const BOT_DROP_PX = 600;   // ...and at most this far above their spawn point
@@ -63,6 +65,7 @@ export default class GameScene extends Phaser.Scene {
     // A mode only plays on maps that fit it (Zombies can't fly).
     if (this.mode.maps && !this.mode.maps.includes(this.map.key)) this.map = MAPS[this.mode.maps[0]];
     this.matchOver = false;
+    this.partnerKey = data.partnerKey !== undefined ? data.partnerKey : (this.partnerKey ?? null);
     this.deaths = 0;
     this.suicides = 0;
     this.kills = 0;
@@ -81,6 +84,8 @@ export default class GameScene extends Phaser.Scene {
     this.input.keyboard.on(`keydown-${MAP_SELECT.key}`, () => this.nextMap());
     this.input.keyboard.on(`keydown-${MODE_SELECT.key}`, () => this.nextMode());
     this.input.keyboard.addCapture(MODE_SELECT.key); // keep the browser from using the key
+    this.input.keyboard.on(`keydown-${PARTNER.select.key}`, () => this.nextPartner());
+    this.input.keyboard.addCapture(PARTNER.select.key);
 
     // World bounds: walls left, right and top. No floor: below is the void
     // (maps with no void, like Catacombs and Graveyard, get a floor too).
@@ -149,6 +154,9 @@ export default class GameScene extends Phaser.Scene {
     this.airdrops = new AirdropSystem(this, this.groundLayer, { width, height }, this.collisions);
     this.pickups = new PickupSystem(this, this.player, this.weapons, this.airdrops);
     if (ramp) this.airdrops.difficulty = ramp.drops;
+
+    // Duo: your AI partner (the character picked with the ` key).
+    this.partner = this.partnerKey ? new PartnerSystem(this, this.partnerKey) : null;
 
     this.voidSystem = this.map.void
       ? new VoidSystem(this, this.map, { width, height }, (player) => player.kill('void'))
@@ -252,7 +260,19 @@ export default class GameScene extends Phaser.Scene {
     }
     const maps = MODES[next].maps;
     const mapKey = !maps || maps.includes(this.map.key) ? this.map.key : maps[0];
-    this.scene.restart({ mapKey, modeKey: next });
+    this.scene.restart({ mapKey, modeKey: next, partnerKey: this.partnerKey });
+  }
+
+  // ` (testing, until the menus): Solo → each character as your partner → Solo.
+  nextPartner() {
+    const order = [null, ...PARTNER.select.order];
+    const next = order[(order.indexOf(this.partnerKey) + 1) % order.length];
+    try {
+      window.localStorage.setItem(PARTNER.select.storageKey, next ?? '');
+    } catch {
+      // storage blocked
+    }
+    this.scene.restart({ mapKey: this.map.key, modeKey: this.mode.key, partnerKey: next });
   }
 
   // F6 (testing): the next map in MAP_SELECT.order, remembered in this browser.
@@ -265,7 +285,7 @@ export default class GameScene extends Phaser.Scene {
     } catch {
       // storage blocked: still switch, just not remembered
     }
-    this.scene.restart({ mapKey: next, modeKey: this.mode.key });
+    this.scene.restart({ mapKey: next, modeKey: this.mode.key, partnerKey: this.partnerKey });
   }
 
   // The far end of the ground under you that it can walk to you from
@@ -391,6 +411,7 @@ export default class GameScene extends Phaser.Scene {
     for (const dummy of this.dummies) dummy.update();
     this.spawner.update();
     for (const bot of this.bots) bot.update(delta);
+    this.partner?.update(delta);
     this.hazards.update(); // after everyone moved: water slows, lava burns
     this.backdrop.update(delta);
     this.botCombat.update(delta);
@@ -403,13 +424,14 @@ export default class GameScene extends Phaser.Scene {
     this.sfx.endFrame(); // loops nobody held this frame fade out
     this.voidSystem?.update(this.player);
     for (const bot of this.bots) this.voidSystem?.update(bot);
+    if (this.partner) this.voidSystem?.update(this.partner.bot);
     this.hud.update(this.player, this.typing, this.weapons);
 
     const b = this.player.body;
     const lock = this.typing.lock;
     const shot = this.weapons.lastShot;
     this.debugText.setText([
-      `map: ${this.map.name} (F6 next)  mode: ${this.mode.name} (F8)  x: ${Math.round(this.player.x)}  y: ${Math.round(this.player.y)}  ${this.player.hidden ? 'HIDDEN' : ''}${this.player.submerged ? ` breath ${Math.ceil(this.player.hazard.breath / 1000)}s` : ''}`,
+      `map: ${this.map.name} (F6 next)  mode: ${this.mode.name} (F8)  ${this.partner ? `ally: ${this.partner.config.name} kills ${this.partner.kills}` : 'solo'} (key left of 1)  x: ${Math.round(this.player.x)}  y: ${Math.round(this.player.y)}  ${this.player.hidden ? 'HIDDEN' : ''}${this.player.submerged ? ` breath ${Math.ceil(this.player.hazard.breath / 1000)}s` : ''}`,
       `vx: ${Math.round(b.velocity.x)}  vy: ${Math.round(b.velocity.y)}`,
       `onGround: ${this.player.onGround}  fuel: ${Math.round(this.player.fuel)}  hp: ${Math.round(this.player.hp)}`,
       `alive: ${this.player.alive}  deaths: ${this.deaths}  suicides: ${this.suicides}`,

@@ -5,6 +5,7 @@ import { BOT_AI } from '../data/enemies.js';
 import { AIRDROPS } from '../data/airdrops.js';
 import { GUN_SWITCH_MS } from '../data/weapons.js';
 import { HIDING } from '../data/hazards.js';
+import { PARTNER } from '../data/partner.js';
 
 const EYE_OFFSET_Y = -8;
 
@@ -55,7 +56,9 @@ export default class BotBrain {
     if (!bot.alive || bot.staggered) return;
 
     const now = bot.scene.time.now;
-    if (now >= this.nextThink) {
+    if (bot.isPartner) {
+      this.followPath(); // your partner: every frame, along your path
+    } else if (now >= this.nextThink) {
       this.think(now);
       this.nextThink = now + BOT_AI.thinkMs * Phaser.Math.FloatBetween(0.8, 1.2);
     }
@@ -63,6 +66,27 @@ export default class BotBrain {
   }
 
   // ---- Deciding ----
+
+  // Your partner: head straight for the spot on your path PartnerSystem
+  // picks (it already gives you room). Only gas makes it step aside.
+  followPath() {
+    const bot = this.bot;
+    const t = this.getTarget();
+    this.target = t && t.alive ? t : null;
+    this.sees = false; // PartnerSystem decides where it looks
+    const gas = bot.scene.weapons?.gasAt(bot.x, bot.y);
+    if (gas && !this.retreating && bot.scene.weapons.breathes(bot, gas.throwable)) {
+      this.retreat(gas, gas.config.radiusPx + 60, 1500);
+    }
+    if (this.retreating) {
+      this.goalX = this.retreatX;
+      this.goalY = bot.y;
+      return;
+    }
+    this.mode = this.target ? 'follow' : 'idle';
+    this.goalX = this.target ? t.x : bot.x;
+    this.goalY = this.target ? t.y : bot.y;
+  }
 
   // Back away from the target for a while (hit and run), then come back.
   retreat(target, px, ms) {
@@ -117,7 +141,7 @@ export default class BotBrain {
 
     // Crates and drops: worth a detour when it has no gun, can't see you,
     // or the item is right next to it.
-    const loot = this.findLoot(now);
+    const loot = bot.isPartner ? null : this.findLoot(now); // your partner leaves the crates to you
     this.trackLoot(loot, now);
     if (loot) {
       const lootDist = Phaser.Math.Distance.Between(bot.x, bot.y, loot.x, loot.y);
@@ -139,7 +163,7 @@ export default class BotBrain {
       return;
     }
 
-    const { min, max } = bot.gear.range;
+    const { min, max } = bot.isPartner ? PARTNER.followPx : bot.gear.range; // your partner sticks close
     const side = Math.sign(t.x - bot.x) || 1;
     const melee = bot.gear.current.category === 'melee';
 

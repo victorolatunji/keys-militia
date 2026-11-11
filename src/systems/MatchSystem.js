@@ -164,7 +164,8 @@ export default class MatchSystem {
     const lines = this.waves
       ? [`Waves survived ${this.wave}`, '', `Kills ${scene.kills}   Deaths ${scene.deaths}   K/D ${kd.toFixed(2)}`, `Time ${time}`]
       : [`You ${scene.kills}  :  ${this.enemyKills} Military`, '', `Kills ${scene.kills}   Deaths ${scene.deaths}   K/D ${kd.toFixed(2)}`, `Time ${time}`];
-    lines.push('', 'R: play again    F8: change mode    F6: change map');
+    if (scene.partner) lines.push(`Ally ${scene.partner.config.name}: ${scene.partner.kills} kills (its own)`);
+    lines.push('', 'R: play again    F8: mode    F6: map    `: partner');
     const cx = 640;
     this.endBg = scene.add.rectangle(cx, 330, 640, 300, 0x000000, 0.78).setScrollFactor(0).setDepth(HUD_DEPTH + 5);
     this.endTitle = scene.add.text(cx, 220, title, { fontFamily: 'monospace', fontSize: '54px', color, fontStyle: 'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(HUD_DEPTH + 6);
