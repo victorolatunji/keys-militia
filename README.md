@@ -4,13 +4,15 @@
 **Version:** 0.25
 **Owner:** Victor Olatunji / VAO
 **Budget:** $0, free tools and free assets only
-**Status:** Phase 7 (Maps) in progress: Forest, Hell, Glacier, Desert, Catacombs and Graveyard done, four launch maps to go.
+**Status:** Phase 8 (Offline modes) done; Phase 9 (Menus and guest) next.
 **Live build:** https://victorolatunji.github.io/keys-militia/
 
 ---
 
 ## 1. Pitch
 A 2D arena shooter **influenced by Mini Militia**, but its own game: **typing is your weapon**. Move with arrows or mouse, and type the word above an enemy to fire at them.
+
+**Story: Earth Respond** (name picked in 0.25; the story itself comes later). A signal from beyond Earth reaches the planet. It wakes the dead, turns the machines and draws the aliens in, and the militias rise to fight back across every map, from the forest to the signal tower in Space. Earth Respond is the answer to that call. Still to decide: the story's beats per map, and the names of the characters (Training's coaches are the Sergeant and the Tech until then).
 
 ## 2. Pillars
 1. **Move or type, never both at once.** Reposition, then fight.
@@ -442,7 +444,8 @@ New enemies of a step arrive after a 4s calm. Drops get more generous each step.
 - Training targets go down in one finished word (20 HP). The melee target only counts a melee kill (a gun kill puts it back, and the Sergeant tells you to switch). Training is always solo (no Duo partner).
 - **Skip:** Enter skips the current lesson, Esc leaves Training (to Free play).
 - **Graduation:** TRAINING COMPLETE with time, words finished of started, accuracy, WPM, typos and enemies down, and what to play next (F8 a mode, R train again, Esc Free play). It's remembered in the browser (`keys-militia.trained`) for the menus to use later. Training is about 25-40s per lesson, 3-5 minutes in all.
-- **Open:** the coaches' names come with the story (pending).
+- **Later (sound pass):** the coaches' lines are also **spoken out loud** with the speech bubbles (a voice per coach). The free option is the browser's built-in speech (Web Speech API); recorded or generated voices if they sound better.
+- **Open:** the coaches' names come with the story (Earth Respond).
 
 **Online** (Phase 11, after launch):
 | Mode | Notes |
@@ -625,6 +628,8 @@ keys-militia/
 ---
 
 ## 17. Open decisions
+- [ ] Story (Earth Respond): beats per map, character names (the coaches included)
+- [ ] Spoken lines for the Training coaches (sound pass)
 - [ ] Final hazard and advantage behavior per map (Forest and Hell starting values in `hazards.js`)
 - [ ] Map art: code-drawn placeholders for now (rounded edges, rocks, decor); final tiles in the art pass (9.5)
 - [ ] Match length and kill targets (starting values in section 10; measure the real kill pace)
