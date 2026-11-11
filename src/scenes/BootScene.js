@@ -2,7 +2,6 @@ import Phaser from 'phaser';
 import { MAPS, MAP_SELECT } from '../data/maps.js';
 import { MODES, MODE_SELECT } from '../data/modes.js';
 import { PARTNER } from '../data/partner.js';
-import { BOTS } from '../data/enemies.js';
 import { createIconTextures } from '../ui/Icons.js';
 
 // Which map to open: ?map=forest in the address, else the last one picked
@@ -36,14 +35,15 @@ function startingMode() {
 function startingPartner() {
   const fromUrl = new URLSearchParams(window.location.search).get('partner');
   if (fromUrl === 'none') return null;
-  if (BOTS[fromUrl]) return fromUrl;
+  const allowed = (key) => PARTNER.select.order.includes(key); // removed picks (Drone, K9...) fall back to solo
+  if (allowed(fromUrl)) return fromUrl;
   let saved = null;
   try {
     saved = window.localStorage.getItem(PARTNER.select.storageKey);
   } catch {
     // storage blocked
   }
-  return BOTS[saved] ? saved : null;
+  return allowed(saved) ? saved : null;
 }
 
 export default class BootScene extends Phaser.Scene {

@@ -241,8 +241,12 @@ export default class GameScene extends Phaser.Scene {
   dropY(p) {
     const step = this.groundLayer.tilemap.tileHeight / 2;
     let y = p.y - 40;
-    // (checks the whole width of a body, so it never drops in inside ragged rock)
-    const clear = (yy) => [-16, 0, 16].every((dx) => !isSolid(this.groundLayer, p.x + dx, yy - 24) && !isSolid(this.groundLayer, p.x + dx, yy + 24));
+    // (checks the whole width and height of a body, so it never drops in inside ragged rock)
+    const clear = (yy) => [-22, 0, 22].every((dx) => [-30, 0, 30].every((dy) => !isSolid(this.groundLayer, p.x + dx, yy + dy)));
+    // A point buried in the ground (the map's floors changed around it):
+    // rise out of the rock first. Starting inside a tile, the physics would
+    // push it out the bottom and it would fall through the floor.
+    while (!clear(y) && y > BOT_DROP_Y) y -= step;
     while (y - step > Math.max(BOT_DROP_Y, p.y - BOT_DROP_PX) && clear(y - step)) y -= step;
     return y;
   }

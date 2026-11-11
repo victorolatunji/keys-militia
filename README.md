@@ -1,7 +1,7 @@
 # Keys Militia
 *A VAO game. Living plan book: update it whenever the plan changes.*
 
-**Version:** 0.24
+**Version:** 0.24.1
 **Owner:** Victor Olatunji / VAO
 **Budget:** $0, free tools and free assets only
 **Status:** Phase 7 (Maps) in progress: Forest, Hell, Glacier, Desert, Catacombs and Graveyard done, four launch maps to go.
@@ -389,18 +389,18 @@ Stats live in `src/data/weapons.js` (guns, specials, throwables), `src/data/item
 ## 10. Game modes
 **Offline** (Phase 8, free to run). Every offline mode is **Solo or Duo (co-op)**: you pick on the mode screen.
 
-**Duo = you + an AI partner (built in 0.23, `src/systems/PartnerSystem.js`, `src/data/partner.js`).** You pick which character it is, from every character in the game (soldiers, cyborgs, zombies, even a Drone or a Zombie K9). It's there to help, not to carry you:
+**Duo = you + an AI partner (built in 0.23, `src/systems/PartnerSystem.js`, `src/data/partner.js`).** You pick which character it is: 12 of the 15 characters (soldiers, mercenaries, commandos, armoured troopers, zombies, skeletons, infected soldiers, androids, robots, aliens, cyborgs, mutants). Not the Drone, the Scrap Bot (the bomber) or the Zombie K9 (removed in 0.24.1): they attack by charging or pouncing, which doesn't fit a teammate who keeps its distance and shoots. It's there to help, not to carry you:
 - It sticks with you and fights beside you, but it kills only now and then and rarely dies.
 - Enemies ignore it and go after you; it's never a threat or a target.
 - Its kills are its own: they don't count as yours (they show under its name on the scoreboard).
 - If it does die, it simply respawns next to you, in every mode (its deaths don't use up your respawns).
-- How it plays (0.23): a green outline and an "ALLY · name" tag; it walks your path a moment behind you (it flies when you fly, drops down a tunnel after you and climbs back up with you), leaves you about 110px of room and steps aside if you walk into it, speeds up when it falls behind, watches (faces the nearest enemy it can see, else looks where you look and glances behind you now and then), never loots crates, teleports back to you if it's lost far behind, heals itself, and every 2.6-4.2s shoots (or, for melee characters, strikes) the nearest enemy it can see within 520px for 20-35% of that enemy's HP, so a kill takes it 3-5 hits. Hazards don't touch it; only a fall can kill it. Its kills show on the result screen as its own.
+- How it plays (0.23, reworked in 0.24.1): a green outline and an "ALLY · name" tag. **It replays your path:** each time you move 12px a point is added, and it goes through the points in order, staying about 120px behind you measured along the path. So it goes wherever you went (through tunnels and gaps, up into the air, down a hole) and never picks its own route: it runs where you ran and flies where you flew or fell. The farther behind it is, the faster it moves (up to 1000px/s, since you can fall at 900). It steps aside if you walk into it, hovers when you're in the air, and only follows you out over the void once your path comes back over ground (so it never follows you into a fall). If something still blocks it for 0.7s it hops to the next point of your path (you stood there, so there's room); lost far behind or after you respawn, it reappears behind you. It watches: it faces the nearest enemy it can see, else looks where you look and glances behind you now and then. It never loots crates and heals itself. Every 1-1.6s it shoots (or, for melee characters, strikes) the nearest enemy it can see within 520px for 8-14% of that enemy's HP, so a kill takes it 7-12 hits. Hazards don't touch it; only a fall can kill it. Its kills show on the scoreboard as its own.
 | Mode | Rules |
 |---|---|
 | You vs Military ✅ (solo, 0.21) | Solo or Duo against Military soldiers. **Kill target 25 on a 10-minute countdown** (no picking targets). Respawn as often as you like until the clock runs out. Reach 25 first to win; if the clock runs out, the side with more kills wins. |
 | Zombies ✅ (solo, 0.21) | Solo or Duo against waves of zombies. **No respawns:** one life each; survive as many waves as you can. Each wave is bigger and faster. |
 | You vs Enemies ✅ (solo, 0.22) | Solo or Duo against every enemy type, in waves. **3 respawns each, then game over.** Survive as long as you can. |
-| Training | Solo, about 3-5 minutes, can't fail. A guided run through the core of the game, one short step at a time, each with an on-screen hint: move and fly (arrows, jetpack, fuel) → type a word to shoot a target (lock-on, typos jam the gun) → switch guns (Shift) and throw a grenade (aim and release) → an airdrop lands: walk to it and pick from its panel → hide in a bush or under water, mind a hazard → a short live fight against two easy bots. Each step can be skipped; at the end a quick summary and "Play". |
+| Training | Solo, about 3-5 minutes, can't fail, on its own map (Militia Camp). Two coaches walk you through 8 fixed lessons with speech bubbles; see **Training plan** below. |
 
 **Flow (all offline modes):** the match gets harder as it goes, so it never drags and never overwhelms. The countdown or wave number drives it: more enemies at once, tougher enemy types, better guns and smarter, faster bots step in every couple of minutes or waves (a short calm after each step, a warning when the next one is coming). Starting values to tune by play-testing.
 
@@ -423,6 +423,22 @@ New enemies of a step arrive after a 4s calm. Drops get more generous each step.
 **Drops keep it fair:** airdrops scale with the difficulty. The harder the enemies get, the more often crates bring specials and helpful gear (launchers, special guns, health packs, armor, shields, Jet Boost, tacticals). Weaker weapons (pistols, basic SMGs and rifles) drop less as it gets harder, but they never disappear: you still see them now and then.
 
 **Mode intro (comes with the menus and the art pass, Phases 9 and 9.5):** before a mode starts, a pop-up shows what to expect: a few real gameplay screenshots of that mode, its rules in a line or two (goal, respawns, timer or waves) and a **Skip** button to go straight into the game.
+
+**Training plan (agreed in 0.24.1, built next: Phase 8 step 5):**
+- **Map: Militia Camp, used only for Training.** A war-zone base laid out left to right as a row of stations: barracks tents, a flagpole, a watchtower, a trench, a firing range with targets, a sandbag wall, a helipad for the airdrop and a small live-fire yard. Normal gravity, thick floor, no void (it can't kill you by a fall), no hazards, room for two everywhere. A fixed map means every lesson is built for its station, and a new player always sees the same, clear setup.
+- **Coaches:** the Commando (drill sergeant: moving and fighting) and the Android (tech: typing and gear). They walk ahead to the next station and talk in **speech bubbles** above their heads (typed out letter by letter). A hint bar at the bottom shows the keys for the current lesson.
+- **Fixed series of lessons:** one at a time, in order. Each lesson is a station with a task; the game checks when you've done it, the coach says "Good", and the gate to the next station opens. Lessons live as data (`src/data/training.js`: coach, lines, keys, the check, the station) and `src/systems/TrainingSystem.js` runs them, so a lesson can be changed or added without touching code.
+  1. **Move:** Left / Right, run to the flag. Done: you reach it.
+  2. **Fly:** hold Up to fly, land on the watchtower; fuel refills only on the ground; Down to drop. Done: you stand on the tower.
+  3. **Type to shoot:** type the word on a target (the first letter locks on). Done: 3 targets down.
+  4. **Typos and moving:** a wrong letter jams your gun; an arrow stops typing and your half-typed word waits. Done: 2 more targets down.
+  5. **Switch weapons:** Shift switches gun 1 → gun 2 → melee; melee words only show up close. Done: a target down with melee.
+  6. **Throw:** hold the left mouse button, aim, release (or Space + Up/Down); Tab switches throwable. Done: a grenade takes out a target behind the sandbags.
+  7. **Airdrop:** a crate parachutes onto the helipad; walk to it and press 1-6 to take a gun (it goes straight to your hand). Done: you took one.
+  8. **Live fire:** two easy Soldiers. You can't lose (you're back in a moment if you go down). Done: both down.
+- **Skip:** Enter skips the current lesson, Esc leaves Training (to Free play).
+- **Graduation:** a short summary (time, words, accuracy, WPM) and what to play next. Training is about 25-40s per lesson, 3-5 minutes in all.
+- **Open:** the coaches' names come with the story (pending).
 
 **Online** (Phase 11, after launch):
 | Mode | Notes |
@@ -621,6 +637,7 @@ keys-militia/
 ---
 
 ## 18. Changelog
+- **0.24.1:** Partner picks: 12 characters (no Drone, Scrap Bot or Zombie K9; a saved pick of one of them falls back to Solo). Training plan agreed (Militia Camp map, 2 coaches, 8 fixed lessons). Duo partner reworked: it replays your exact path (tunnels, flying, drops) instead of steering on its own, catches up as fast as it needs to, waits at the edge instead of following you into the void, and attacks more often but lighter (every 1-1.6s, 7-12 hits a kill). Fix: enemies no longer drop through the ground when a spawn point ended up buried by a map's new floors (they rise out of the rock before dropping in).
 - **0.24:** Phase 8 step 4: stats and the end-of-match screen. Every match keeps kills, deaths, assists, score (kills ×100 + assists ×50 − deaths ×25), K/D, best streak, damage dealt and taken, longest life, and your typing accuracy and WPM. The end screen has a scoreboard of you, your partner and each enemy type, six awards (MVP, Most Kills, Best K/D, Sharpshooter, Fastest Fingers, Survivor), and your top 5 on this mode and map, saved in the browser.
 - **0.23:** Phase 8 step 2: Duo. An AI partner of any character (`` ` `` key or `?partner=`; F-keys open browser tools), in every mode: it walks your path a moment behind you (through tunnels, up and down, in the air), gives you room, watches for enemies instead of staring at you, shoots or strikes the nearest enemy every few seconds (3-5 hits a kill), its kills are its own, enemies ignore it, it can't be typed at, it heals and only a fall can kill it (then it's back beside you). Its kills show on the result screen.
 - **0.22:** Phase 8 step 3b: You vs Enemies. Waves of every enemy type mixed together, a new kind joining most waves, tougher every wave, 3 respawns then game over, an 8s breather between waves, respawns left on screen; all maps but Sky Islands and Space. The result screen shows K/D for wave modes too. Picking up a gun or a throwable now puts it straight in your hand.
