@@ -340,7 +340,7 @@ export const METEOR = {
 
 // Wind gusts (Sky Islands): they push everyone sideways, hard in the air.
 export const WIND = {
-  everyMs: [18000, 28000],
+  everyMs: [50000, 80000], // rare: a gust now and then, not all the time
   lastMs: 9000,
   fadeMs: 1500,
   speed: 260,       // px/s drift in the air at full strength

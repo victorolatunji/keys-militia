@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { DECOR } from '../data/hazards.js';
+import Cloud from '../entities/Cloud.js';
 import { groundBelow } from './Terrain.js';
 
 // Everything behind the action (looks only, no physics), from map.sky in
@@ -24,6 +25,7 @@ export default class BackdropSystem {
     this.tumbleweeds = [];
     if (!this.sky) return;
 
+    this.puff = Cloud.puffTexture(scene); // soft formless wisp for smoke, mist, glows
     this.groundY = this.sky.horizonY ?? mainGroundY(groundLayer);
     this.drawSky();
     if (this.sky.stars) this.drawStars();
@@ -44,6 +46,9 @@ export default class BackdropSystem {
     if (this.sky.dust) this.makeCaveDust();
     if (this.sky.petals) this.makeDrift([0xffc8dd, 0xffafcc, 0xffffff], 5, 'leaf');
     if (this.sky.ash) this.makeDrift([0xadb5bd, 0x6c757d, 0xdee2e6], 8, 'hz-dot');
+    if (this.sky.war) this.makeWar();
+    if (this.sky.mist) this.makeMist();
+    if (this.sky.signalTower) this.drawSignalTower();
     this.tumbleweeds = [];
     this.nextWeedAt = scene.time.now + 1500;
     this.layer = groundLayer;
@@ -88,6 +93,23 @@ export default class BackdropSystem {
       else if (o.name === 'solar') this.drawSolar(o.x, o.y);
       else if (o.name === 'woodpost') this.drawWoodPost(o);
       else if (o.name === 'pillar') this.drawPillar(o);
+      else if (o.name === 'sandbags') this.drawSandbags(o.x, o.y);
+      else if (o.name === 'barbed') this.drawBarbed(o.x, o.y);
+      else if (o.name === 'helmetcross') this.drawHelmetCross(o.x, o.y);
+      else if (o.name === 'heliwreck') this.drawHeliWreck(o.x, o.y);
+      else if (o.name === 'truckwreck') this.drawTruckWreck(o.x, o.y);
+      else if (o.name === 'supplycrates') this.drawSupplyCrates(o.x, o.y);
+      else if (o.name === 'hedgehog') this.drawHedgehog(o.x, o.y);
+      else if (o.name === 'burnttree') this.drawBurntTree(o.x, o.y);
+      else if (o.name === 'poster') this.drawPoster(o.x, o.y);
+      else if (o.name === 'spray') this.drawSpray(o.x, o.y);
+      else if (o.name === 'sconce') this.drawSconce(o.x, o.y);
+      else if (o.name === 'skullniche') this.drawSkullNiche(o.x, o.y);
+      else if (o.name === 'crater') this.drawCrater(o.x, o.y);
+      else if (o.name === 'scars') this.drawScars(o);
+      else if (o.name === 'airshipwreck') this.drawAirshipWreck(o.x, o.y);
+      else if (o.name === 'shipwreck') this.drawShipWreck(o.x, o.y);
+      else if (o.name === 'smoke') this.smokeFrom(o.x, o.y);
       else if (o.name === 'oracle') this.drawOracle(o.x, o.y);
       else if (o.name === 'brazier') this.drawBrazier(o.x, o.y);
       else if (o.name === 'gong') this.drawGong(o.x, o.y);
@@ -138,9 +160,8 @@ export default class BackdropSystem {
     const factor = 0.05;
     const sx = VIEW_W * x;
     const sy = this.placeY(VIEW_H * y, factor);
-    for (const [r, a] of [[90, 0.12], [60, 0.2], [38, 1]]) {
-      this.scene.add.circle(sx, sy, r * size, color, a).setScrollFactor(factor).setDepth(-99);
-    }
+    this.scene.add.image(sx, sy, this.puff).setTint(color).setAlpha(0.55).setScale(1.9 * size).setScrollFactor(factor).setDepth(-99);
+    this.scene.add.circle(sx, sy, 38 * size, color, 1).setScrollFactor(factor).setDepth(-99);
   }
 
   // Soft puffs drifting sideways (Hell: dark smoke).
@@ -148,11 +169,22 @@ export default class BackdropSystem {
     const { count, color } = this.sky.clouds;
     const key = `cloud-${this.key}`;
     if (!this.scene.textures.exists(key)) {
-      const g = this.scene.add.graphics();
-      g.fillStyle(color, 0.85);
-      for (const [x, y, r] of [[40, 40, 26], [70, 30, 32], [105, 40, 26], [60, 50, 24], [90, 52, 22]]) g.fillCircle(x, y, r);
-      g.generateTexture(key, 140, 80);
-      g.destroy();
+      // A soft, uneven cloud: many overlapping wisps, flatter at the bottom.
+      const tex = this.scene.textures.createCanvas(key, 220, 110);
+      const ctx = tex.getContext();
+      const c = Phaser.Display.Color.IntegerToColor(color);
+      for (let i = 0; i < 16; i++) {
+        const cx = 40 + Math.random() * 140;
+        const cy = 40 + Math.random() * 34 - (Math.abs(cx - 110) < 50 ? 12 : 0);
+        const r = 22 + Math.random() * 26;
+        const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+        grad.addColorStop(0, `rgba(${c.red},${c.green},${c.blue},0.5)`);
+        grad.addColorStop(0.7, `rgba(${c.red},${c.green},${c.blue},0.25)`);
+        grad.addColorStop(1, `rgba(${c.red},${c.green},${c.blue},0)`);
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, 220, 110);
+      }
+      tex.refresh();
     }
     const factor = 0.15;
     const span = VIEW_W + (this.world.width - VIEW_W) * factor;
@@ -734,12 +766,12 @@ export default class BackdropSystem {
     g.fillStyle(0x4a1942, 1).fillTriangle(x - 18, y - 18, x + 18, y - 18, x, y - 62); // robe
     g.fillStyle(0x2b0f28, 1).fillCircle(x, y - 60, 9);                                // hood
     g.fillStyle(0xe9c46a, 0.9).fillCircle(x, y - 62, 4);                               // face in shadow
-    const halo = this.scene.add.circle(x, y - 60, 22, 0xffd166, 0.12).setDepth(-1);
-    this.scene.tweens.add({ targets: halo, scale: 1.4, alpha: 0.04, duration: 1600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    const halo = this.scene.add.image(x, y - 58, this.puff).setTint(0xffd166).setAlpha(0.45).setScale(0.6).setDepth(-1).setBlendMode(Phaser.BlendModes.ADD);
+    this.scene.tweens.add({ targets: halo, scale: 0.75, alpha: 0.2, duration: 1600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
     const orb = this.scene.add.circle(x, y - 34, 7, 0x90e0ef, 0.9).setDepth(-1);
     this.scene.tweens.add({ targets: orb, y: y - 40, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
-    const glow = this.scene.add.circle(x, y - 34, 18, 0x90e0ef, 0.2).setDepth(-1).setBlendMode(Phaser.BlendModes.ADD);
-    this.scene.tweens.add({ targets: glow, y: y - 40, scale: 1.3, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    const glow = this.scene.add.image(x, y - 34, this.puff).setTint(0x90e0ef).setAlpha(0.6).setScale(0.4).setDepth(-1).setBlendMode(Phaser.BlendModes.ADD);
+    this.scene.tweens.add({ targets: glow, y: y - 40, scale: 0.5, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
   }
 
   // A bronze fire bowl on legs: flames and a curl of incense smoke.
@@ -759,12 +791,13 @@ export default class BackdropSystem {
       })
       .setDepth(-1);
     this.scene.add
-      .particles(x, y - 40, 'hz-dot', {
+      .particles(x, y - 40, this.puff, {
         lifespan: 2600,
         speedY: { min: -30, max: -15 },
         speedX: { min: -8, max: 8 },
-        scale: { start: 0.3, end: 1.2 },
-        alpha: { start: 0.25, end: 0 },
+        scale: { start: 0.08, end: 0.35 },
+        rotate: { min: 0, max: 360 },
+        alpha: { start: 0.45, end: 0 },
         tint: 0xdddddd,
         frequency: 300,
       })
@@ -876,6 +909,277 @@ export default class BackdropSystem {
     g.fillStyle(0x3d3a36, 0.6).fillCircle(x + w * 0.4, y - 24, 6);
   }
 
+  // ---- War zone (every map but the enclosed ones) ----
+
+  // Smoke columns rising far off and flashes of distant fighting on the
+  // horizon (now and then a faint rumble).
+  makeWar() {
+    const scene = this.scene;
+    const war = this.sky.war;
+    const factor = 0.1;
+    const base = this.placeY(VIEW_H * 0.72, factor); // from behind the far hills
+    for (let i = 0; i < (war.smoke ?? 3); i++) {
+      const sx = VIEW_W * (0.15 + 0.7 * ((i + 0.5) / (war.smoke ?? 3))) + Phaser.Math.Between(-60, 60);
+      scene.add
+        .particles(sx, base, this.puff, {
+          x: { min: -10, max: 10 },
+          lifespan: 9000,
+          speedY: { min: -26, max: -16 },
+          speedX: { min: 4, max: 12 },
+          scale: { start: 0.3, end: 1.5 },
+          rotate: { min: 0, max: 360 },
+          alpha: { values: [0, 0.6, 0.45, 0] },
+          tint: war.smokeColor ?? 0x3d3d3d,
+          frequency: 260,
+        })
+        .setScrollFactor(factor)
+        .setDepth(-96);
+    }
+    if (war.flashes === false) return;
+    const flash = () => {
+      const fx = Phaser.Math.Between(40, VIEW_W - 40);
+      const f = scene.add.image(fx, base + Phaser.Math.Between(-20, 10), this.puff).setTint(0xffb347).setAlpha(0.9).setScale(Phaser.Math.FloatBetween(0.25, 0.5), Phaser.Math.FloatBetween(0.15, 0.3)).setScrollFactor(factor).setDepth(-96).setBlendMode(Phaser.BlendModes.ADD);
+      scene.tweens.add({ targets: f, alpha: 0, scaleX: f.scaleX * 2.2, scaleY: f.scaleY * 1.6, duration: 700, onComplete: () => f.destroy() });
+      if (Math.random() < 0.4) scene.sfx?.play('boulderWarn', null, { volume: 0.12 }); // a far-off rumble
+      scene.time.delayedCall(Phaser.Math.Between(2500, 7000), flash);
+    };
+    scene.time.delayedCall(2000, flash);
+  }
+
+  // Mist drifting across the screen (Forest, Sky Islands): long soft wisps.
+  makeMist() {
+    const color = this.sky.mist.color ?? 0xdfe6e9;
+    this.scene.add
+      .particles(0, 0, this.puff, {
+        x: -200,
+        y: { min: VIEW_H * 0.2, max: VIEW_H },
+        lifespan: 40000,
+        speedX: { min: 30, max: 60 },
+        scaleX: { min: 3, max: 5 },
+        scaleY: { min: 0.6, max: 1 },
+        alpha: { values: [0, (this.sky.mist.alpha ?? 0.1) * 2.5, (this.sky.mist.alpha ?? 0.1) * 2.5, 0] },
+        tint: color,
+        frequency: 2500,
+        advance: 40000,
+      })
+      .setScrollFactor(0)
+      .setDepth(33);
+  }
+
+  // War props are scenery you walk through, so like every walk-through
+  // thing they're drawn see-through (one shared half-transparent layer).
+  warLayer() {
+    this.warBack ??= this.scene.add.graphics().setDepth(-6).setAlpha(0.5);
+    return this.warBack;
+  }
+
+  // Catacombs: an iron wall sconce with a flickering torch flame.
+  drawSconce(x, y) {
+    const g = this.back;
+    const fy = y - 70;
+    g.lineStyle(3, 0x3d3a36, 1).lineBetween(x - 8, fy + 16, x, fy + 24).lineBetween(x + 8, fy + 16, x, fy + 24);
+    g.fillStyle(0x3d3a36, 1).fillRect(x - 9, fy + 10, 18, 6);
+    g.fillStyle(0x5e3b1e, 1).fillRect(x - 3, fy - 2, 6, 14);
+    const flame = this.scene.add.graphics().setDepth(-5).setPosition(x, fy - 2);
+    flame.fillStyle(0xe85d04, 0.95).fillTriangle(-6, 0, 6, 0, 0, -20);
+    flame.fillStyle(0xffd166, 1).fillTriangle(-3, 0, 3, 0, 0, -12);
+    this.scene.tweens.add({ targets: flame, scaleY: { from: 0.8, to: 1.2 }, scaleX: { from: 1.1, to: 0.85 }, duration: Phaser.Math.Between(120, 220), yoyo: true, repeat: -1 });
+    this.scene.add.image(x, fy - 10, this.puff).setTint(0xff9f1c).setAlpha(0.35).setScale(0.9, 0.7).setDepth(-7).setBlendMode(Phaser.BlendModes.ADD);
+  }
+
+  // Catacombs: a niche cut in the wall, stacked with skulls.
+  drawSkullNiche(x, y) {
+    const g = this.back;
+    const top = y - 92;
+    g.fillStyle(0x15120f, 1).fillRoundedRect(x - 30, top, 60, 52, { tl: 26, tr: 26, bl: 2, br: 2 });
+    for (const [dx, dy] of [[-14, 40], [0, 40], [14, 40], [-7, 26], [7, 26], [0, 13]]) {
+      const cx = x + dx;
+      const cy = top + dy;
+      g.fillStyle(0xd6ccc2, 1).fillEllipse(cx, cy, 13, 11);
+      g.fillStyle(0x1b1b1f, 1).fillCircle(cx - 3, cy - 1, 1.8).fillCircle(cx + 3, cy - 1, 1.8).fillRect(cx - 1, cy + 2, 2, 2);
+    }
+  }
+
+  // Sandbags stacked in a low wall.
+  drawSandbags(x, y) {
+    const g = this.warLayer(); // walk-through props: see-through
+    const colors = [0xa68a64, 0x936639, 0xb6ad90];
+    for (let row = 0; row < 2; row++) {
+      for (let k = 0; k < 4 - row; k++) {
+        const bx = x - 48 + row * 12 + k * 26;
+        g.fillStyle(colors[(k + row) % 3], 1).fillEllipse(bx + 12, y - 9 - row * 15, 28, 16);
+        g.lineStyle(1, 0x5e503f, 0.8).strokeEllipse(bx + 12, y - 9 - row * 15, 28, 16);
+      }
+    }
+  }
+
+  // Barbed wire on crooked posts.
+  drawBarbed(x, y) {
+    const g = this.warLayer(); // walk-through props: see-through
+    g.lineStyle(3, 0x5e503f, 1).lineBetween(x - 46, y, x - 42, y - 34).lineBetween(x + 46, y, x + 42, y - 34);
+    g.lineStyle(1, 0x6c757d, 1);
+    for (let k = 0; k < 9; k++) g.strokeEllipse(x - 40 + k * 10, y - 20, 14, 22);
+    g.lineBetween(x - 44, y - 30, x + 44, y - 28).lineBetween(x - 44, y - 10, x + 44, y - 12);
+  }
+
+  // A soldier's grave: a wooden cross with a helmet hung on it.
+  drawHelmetCross(x, y) {
+    const g = this.warLayer(); // walk-through props: see-through
+    g.fillStyle(0x6b4f2e, 1).fillRect(x - 3, y - 46, 6, 46).fillRect(x - 14, y - 36, 28, 6);
+    g.fillStyle(0x4a5d23, 1).slice(x, y - 44, 13, Math.PI, 0, false).fillPath();
+    g.fillRect(x - 15, y - 45, 30, 3);
+  }
+
+  // A crashed helicopter: tilted body, a broken rotor, smoke rising.
+  drawHeliWreck(x, y, color = 0x4a5d23) {
+    const g = this.warLayer(); // walk-through props: see-through
+    g.fillStyle(0x2b2d1b, 0.6).fillEllipse(x, y - 2, 170, 14);                       // scorch
+    g.fillStyle(color, 1).fillEllipse(x - 10, y - 26, 110, 46);                      // body
+    g.fillStyle(0x1b1b1f, 1).fillEllipse(x - 42, y - 32, 34, 24);                    // cockpit
+    g.lineStyle(10, color, 1).lineBetween(x + 40, y - 30, x + 110, y - 52);          // tail boom
+    g.fillStyle(color, 1).fillTriangle(x + 104, y - 74, x + 120, y - 50, x + 98, y - 48);
+    g.lineStyle(4, 0x343a40, 1).lineBetween(x - 70, y - 60, x + 30, y - 44).lineBetween(x - 10, y - 50, x - 10, y - 44);
+    g.lineBetween(x - 60, y - 4, x + 10, y - 2);                                    // a skid
+    this.smokeFrom(x - 4, y - 44);
+  }
+
+  // A burnt-out truck.
+  drawTruckWreck(x, y) {
+    const g = this.warLayer(); // walk-through props: see-through
+    g.fillStyle(0x2b2d1b, 0.6).fillEllipse(x, y - 2, 150, 12);
+    g.fillStyle(0x3d3a36, 1).fillRoundedRect(x - 70, y - 50, 90, 38, 4);            // the bed
+    g.fillStyle(0x4a4540, 1).fillRoundedRect(x + 20, y - 46, 48, 34, 8);            // cab
+    g.fillStyle(0x1b1b1f, 1).fillRect(x + 34, y - 42, 24, 12);
+    g.fillStyle(0x1b1b1f, 1).fillCircle(x - 48, y - 10, 11).fillCircle(x - 12, y - 10, 11).fillCircle(x + 46, y - 10, 11);
+    g.lineStyle(2, 0x6b4f2e, 0.6).lineBetween(x - 66, y - 46, x - 30, y - 30);
+  }
+
+  // Stacked green supply crates with stencils.
+  drawSupplyCrates(x, y) {
+    const g = this.warLayer(); // walk-through props: see-through
+    const crate = (cx, cy, w) => {
+      g.fillStyle(0x4f6d3a, 1).fillRect(cx - w / 2, cy - w, w, w);
+      g.lineStyle(2, 0x2d4021, 1).strokeRect(cx - w / 2, cy - w, w, w).lineBetween(cx - w / 2, cy - w, cx + w / 2, cy);
+      g.fillStyle(0xe9edc9, 0.8).fillRect(cx - 6, cy - w * 0.6, 12, 3);
+    };
+    crate(x - 18, y, 34);
+    crate(x + 18, y, 30);
+    crate(x - 6, y - 34, 28);
+  }
+
+  // Steel anti-tank hedgehogs.
+  drawHedgehog(x, y) {
+    const g = this.warLayer(); // walk-through props: see-through
+    g.lineStyle(5, 0x495057, 1);
+    g.lineBetween(x - 22, y, x + 18, y - 40).lineBetween(x + 22, y, x - 18, y - 40).lineBetween(x - 26, y - 14, x + 26, y - 22);
+    g.lineStyle(2, 0x6b4f2e, 0.7).lineBetween(x - 20, y - 2, x + 14, y - 36);
+  }
+
+  // A tree burnt black, a few embers.
+  drawBurntTree(x, y) {
+    const g = this.warLayer(); // walk-through props: see-through
+    g.lineStyle(9, 0x1b1b1f, 1).lineBetween(x, y, x + 3, y - 96);
+    g.lineStyle(4, 0x1b1b1f, 1).lineBetween(x + 2, y - 60, x - 26, y - 84).lineBetween(x + 3, y - 74, x + 28, y - 94).lineBetween(x - 14, y - 72, x - 20, y - 92);
+    g.fillStyle(0xff7b00, 0.8).fillCircle(x + 1, y - 40, 2).fillCircle(x - 3, y - 70, 1.5);
+  }
+
+  // A torn propaganda poster on a post.
+  drawPoster(x, y) {
+    const g = this.warLayer(); // walk-through props: see-through
+    g.lineStyle(4, 0x495057, 1).lineBetween(x, y, x, y - 80);
+    g.fillStyle(0xe9d8a6, 1).fillRect(x - 22, y - 92, 44, 54);
+    g.fillStyle(0x9b2226, 1).fillRect(x - 22, y - 92, 44, 12).fillCircle(x, y - 62, 11);
+    g.fillStyle(0x1b1b1f, 1).fillRect(x - 3, y - 70, 6, 16).fillRect(x - 8, y - 60, 16, 4);
+    g.fillStyle(0x000000, 0.35).fillTriangle(x + 22, y - 38, x + 8, y - 38, x + 22, y - 54); // torn corner
+  }
+
+  // A spray-painted militia arrow on the wall.
+  drawSpray(x, y) {
+    const g = this.back;
+    g.lineStyle(5, 0xe63946, 0.8).lineBetween(x - 26, y - 60, x + 18, y - 60).lineBetween(x + 18, y - 60, x + 6, y - 70).lineBetween(x + 18, y - 60, x + 6, y - 50);
+    g.fillStyle(0xe63946, 0.7).fillCircle(x - 30, y - 40, 3).fillCircle(x - 22, y - 38, 2);
+  }
+
+  // A shell crater: a scorched dip on the ground with thrown dirt.
+  drawCrater(x, y) {
+    const g = this.scene.add.graphics().setDepth(0); // on top of the ground, under characters
+    g.fillStyle(0x1b1b1f, 0.45).fillEllipse(x, y + 2, 96, 12);
+    g.fillStyle(0x3d3a36, 0.55).fillEllipse(x, y + 1, 60, 7);
+    g.fillStyle(0x5e503f, 0.9);
+    for (let k = 0; k < 6; k++) g.fillCircle(x + Phaser.Math.Between(-46, 46), y - Phaser.Math.Between(1, 4), Phaser.Math.Between(2, 4));
+  }
+
+  // Bullet holes and scorch on a wall (drawn over it).
+  drawScars(o) {
+    const g = this.scene.add.graphics().setDepth(0);
+    g.fillStyle(0x1b1b1f, 0.25).fillEllipse(o.x + o.width / 2, o.y + o.height * 0.4, o.width * 1.4, o.height * 0.5);
+    for (let k = 0; k < Math.round((o.width * o.height) / 400); k++) {
+      const hx = o.x + Phaser.Math.Between(4, o.width - 4);
+      const hy = o.y + Phaser.Math.Between(4, o.height - 4);
+      g.fillStyle(0x1b1b1f, 0.9).fillCircle(hx, hy, 2.2);
+      g.lineStyle(1, 0x1b1b1f, 0.5).lineBetween(hx, hy, hx + Phaser.Math.Between(-5, 5), hy + Phaser.Math.Between(-5, 5));
+    }
+  }
+
+  // A wrecked airship: a torn envelope sagging over a broken gondola.
+  drawAirshipWreck(x, y) {
+    const g = this.warLayer(); // walk-through props: see-through
+    g.fillStyle(0x8d6e63, 1).fillEllipse(x - 10, y - 46, 170, 54);
+    g.fillStyle(0x6d4c41, 1).fillTriangle(x + 40, y - 74, x + 76, y - 40, x + 44, y - 24); // torn flap
+    g.lineStyle(1, 0x3e2723, 0.8);
+    for (let k = -60; k <= 50; k += 22) g.lineBetween(x + k, y - 70, x + k + 4, y - 22);
+    g.fillStyle(0x5d4037, 1).fillRoundedRect(x - 40, y - 20, 70, 20, 4);
+    g.lineStyle(2, 0x3e2723, 1).lineBetween(x - 36, y - 20, x - 50, y - 30).lineBetween(x + 26, y - 20, x + 34, y - 30);
+    this.smokeFrom(x + 50, y - 50);
+  }
+
+  // A crashed ship in space: a broken hull and a snapped wing, sparks.
+  drawShipWreck(x, y) {
+    const g = this.warLayer(); // walk-through props: see-through
+    g.fillStyle(0x495057, 1).fillTriangle(x - 90, y - 6, x + 60, y - 58, x + 70, y - 4);
+    g.fillStyle(0x343a40, 1).fillTriangle(x - 20, y - 30, x + 30, y - 90, x + 40, y - 40);   // the snapped wing
+    g.fillStyle(0x90e0ef, 0.6).fillCircle(x + 46, y - 36, 7);
+    g.lineStyle(2, 0x212529, 1).lineBetween(x - 60, y - 14, x + 50, y - 46);
+    const spark = this.scene.add.circle(x + 10, y - 30, 3, 0xffd166).setDepth(-5);
+    this.scene.tweens.add({ targets: spark, alpha: 0, duration: 180, yoyo: true, repeat: -1, repeatDelay: 900 });
+  }
+
+  // A thin column of smoke rising from a wreck.
+  smokeFrom(x, y) {
+    this.scene.add
+      .particles(x, y, this.puff, {
+        x: { min: -6, max: 6 },
+        lifespan: 3200,
+        speedY: { min: -50, max: -30 },
+        speedX: { min: 2, max: 10 },
+        scale: { start: 0.18, end: 0.75 },
+        rotate: { min: 0, max: 360 },
+        alpha: { start: 0.7, end: 0 },
+        tint: 0x495057,
+        frequency: 140,
+      })
+      .setDepth(-5);
+  }
+
+  // The signal tower far away (Space): a lattice spire with a pulsing light.
+  drawSignalTower() {
+    const factor = 0.06;
+    const sx = VIEW_W * this.sky.signalTower.x;
+    const base = this.placeY(VIEW_H * 0.85, factor);
+    const g = this.scene.add.graphics().setScrollFactor(factor).setDepth(-98);
+    g.lineStyle(3, 0x3c096c, 1).lineBetween(sx - 30, base, sx, base - 260).lineBetween(sx + 30, base, sx, base - 260);
+    g.lineStyle(1, 0x5a189a, 1);
+    for (let k = 1; k < 9; k++) {
+      const yy = base - k * 28;
+      const half = 30 * (1 - (k * 28) / 260);
+      g.lineBetween(sx - half, yy, sx + half, yy - 14);
+    }
+    const light = this.scene.add.circle(sx, base - 264, 7, 0xc77dff).setScrollFactor(factor).setDepth(-98);
+    const ring = this.scene.add.circle(sx, base - 264, 10).setStrokeStyle(2, 0xc77dff, 0.8).setScrollFactor(factor).setDepth(-98);
+    this.scene.tweens.add({ targets: light, alpha: 0.3, duration: 700, yoyo: true, repeat: -1 });
+    this.scene.tweens.add({ targets: ring, scale: 6, alpha: 0, duration: 2200, repeat: -1 });
+  }
+
   // ---- Wastelands ----
 
   drawLamppost(x, y) {
@@ -926,24 +1230,48 @@ export default class BackdropSystem {
 
   // Cobwebs in a corner (x, y = the corner; they open toward the middle).
   drawCobweb(x, y) {
+    // A corner web: anchor threads fanning out, sagging spiral threads
+    // between them (each strand dips toward the corner), a torn gap, a few
+    // dewdrops, and now and then its spider.
     const g = this.back;
     const sx = x < this.world.width / 2 ? 1 : -1;
-    g.lineStyle(1, 0xdee2e6, 0.35);
-    for (let k = 0; k < 5; k++) {
-      const a = (k / 4) * (Math.PI / 2);
-      g.lineBetween(x, y, x + sx * Math.cos(a) * 60, y + Math.sin(a) * 60);
+    const spokes = 7;
+    const R = 78;
+    const ang = (k) => (k / (spokes - 1)) * (Math.PI / 2);
+    const at = (k, r) => ({ x: x + sx * Math.cos(ang(k)) * r, y: y + Math.sin(ang(k)) * r });
+    g.lineStyle(1.2, 0xe9ecef, 0.55);
+    for (let k = 0; k < spokes; k++) {
+      const end = at(k, R * (0.85 + ((k * 37) % 10) / 50));
+      g.lineBetween(x, y, end.x, end.y);
     }
-    for (let r = 14; r <= 56; r += 14) {
-      g.beginPath();
-      for (let k = 0; k <= 8; k++) {
-        const a = (k / 8) * (Math.PI / 2);
-        const rr = r * (0.92 + (k % 2) * 0.08);
-        const px = x + sx * Math.cos(a) * rr;
-        const py = y + Math.sin(a) * rr;
-        if (k === 0) g.moveTo(px, py);
-        else g.lineTo(px, py);
+    g.lineStyle(1, 0xe9ecef, 0.4);
+    for (let r = 12; r < R - 6; r += 9) {
+      for (let k = 0; k < spokes - 1; k++) {
+        if (r > 40 && k === 3) continue; // a torn patch
+        const a = at(k, r);
+        const b = at(k + 1, r);
+        const mid = at(k + 0.5, r * 0.86); // the strand sags toward the corner
+        g.beginPath();
+        for (let t = 0; t <= 1.0001; t += 0.25) {
+          const px = (1 - t) * (1 - t) * a.x + 2 * (1 - t) * t * mid.x + t * t * b.x;
+          const py = (1 - t) * (1 - t) * a.y + 2 * (1 - t) * t * mid.y + t * t * b.y;
+          if (t === 0) g.moveTo(px, py);
+          else g.lineTo(px, py);
+        }
+        g.strokePath();
       }
-      g.strokePath();
+    }
+    g.lineStyle(1, 0xe9ecef, 0.3).lineBetween(at(3, 46).x, at(3, 46).y, at(3, 46).x + sx * 6, at(3, 46).y + 22); // a loose strand
+    g.fillStyle(0xcaf0f8, 0.7);
+    for (let k = 0; k < 4; k++) {
+      const d = at(1 + k, 20 + k * 13);
+      g.fillCircle(d.x, d.y, 1.4);
+    }
+    if ((Math.round(x) + Math.round(y)) % 2 === 0) {
+      const sp = at(2.5, 34);
+      g.fillStyle(0x1b1b1f, 1).fillCircle(sp.x, sp.y, 3.5).fillCircle(sp.x, sp.y - 4, 2.2);
+      g.lineStyle(1, 0x1b1b1f, 1);
+      for (const d of [-1, 1]) for (let l = 0; l < 3; l++) g.lineBetween(sp.x, sp.y, sp.x + d * 6, sp.y - 3 + l * 3);
     }
   }
 
@@ -1002,14 +1330,16 @@ export default class BackdropSystem {
   // Low fog creeping along the ground.
   makeFog(o) {
     this.scene.add
-      .particles(0, 0, 'hz-dot', {
+      .particles(0, 0, this.puff, {
         x: { min: o.x, max: o.x + o.width },
         y: { min: o.y + o.height * 0.4, max: o.y + o.height },
         lifespan: 7000,
         speedX: { min: 6, max: 18 },
         speedY: { min: -3, max: 3 },
-        scale: { start: 2.2, end: 4 },
-        alpha: { values: [0, 0.12, 0.12, 0] },
+        scale: { start: 0.5, end: 1 },
+        scaleY: { start: 0.25, end: 0.5 },
+        rotate: { min: -10, max: 10 },
+        alpha: { values: [0, 0.22, 0.22, 0] },
         tint: 0xc8d6e5,
         frequency: 60,
       })

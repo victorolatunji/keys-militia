@@ -86,9 +86,11 @@ export const MAPS = {
     // Backdrop (BackdropSystem): sky colors top to bottom, the sun, clouds,
     // two rows of hills (far, near) and birds.
     sky: {
-      colors: [0x48a9e6, 0x8ecae6, 0xcaf0f8, 0x90c8e0, 0x3a6f8f],
-      sun: { color: 0xfff3b0, x: 0.78, y: 0.12 },
-      clouds: { count: 9, color: 0xffffff },
+      colors: [0x2f3e46, 0x52616b, 0x84898f, 0x9a9e94, 0x4a5a52], // overcast, smoke in the air
+      sun: { color: 0xe9d8a6, x: 0.78, y: 0.12, size: 0.8 },
+      clouds: { count: 10, color: 0xa0a4a8 },
+      war: { smoke: 3 },
+      mist: { color: 0xdfe6e9, alpha: 0.1 },
       ridges: [
         { color: 0x95d5b2, factor: 0.1, height: 220, rough: 0.5 },
         { color: 0x52b788, factor: 0.22, height: 170, rough: 0.8, trees: true },
@@ -129,6 +131,7 @@ export const MAPS = {
     sky: {
       colors: [0x0b0203, 0x2b0a0a, 0x6a040f, 0x9d0208, 0xdc2f02],
       sun: null,
+      war: { smoke: 2, smokeColor: 0x1b1b1b },
       clouds: { count: 7, color: 0x7d7d7d }, // smoke drifting (darkened white)
       ridges: [
         { color: 0x370617, factor: 0.1, height: 260, rough: 1, spiky: true },
@@ -169,8 +172,9 @@ export const MAPS = {
       families: ['scifi', 'military', 'undead'],
     },
     sky: {
-      colors: [0x1d3557, 0x457b9d, 0xa8dadc, 0xe0fbfc, 0x8ecae6],
-      sun: { color: 0xfffbe6, x: 0.2, y: 0.14 },
+      colors: [0x1b263b, 0x415a77, 0x8fa9bf, 0xc5d3df, 0x778da9], // colder, greyer
+      sun: { color: 0xfffbe6, x: 0.2, y: 0.14, size: 0.8 },
+      war: { smoke: 2 },
       clouds: { count: 8, color: 0xf8f9fa },
       ridges: [
         { color: 0xc8d6e5, factor: 0.1, height: 280, rough: 1, spiky: true, snowCaps: true },
@@ -217,8 +221,9 @@ export const MAPS = {
       families: ['military', 'scifi', 'undead'],
     },
     sky: {
-      colors: [0x3a86ff, 0x8ecae6, 0xffe8d6, 0xf6bd60, 0xe76f51],
-      sun: { color: 0xfff3b0, x: 0.75, y: 0.12, size: 1.4 },
+      colors: [0x7f5539, 0xb08968, 0xddb892, 0xe6ccb2, 0x9c6644], // dusty haze
+      sun: { color: 0xffe8a3, x: 0.75, y: 0.12, size: 1.2 },
+      war: { smoke: 3 },
       clouds: { count: 4, color: 0xfffaf0 },
       ridges: [
         { color: 0xe9c46a, factor: 0.1, height: 200, rough: 0.4 },
@@ -290,6 +295,7 @@ export const MAPS = {
     },
     sky: {
       colors: [0x03071e, 0x0b132b, 0x1c2541, 0x3a506b, 0x1c2541],
+      war: { smoke: 2, smokeColor: 0x2b2d42 },
       moon: { color: 0xf1faee, x: 0.7, y: 0.16 },
       clouds: { count: 6, color: 0x5c677d },
       ridges: [
@@ -324,6 +330,7 @@ export const MAPS = {
     },
     sky: {
       colors: [0x355070, 0x6d597a, 0xb56576, 0xeaac8b, 0xffe5d9],
+      war: { smoke: 2 },
       sun: { color: 0xffd6a5, x: 0.25, y: 0.3, size: 1.3 },
       clouds: { count: 9, color: 0xffe5d9 },
       ridges: [
@@ -364,6 +371,7 @@ export const MAPS = {
     },
     sky: {
       colors: [0x3d405b, 0x6b705c, 0xa5a58d, 0xb7b7a4, 0x6b705c],
+      war: { smoke: 4, smokeColor: 0x2b2b2b },
       sun: { color: 0xe9edc9, x: 0.7, y: 0.18, size: 0.8 },
       clouds: { count: 8, color: 0x8a8d7a },
       ridges: [
@@ -395,9 +403,11 @@ export const MAPS = {
       families: ['military', 'scifi', 'undead'],
     },
     sky: {
-      colors: [0x219ebc, 0x5fb4d6, 0x8ecae6, 0xc6e6f2, 0xffffff],
-      sun: { color: 0xfff3b0, x: 0.75, y: 0.2, size: 1.1 },
-      clouds: { count: 14, color: 0xffffff },
+      colors: [0x1d2d44, 0x3e5c76, 0x748cab, 0xa9b4c2, 0xd9dde3], // a stormy sky
+      sun: { color: 0xe9ecef, x: 0.75, y: 0.2, size: 0.8 },
+      clouds: { count: 14, color: 0xc9ced6 },
+      war: { smoke: 2 },
+      mist: { color: 0xe9ecef, alpha: 0.12 },
       birds: true,
       horizonY: 1600,
     },
@@ -432,6 +442,7 @@ export const MAPS = {
     },
     sky: {
       colors: [0x03001c, 0x0b0530, 0x1b1045, 0x0b0530, 0x03001c],
+      signalTower: { x: 0.35 },   // the source of the signal, far off
       stars: 220,
       planet: { color: 0x4361ee, x: 0.78, y: 0.28, size: 1.6, ring: 0xbde0fe },
       moon: { color: 0xe0e1dd, x: 0.15, y: 0.18 },

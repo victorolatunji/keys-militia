@@ -443,13 +443,18 @@ function forest() {
   fill(m, 23, 26, 26, 27, 'rock');          // rock lip the waterfall pours off
   hang(m, 3, 21, 45, 6);
   carve(m, 5, 24, 8, 33);                    // a well from the hilltop down into the tunnel (shortcut)
-  // Beach under the tunnel's east mouth, then the lake.
-  fill(m, 22, 37, 25, 49, 'sand');
-  hz.push(pool(m, 'water', 26, 47, 38, 10));
+  // Beach under the tunnel's east mouth, then the lake in a stone bed.
+  fill(m, 22, 37, 25, 49, 'rock');
+  hz.push(pool(m, 'water', 26, 47, 38, 10, 'rock'));
   fill(m, 33, 45, 36, 47, 'rock');          // a sunken boulder in the lake
-  fill(m, 41, 46, 44, 47, 'sand');          // uneven lake bed
+  fill(m, 41, 46, 44, 47, 'rock');          // uneven lake bed
   hz.push(rect('waterfall', px(26) + 4, px(28), 26, px(10) + 10));
-  hang(m, 23, 48, 50, 4, 'sand');
+  // A tunnel under the lake: a stone band below its bed with a passage
+  // through it (4 tall), open at both ends.
+  fill(m, 20, 49, 50, 56, 'rock');
+  carve(m, 20, 51, 50, 54);
+  decor.push(rect('cave', px(20), px(51), px(31), px(4)));
+  hang(m, 22, 48, 57, 4, 'rock');
 
   // Meadow: rolling ground, boulders, a shaft down, a treehouse.
   land(m, 49, 70, (x) => 36 + Math.round(Math.sin((x - 49) / 3.2) * 1.3), () => 43);
@@ -475,19 +480,20 @@ function forest() {
   fill(m, 12, 18, 17, 18, 'plank');
   fill(m, 100, 24, 105, 24, 'plank');
 
-  // Under the map: root caverns above, islands to fight on, a hidden pond.
-  island(m, 6, 20, 57, 5);
-  island(m, 36, 52, 61, 4);
-  island(m, 66, 81, 55, 6);
-  hz.push(pool(m, 'water', 71, 76, 55, 2, 'sand', 6));
-  island(m, 92, 104, 60, 4);
-  boulder(m, 45, 2, 1);
-  boulder(m, 98, 1, 1);
+  // The lower floor: rolling forest ground to fight on (so you don't just
+  // fall into the river gorge when the jetpack runs dry), a hill with a
+  // tunnel through it, a pond, and two gaps down to the void.
+  land(m, 2, W - 3, (x) => (x >= 18 && x <= 52 ? 64 : 62) + Math.round(Math.sin(x / 5) * 1.5 + Math.sin(x / 13) * 1.2), () => 69);
+  land(m, 86, 100, (x) => 56 + Math.round(Math.abs(x - 93) * 0.6), () => 62);
+  carve(m, 86, 58, 100, 61);                    // the tunnel through the hill
+  decor.push(rect('cave', px(86), px(58), px(15), px(4)));
+  hz.push(pool(m, 'water', 56, 62, topAt(m, 59, 57), 3, 'soil', 8));   // the pond (the meadow shaft drops into it)
+  for (const [a, b] of [[30, 34], [73, 77]]) carve(m, a, 50, b, H - 1); // gaps down to the void
 
   const spawns = [
     point('player', px(64), px(9)),
     on(m, 'bot', 12), on(m, 'bot', 54, 20), on(m, 'bot', 80, 20), on(m, 'bot', 102, 26),
-    on(m, 'bot', 13, 50), on(m, 'bot', 69, 50), on(m, 'bot', 98, 50), on(m, 'bot', 33, 10), on(m, 'bot', 90, 10),
+    on(m, 'bot', 13, 50), on(m, 'bot', 69, 50), on(m, 'bot', 106, 50), on(m, 'bot', 33, 10), on(m, 'bot', 90, 10),
   ];
   for (const x of [6, 14, 20, 79, 87, 93, 105]) decor.push(on(m, 'tree', x, 20));
   for (const x of [51, 64, 69]) decor.push(on(m, 'tree', x, 32)); // under the planks
@@ -504,6 +510,13 @@ function forest() {
   decor.push(rect('fireflies', 0, px(46), px(W), px(22)));
   decor.push(rect('cave', px(2), px(34), px(21), px(3)));          // the tunnel's dark back wall
 
+  // War: the first outbreak. Sandbag lines, burnt trees, shell craters, a downed helicopter.
+  decor.push(on(m, 'sandbags', 10, 22), on(m, 'sandbags', 81, 22), on(m, 'heliwreck', 52, 29), on(m, 'supplycrates', 22, 22));
+  for (const x of [16, 50, 98]) decor.push(on(m, 'burnttree', x, 22));
+  for (const x of [12, 68, 94]) decor.push(on(m, 'crater', x, 22));
+  decor.push(on(m, 'barbed', 85, 22), on(m, 'helmetcross', 4, 22));
+  // A little war on the lower floor too (not too much).
+  decor.push(on(m, 'sandbags', 44, 50), on(m, 'crater', 66, 50), on(m, 'burnttree', 106, 50));
   return tiledMap('forest-tiles', m, [
     { name: 'spawns', objects: spawns },
     { name: 'hazards', objects: hz },
@@ -544,7 +557,6 @@ function hell() {
   island(m, 87, 97, 32, 5);
   hz.push(pool(m, 'water', 89, 93, 32, 3, 'rock', 8));
   fill(m, 96, 29, 97, 31, 'rock');
-  hz.push(rect('lavafall', px(86) + 2, px(33), 26, px(80) - px(33)));
 
   // Sky: floating rocks (on chains) and grates.
   island(m, 13, 19, 26, 2, 'rock');
@@ -555,11 +567,16 @@ function hell() {
     decor.push(rect('chain', px(x0) + 8, 0, 6, px(y)), rect('chain', px(x1) + 18, 0, 6, px(y)));
   }
 
-  // Under the map: broken islands over the lava sea.
-  island(m, 8, 22, 63, 4, 'rock');
-  island(m, 40, 56, 67, 5, 'rock');
-  island(m, 70, 86, 61, 4, 'rock');
-  island(m, 26, 32, 72, 2, 'rock');
+  // The lower floor: broken basalt ground over the lava sea, uneven, with a
+  // lava pit and two gaps down into the lava.
+  land(m, 2, W - 3, (x) => (x >= 36 && x <= 62 ? 70 : 68) + Math.round(Math.sin(x / 6) * 1.4 + Math.sin(x / 15) * 1.2), () => 76, 'rock'); // lower under the volcano: room to fly
+  hz.push(pool(m, 'lava', 40, 46, topAt(m, 43, 60), 3, 'rock', 10));
+  for (const [a, b] of [[29, 33], [64, 68]]) carve(m, a, 60, b, H - 1);
+  // The lavafall: it pours off the east ledge into a lava pool on the lower
+  // floor (it used to pour straight through the floor).
+  const fallTop = topAt(m, 86, 60);
+  hz.push(pool(m, 'lava', 84, 90, fallTop, 3, 'rock', 10));
+  hz.push(rect('lavafall', px(86) + 2, px(33), 26, px(fallTop) - px(33) + 10));
 
   // Geysers and heat vents.
   hz.push(on(m, 'geyser', 3, 30, 16), on(m, 'geyser', 27, 30, 16), on(m, 'geyser', 80, 30, 16), on(m, 'geyser', 48, 60, 16));
@@ -578,6 +595,10 @@ function hell() {
   for (const x of [7, 64, 82, 44]) decor.push(on(m, 'bones', x, x === 44 ? 60 : 20, 14));
   decor.push(rect('cave', px(34), px(40), px(31), px(3)));         // the volcano tunnel
 
+  // War: Syndicate machines melted in the heat, craters, a downed helicopter.
+  decor.push(on(m, 'truckwreck', 8, 30), on(m, 'heliwreck', 92, 25), on(m, 'supplycrates', 70, 30), on(m, 'hedgehog', 26, 30));
+  for (const x of [20, 40, 60]) decor.push(on(m, 'crater', x, 30));
+  decor.push(on(m, 'truckwreck', 92, 60), on(m, 'crater', 18, 60));
   return tiledMap('hell-tiles', m, [
     { name: 'spawns', objects: spawns },
     { name: 'hazards', objects: hz },
@@ -661,7 +682,7 @@ function glacier() {
   passIce(2, 27, 40);
   passIce(28, 56, 49);   // under the frozen lake's basin
   passIce(64, 100, 40);
-  for (const [a, b] of [[2, 12], [17, 27], [28, 38], [43, 56], [64, 68], [73, 84], [89, 100]]) fill(m, a, SEA - 2, b, SEA - 1, 'ice');
+  for (const [a, b] of [[2, 30], [35, 56], [64, 68], [73, 84], [89, 100]]) fill(m, a, SEA - 2, b, SEA - 1, 'ice');
 
   const spawns = [
     point('player', px(80), px(12)),
@@ -673,6 +694,10 @@ function glacier() {
   for (const x of [36, 47, 68, 78, 82, 93, 107]) decor.push(on(m, 'penguin', x, x === 107 ? 40 : 30, 16));
   decor.push(on(m, 'penguin', 60, 40, 16));
 
+  // War: the frozen research station after the fighting: a downed helicopter, abandoned gear.
+  // (Nothing on the frozen lake: you need to see the ice crack.)
+  decor.push(on(m, 'heliwreck', 66, 30), on(m, 'supplycrates', 90, 30), on(m, 'helmetcross', 101, 30), on(m, 'sandbags', 14, 46));
+  decor.push(on(m, 'crater', 80, 30));
   return tiledMap('glacier-tiles', m, [
     { name: 'spawns', objects: spawns },
     { name: 'hazards', objects: hz },
@@ -698,6 +723,7 @@ function desert() {
 
   // The mesa: tall flat-topped sandstone with an arch through its base.
   land(m, 36, 52, (x) => (x < 38 ? 30 : x > 50 ? 28 : 24), () => 46, 'rock');
+  carve(m, 32, 0, 35, 54);                   // the gap by the mesa: 4 wide, room for two
   carve(m, 36, 32, 52, 35);                  // a natural arch: walk right under the mesa
   decor.push(rect('cave', px(36), px(33), px(17), px(3)));
   hang(m, 37, 51, 47, 6, 'rock');
@@ -712,9 +738,9 @@ function desert() {
   carve(m, 74, 39, 98, 45);                  // the chamber
   for (const x of [79, 85, 91]) fill(m, x, 39, x + 1, 45, 'rock'); // pillars
   for (const x of [79, 85, 91]) carve(m, x, 41, x + 1, 44);       // ...with gaps to walk through
-  carve(m, 69, 35, 72, 45);                  // the way in
+  carve(m, 68, 35, 73, 45);                  // the way in (6 wide: room for two)
   carve(m, 73, 39, 73, 45);
-  carve(m, 94, 46, 97, 50);                  // the way out the bottom
+  carve(m, 93, 46, 98, 50);                  // the way out the bottom (6 wide)
   hz.push(pool(m, 'quicksand', 101, 104, 35, 3, 'soil', 8));
   decor.push(rect('cave', px(70), px(39), px(29), px(7)), rect('cave', px(70), px(35), px(3), px(4)), rect('cave', px(95), px(46), px(3), px(5)));
   hang(m, 68, 94, 51, 6);
@@ -726,11 +752,11 @@ function desert() {
   fill(m, 56, 26, 62, 26, 'plank');
   fill(m, 100, 24, 106, 24, 'plank');
 
-  // Under the map.
-  island(m, 6, 20, 58, 5);
-  island(m, 36, 52, 60, 4, 'rock');
-  island(m, 72, 88, 62, 5);
-  island(m, 96, 108, 57, 4);
+  // The lower floor: rolling dunes under the mesa and the temple (the
+  // temple's way out drops you here), a quicksand pit, two gaps to the void.
+  land(m, 2, W - 3, (x) => (x >= 66 && x <= 96 ? 64 : 62) + Math.round(Math.sin(x / 7) * 1.5 + Math.sin(x / 17) * 1.2), () => 71); // lower under the temple: room to fly
+  hz.push(pool(m, 'quicksand', 50, 55, topAt(m, 52, 57), 3, 'soil', 8));
+  for (const [a, b] of [[28, 32], [84, 88]]) carve(m, a, 55, b, H - 1);
 
   const spawns = [
     point('player', px(60), px(14)),
@@ -746,6 +772,11 @@ function desert() {
   // Dust devils wander along these stretches of open sand.
   hz.push(rect('dustdevil', px(2), px(28), px(32), px(8)), rect('dustdevil', px(68), px(27), px(38), px(8)));
 
+  // War: the Syndicate convoy: burnt-out trucks, anti-tank hedgehogs, sandbags, craters.
+  decor.push(on(m, 'truckwreck', 28, 27), on(m, 'truckwreck', 90, 27), on(m, 'sandbags', 54, 27), on(m, 'barbed', 74, 27));
+  for (const x of [8, 64]) decor.push(on(m, 'hedgehog', x, 27));
+  for (const x of [24, 82]) decor.push(on(m, 'crater', x, 27));
+  decor.push(on(m, 'hedgehog', 40, 55), on(m, 'sandbags', 100, 55), on(m, 'crater', 72, 55));
   return tiledMap('desert-tiles', m, [
     { name: 'spawns', objects: spawns },
     { name: 'hazards', objects: hz },
@@ -817,10 +848,13 @@ function catacombs() {
   for (const [x, y] of [[5, 28], [9, 28], [12, 28], [22, 43], [46, 43], [58, 43], [40, 55]]) decor.push(point('bones', px(x) + 16, px(y)));
   for (const x of [9, 16, 25, 35, 44, 56]) decor.push(point('coffin', px(x) + 16, px(44)));
   for (const x of [5, 11]) decor.push(point('coffin', px(x) + 16, px(29)));
-  for (const [x, y] of [[3, 6], [96, 6], [46, 22], [96, 22], [4, 37], [62, 37], [64, 46]]) decor.push(point('cobweb', px(x), px(y)));
+  for (const [x, row] of [[8, 6], [90, 6], [50, 22], [92, 22], [8, 37], [60, 37], [70, 46]]) decor.push(on(m, 'sconce', x, row));
   for (const [x, y] of [[22, 13], [60, 13], [84, 13], [70, 28], [14, 43], [52, 43], [90, 55]]) decor.push(point('candles', px(x) + 16, px(y)));
   for (const x of [10, 40, 70]) decor.push(rect('chain', px(x) + 13, px(6), 6, 96));
 
+  // War: the militia hunting the source: supply crates, sandbags, spray-painted arrows.
+  decor.push(on(m, 'supplycrates', 5, 6), on(m, 'sandbags', 80, 22), on(m, 'lantern', 44, 37), on(m, 'helmetcross', 60, 37));
+  for (const [x, row] of [[36, 6], [70, 22], [20, 37], [56, 37]]) decor.push(on(m, 'skullniche', x, row));
   return tiledMap('catacombs-tiles', m, [
     { name: 'spawns', objects: spawns },
     { name: 'hazards', objects: hz },
@@ -848,6 +882,19 @@ function graveyard() {
   // The crypt under the hill, and its tunnels.
   carve(m, 22, 46, 70, 53);
   carve(m, 70, 49, 92, 53);
+  // Sloping tunnels from both ends of the crypt up to the surface (west and
+  // east), climbing a step every few tiles, 4 tiles tall.
+  const slopeTunnel = (x0, floor0, dir, toRow) => {
+    for (let i = 0; ; i++) {
+      const x = x0 + dir * i;
+      const floor = floor0 - Math.floor(i * 0.75);
+      if (x < 1 || x > W - 2 || floor < toRow) break;
+      carve(m, x, floor - 3, x, floor);
+      decor.push(rect('cave', px(x), px(floor - 3), px(1), px(4)));
+    }
+  };
+  slopeTunnel(21, 53, -1, S - 1);
+  slopeTunnel(93, 53, 1, S - 1);
   for (const x of [30, 46, 60]) fill(m, x, 46, x + 1, 53, 'rock');   // crypt pillars
   for (const x of [30, 46, 60]) carve(m, x, 50, x + 1, 53);
   decor.push(rect('cave', px(22), px(46), px(49), px(8)), rect('cave', px(70), px(49), px(23), px(5)));
@@ -932,6 +979,10 @@ function graveyard() {
   for (const [x, y] of [[35, 53], [54, 53], [84, 53]]) decor.push(point('bones', px(x), px(y)), point('candles', px(x) + 40, px(y)));
   decor.push(rect('fog', 0, px(S - 6), px(W), px(6)));
 
+  // War: soldiers' graves (helmets on crosses), barbed wire, sandbags round the chapel, craters.
+  for (const x of [20, 48, 66]) decor.push(on(m, 'helmetcross', x, 0, 16));
+  decor.push(on(m, 'barbed', 24, 0), on(m, 'sandbags', 69, 0), on(m, 'supplycrates', 85, cTop - 9));
+  for (const x of [30, 44]) decor.push(on(m, 'crater', x, 0));
   return tiledMap('graveyard-tiles', m, [
     { name: 'spawns', objects: spawns },
     { name: 'hazards', objects: hz },
@@ -1045,6 +1096,11 @@ function monastery() {
     point('bot', px(7), px(L2)), point('bot', px(40), px(L2)), point('bot', px(103), px(L2)),
     point('bot', px(10), px(L3)), point('bot', px(56), px(L3)), point('bot', px(100), px(L3)),
   ];
+  // War: bullet scars on the temple walls, smoke from a burning hall, a militia camp in the cloisters.
+  for (const [x0, x1] of [[9, 29], [44, 66], [81, 101]]) decor.push(rect('scars', px(x0), px(L1 + 4), px(2), px(6)), rect('scars', px(x1 - 1), px(L1 + 5), px(2), px(5)));
+  decor.push(point('smoke', px(95), px(L1 - 1)), point('smoke', px(20), px(L1 - 1)));
+  decor.push(on(m, 'sandbags', 20, L2 + 4), on(m, 'supplycrates', 30, L2 + 4), on(m, 'sandbags', 86, L2 + 4));
+  for (const x of [40, 77]) decor.push(on(m, 'crater', x, L1 + 3));
   return tiledMap('monastery-tiles', m, [
     { name: 'spawns', objects: spawns },
     { name: 'hazards', objects: hz },
@@ -1110,6 +1166,10 @@ function wastelands() {
     point('bot', px(4), px(L2)), point('bot', px(46), px(L2)), point('bot', px(106), px(L2)),
     point('bot', px(10), px(L3)), point('bot', px(64), px(L3)), point('bot', px(102), px(L3)),
   ];
+  // War: barricades, a downed helicopter, propaganda posters, sandbags, the tank still smoking.
+  for (const x of [36, 60]) decor.push(on(m, 'hedgehog', x, L1 + 3));
+  for (const x of [30, 70]) decor.push(on(m, 'poster', x, L1 + 3));
+  decor.push(on(m, 'heliwreck', 90, L1 + 3), on(m, 'sandbags', 47, L1 + 3), point('smoke', px(77), px(L2 - 3)), on(m, 'crater', 56, L1 + 3));
   return tiledMap('wastelands-tiles', m, [
     { name: 'spawns', objects: spawns },
     { name: 'hazards', objects: hz },
@@ -1148,6 +1208,15 @@ function skyislands() {
   island(m, 50, 62, L3, 5, 'rock');
   island(m, 88, 100, L3, 5);
 
+  // More islands in between, so there's always somewhere to land.
+  island(m, 32, 40, 24, 4);
+  island(m, 72, 80, 22, 4);
+  island(m, 4, 14, 48, 4);
+  island(m, 66, 80, 46, 4);
+  island(m, 102, 111, 46, 4);
+  island(m, 100, 109, 10, 3);
+  island(m, 28, 36, 8, 3);
+
   const spawns = [
     point('player', px(56), px(L1 - 8)),
     on(m, 'bot', 15, L1 - 4), on(m, 'bot', 90, L1 - 4), on(m, 'bot', 59, L1 - 4),
@@ -1162,6 +1231,9 @@ function skyislands() {
   for (const [x, w, row] of [[24, 3, L2], [64, 3, L2], [88, 3, L2], [33, 3, L3], [52, 3, L1]]) {
     decor.push(rect('bush', px(x), px(row) - 56, px(w) - 10, 56));
   }
+  // War: a wrecked airship, a gun post of sandbags, supplies, craters.
+  decor.push(on(m, 'airshipwreck', 95, L2 - 4), on(m, 'sandbags', 16, L1 - 4), on(m, 'hedgehog', 58, L1 - 4), on(m, 'supplycrates', 60, L2 - 4));
+  decor.push(on(m, 'crater', 50, L2 - 4), on(m, 'burnttree', 100, L2 - 4));
   return tiledMap('skyislands-tiles', m, [
     { name: 'spawns', objects: spawns },
     { name: 'hazards', objects: hz },
@@ -1205,6 +1277,13 @@ function space() {
   island(m, 14, 30, L3, 5);
   island(m, 46, 60, L3, 4, 'rock');
   island(m, 80, 96, L3, 5);
+  // More asteroids in between.
+  island(m, 14, 22, 24, 3, 'rock');
+  island(m, 88, 96, 22, 3);
+  island(m, 2, 10, 44, 3, 'rock');
+  island(m, 62, 74, 50, 3, 'rock');
+  island(m, 100, 110, 46, 3);
+  island(m, 40, 46, 8, 2, 'rock');
   // Meteor showers over the whole map.
   for (const [a, b] of [[0, 37], [37, 75], [75, 112]]) hz.push(rect('meteor', px(a), 0, px(b - a), px(L3 + 2)));
 
@@ -1218,6 +1297,9 @@ function space() {
   decor.push(point('antenna', px(46) + 16, px(L2 - 10)), point('antenna', px(82) + 16, px(L1)));
   for (const [x, row] of [[40, L2], [72, L2], [100, L2], [86, L3]]) decor.push(point('solar', px(x) + 16, px(row)));
   for (const [x, row] of [[14, L2], [96, L2], [24, L3], [6, L1]]) decor.push(on(m, 'rock', x, row - 4, 8));
+  // War: a crashed Syndicate ship, bullet scars on the base, craters, supplies inside.
+  decor.push(on(m, 'shipwreck', 96, L2 - 4), rect('scars', px(44), px(L2 - 8), px(2), px(4)), rect('scars', px(67), px(L2 - 8), px(2), px(4)));
+  decor.push(on(m, 'crater', 12, L2 - 4), on(m, 'crater', 84, L3 - 4), on(m, 'supplycrates', 62, L2 - 8));
   return tiledMap('space-tiles', m, [
     { name: 'spawns', objects: spawns },
     { name: 'hazards', objects: hz },

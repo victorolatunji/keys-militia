@@ -54,18 +54,29 @@ export default class Cloud {
     }
   }
 
-  // Soft round blob, white in the middle fading to clear (tinted per cloud).
+  // A soft, formless wisp (white, tinted per use): several soft lumps
+  // overlapping off-centre, so smoke, gas, mist and glows never read as
+  // circles. Used by every cloud-like effect in the game.
   static puffTexture(scene) {
     if (!scene.textures.exists(PUFF_KEY)) {
       const tex = scene.textures.createCanvas(PUFF_KEY, PUFF_SIZE, PUFF_SIZE);
       const ctx = tex.getContext();
       const half = PUFF_SIZE / 2;
-      const grad = ctx.createRadialGradient(half, half, 0, half, half, half);
-      grad.addColorStop(0, 'rgba(255,255,255,0.9)');
-      grad.addColorStop(0.45, 'rgba(255,255,255,0.6)');
-      grad.addColorStop(1, 'rgba(255,255,255,0)');
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, PUFF_SIZE, PUFF_SIZE);
+      let seed = 7;
+      const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+      for (let i = 0; i < 9; i++) {
+        const a = rnd() * Math.PI * 2;
+        const d = rnd() * half * 0.32;
+        const cx = half + Math.cos(a) * d;
+        const cy = half + Math.sin(a) * d * 0.8;
+        const r = half * (0.3 + rnd() * 0.32);
+        const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+        grad.addColorStop(0, 'rgba(255,255,255,0.42)');
+        grad.addColorStop(0.6, 'rgba(255,255,255,0.18)');
+        grad.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, PUFF_SIZE, PUFF_SIZE);
+      }
       tex.refresh();
     }
     return PUFF_KEY;

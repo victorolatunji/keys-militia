@@ -174,17 +174,38 @@ export default class AirdropSystem {
     return { x: this.findDropX(), y: AIRDROPS.spawnY };
   }
 
+  // Where a crate drops: over ground. About a third of the time it aims for
+  // the lower levels instead, falling through a gap or hole in the floors
+  // above, so every level gets crates, not just the top one.
   findDropX() {
     const min = AIRDROPS.edgeMarginPx;
     const max = this.width - AIRDROPS.edgeMarginPx;
     let x = Phaser.Math.Between(min, max);
+    const wantLow = Math.random() < AIRDROPS.lowShare;
 
-    for (let i = 0; i < AIRDROPS.tries; i++) {
-      x = Phaser.Math.Between(min, max);
-      if (this.hasGroundBelow(x)) return x;
+    for (let pass = wantLow ? 0 : 1; pass < 2; pass++) {
+      for (let i = 0; i < AIRDROPS.tries * 3; i++) {
+        x = Phaser.Math.Between(min, max);
+        const land = this.landingY(x);
+        if (land === null) continue;
+        if (pass === 0 && land < this.height * 0.55) continue; // lands up top: try again for a low one
+        return x;
+      }
     }
 
     return x; // no luck: this one may fall into the void
+  }
+
+  // The top of the first solid ground straight below the top of the map at
+  // x, or null (open to the void, or water / lava first).
+  landingY(x) {
+    const tileSize = this.groundLayer.tilemap.tileHeight;
+    for (let y = 0; y < this.height; y += tileSize) {
+      if (this.groundLayer.unsafeAt?.(x, y)) return null;
+      const tile = this.groundLayer.getTileAtWorldXY(x, y);
+      if (tile && tile.collides) return y;
+    }
+    return null;
   }
 
   hasGroundBelow(x) {

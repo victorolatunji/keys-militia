@@ -1,10 +1,13 @@
 import Phaser from 'phaser';
 import { HIDING, WATER, LAVA, GEYSER, VENT, FALLS, FREEZE, DECOR, ICE, THIN_ICE, QUICKSAND, CACTUS, SANDSTORM, IGLOO, DUST_DEVIL, BOULDER, HANDS, BELL, ROCKFALL, BAMBOO, TOXIC, RADIATION, ACID_RAIN, BARREL, METEOR, WIND, UPDRAFT, COFFIN } from '../data/hazards.js';
 import Trigger from '../entities/Trigger.js';
+import Cloud from '../entities/Cloud.js';
 import { gravityK, fallScale } from './Gravity.js';
 import { groundBelow, isSolid as isSolidAt } from './Terrain.js';
 import { TILE_FAMILY, SLIPPERY } from '../data/maps.js';
 import Icicle from '../entities/Icicle.js';
+
+const ENV_BURN_MS = 1500; // lava and geysers: you keep burning only this long after you get out
 
 // Map hazards and advantages (Phase 7), read from the Tiled object layer
 // "hazards" (and bushes from "decor"). Rules live in src/data/hazards.js.
@@ -97,8 +100,8 @@ export default class HazardSystem {
   // Steam where something burning hits water (a molotov).
   steam(x, y) {
     for (let i = 0; i < 6; i++) {
-      const c = this.scene.add.circle(x + Phaser.Math.Between(-14, 14), y, Phaser.Math.Between(6, 11), 0xf8f9fa, 0.6).setDepth(DEPTH_WATER + 2);
-      this.scene.tweens.add({ targets: c, y: y - Phaser.Math.Between(30, 60), scale: 2, alpha: 0, duration: Phaser.Math.Between(600, 1000), onComplete: () => c.destroy() });
+      const c = this.scene.add.image(x + Phaser.Math.Between(-14, 14), y, Cloud.puffTexture(this.scene)).setTint(0xf8f9fa).setAlpha(0.8).setScale(Phaser.Math.FloatBetween(0.15, 0.25)).setRotation(Math.random() * 6).setDepth(DEPTH_WATER + 2);
+      this.scene.tweens.add({ targets: c, y: y - Phaser.Math.Between(30, 60), scale: c.scale * 2.2, alpha: 0, duration: Phaser.Math.Between(600, 1000), onComplete: () => c.destroy() });
     }
     this.scene.sfx?.play('steam', { x, y });
   }
@@ -316,7 +319,7 @@ export default class HazardSystem {
         this.scene.sfx?.play('lavaSizzle', c);
         this.splash(lava, c.x, lava.cfg.surfaceColor, 8);
       }
-      this.scene.weapons?.status.apply(c, 'burning', 'env');
+      this.scene.weapons?.status.apply(c, 'burning', 'env', ENV_BURN_MS); // a short burn once you're out
     }
     const melting = Boolean(lava && b.top > lava.y + 2);
     if (melting) {
@@ -335,7 +338,7 @@ export default class HazardSystem {
     for (const f of this.falls) {
       if (c.x < f.x || c.x > f.x + f.w || b.bottom < f.y || b.top > f.y + f.h) continue;
       b.velocity.y += FALLS.push * (elapsed / 1000);
-      if (f.sound === 'lava') this.scene.weapons?.status.apply(c, 'burning', 'env');
+      // (The lavafall is harmless now: it only pushes you down.)
     }
 
     // Cacti prick you and push you off.
@@ -944,13 +947,14 @@ export default class HazardSystem {
       const px = z.cx + Math.cos(a) * z.rx * d;
       const py = z.cy + Math.sin(a) * z.ry * d;
       const r = Phaser.Math.Between(30, 60) * Math.min(1, z.ry / 80 + 0.4);
-      const puff = scene.add.circle(px, py, r, RADIATION.color, 0.1).setDepth(36);
+      const puff = scene.add.image(px, py, Cloud.puffTexture(scene)).setTint(RADIATION.color).setAlpha(0.3).setScale((r * 2.4) / 128, (r * 1.6) / 128).setRotation(Math.random() * 6).setDepth(36);
       scene.tweens.add({
         targets: puff,
         x: px + Phaser.Math.Between(-24, 24),
         y: py + Phaser.Math.Between(-14, 10),
-        scale: Phaser.Math.FloatBetween(1.1, 1.4),
-        alpha: 0.2,
+        scaleX: puff.scaleX * Phaser.Math.FloatBetween(1.1, 1.4),
+        scaleY: puff.scaleY * Phaser.Math.FloatBetween(1.1, 1.3),
+        alpha: 0.45,
         duration: Phaser.Math.Between(2200, 3800),
         yoyo: true,
         repeat: -1,
@@ -1256,8 +1260,8 @@ export default class HazardSystem {
     this.splash(pool, sx, pool.cfg.surfaceColor, 18, 1.8);
     this.splash(pool, sx, pool.cfg.color, 12, 1.2);
     for (let i = 0; i < 8; i++) {
-      const c = scene.add.circle(sx + Phaser.Math.Between(-30, 30), pool.y - 6, Phaser.Math.Between(10, 18), RADIATION.color, 0.25).setDepth(DEPTH_WATER + 2);
-      scene.tweens.add({ targets: c, y: c.y - Phaser.Math.Between(40, 90), x: c.x + Phaser.Math.Between(-20, 20), scale: 2.2, alpha: 0, duration: Phaser.Math.Between(1200, 2000), onComplete: () => c.destroy() });
+      const c = scene.add.image(sx + Phaser.Math.Between(-30, 30), pool.y - 6, Cloud.puffTexture(scene)).setTint(RADIATION.color).setAlpha(0.55).setScale(Phaser.Math.FloatBetween(0.25, 0.4)).setRotation(Math.random() * 6).setDepth(DEPTH_WATER + 2);
+      scene.tweens.add({ targets: c, y: c.y - Phaser.Math.Between(40, 90), x: c.x + Phaser.Math.Between(-20, 20), scale: c.scale * 2.2, alpha: 0, duration: Phaser.Math.Between(1200, 2000), onComplete: () => c.destroy() });
     }
     scene.cameras.main.shake(140, 0.004);
   }
@@ -1685,13 +1689,14 @@ export default class HazardSystem {
       quantity: 2,
       emitting: false,
     }).setDepth(43);
-    g.smoke = this.scene.add.particles(o.x, o.y, 'hz-dot', {
+    g.smoke = this.scene.add.particles(o.x, o.y, Cloud.puffTexture(this.scene), {
       x: { min: -10, max: 10 },
       lifespan: 900,
       speedY: { min: -70, max: -30 },
       speedX: { min: -15, max: 15 },
-      scale: { start: 0.6, end: 1.6 },
-      alpha: { start: 0.5, end: 0 },
+      scale: { start: 0.15, end: 0.4 },
+      rotate: { min: 0, max: 360 },
+      alpha: { start: 0.7, end: 0 },
       tint: 0xadb5bd, // darkened white smoke
       frequency: 70,
       emitting: false,
@@ -1734,7 +1739,7 @@ export default class HazardSystem {
       if (now < (g.hits.get(c) ?? 0)) continue;
       g.hits.set(c, now + GEYSER.hitEveryMs);
       c.takeDamage(GEYSER.damage, 'geyser', 'fire');
-      this.scene.weapons?.status.apply(c, 'burning', 'env');
+      this.scene.weapons?.status.apply(c, 'burning', 'env', ENV_BURN_MS);
       b.velocity.y = -GEYSER.launch;
     }
   }
