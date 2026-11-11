@@ -1,4 +1,5 @@
 import Player from './Player.js';
+import { tuneStats } from '../systems/Gravity.js';
 import { FAMILY_MATERIAL } from '../data/effects.js';
 import WordLabel from '../ui/WordLabel.js';
 import BotBrain from '../systems/BotBrain.js';
@@ -56,7 +57,7 @@ export default class Bot extends Player {
   // Become this character: looks, size, HP, speeds, movement and a fresh loadout.
   setType(config) {
     this.config = config;
-    this.stats = Bot.statsFor(config);
+    this.stats = tuneStats(Bot.statsFor(config), this.scene.physics.world.gravity.y); // tuned to the map's gravity (respawns too)
     this.baseColor = config.color;
     this.displayColor = config.color;
     this.setFillStyle(config.color);

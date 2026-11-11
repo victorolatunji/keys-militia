@@ -12,6 +12,7 @@ export default class EnemySpawner {
     this.families = settings?.families ?? ['military'];
     this.familyIndex = 0;
     this.nextFamilyAt = scene.time.now + SPAWNER.familyEveryMs;
+    this.allowed = settings?.allowed ?? null; // a mode can limit the types (BOTS keys)
   }
 
   get family() {
@@ -32,7 +33,9 @@ export default class EnemySpawner {
   // A random BOTS entry for this role (main: from the current family,
   // or any main type if that family has none yet). null = none exist.
   pick(role) {
-    const all = Object.values(BOTS).filter((b) => b.role === role);
+    let all = Object.entries(BOTS).filter(([, b]) => b.role === role);
+    if (this.allowed) all = all.filter(([key]) => this.allowed.includes(key));
+    all = all.map(([, b]) => b);
     if (all.length === 0) return null;
     const family = role === 'main' ? all.filter((b) => b.family === this.family) : all;
     return Phaser.Utils.Array.GetRandom(family.length ? family : all);

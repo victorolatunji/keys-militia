@@ -1,7 +1,7 @@
 # Keys Militia
 *A VAO game. Living plan book: update it whenever the plan changes.*
 
-**Version:** 0.20
+**Version:** 0.21
 **Owner:** Victor Olatunji / VAO
 **Budget:** $0, free tools and free assets only
 **Status:** Phase 7 (Maps) in progress: Forest, Hell, Glacier, Desert, Catacombs and Graveyard done, four launch maps to go.
@@ -35,7 +35,8 @@ A 2D arena shooter **influenced by Mini Militia**, but its own game: **typing is
 | Pick a loose item | Walk over Health Packs (when hurt), Jet Boosts, Armor Vests and more of a throwable you carry: picked up automatically. Others: 1 / 2 (gun into that slot, or refill a gun you hold), 3 (new throwable, Riot Shield) |
 | Gore level | F2 (Off / Cartoon / Full, remembered in your browser) |
 | Sound on/off | F4 (remembered in your browser) |
-| Next map (testing) | F6 (Forest → Hell → Glacier → Desert → Catacombs → Graveyard → Test, remembered in your browser), or open the game with `?map=` and the map's name |
+| Next map (testing) | F6 (Forest → Hell → Glacier → Desert → Catacombs → Graveyard → Monastery → Wastelands → Sky Islands → Space → Test, remembered in your browser), or open the game with `?map=` and the map's name |
+| Next mode (testing, until the menus) | F8 (Free play → You vs Military → Zombies, remembered), or `?mode=zombies`; at the end of a match, R plays again. Each mode only plays on the maps that fit it (F6 cycles those). Menus with the mouse come in Phase 9; these keys stay as shortcuts |
 | Alt movement (setting) | Hold right-click to fly toward the cursor |
 
 **Move or type rule:**
@@ -384,12 +385,26 @@ Stats live in `src/data/weapons.js` (guns, specials, throwables), `src/data/item
 - If it does die, it simply respawns next to you, in every mode (its deaths don't use up your respawns).
 | Mode | Rules |
 |---|---|
-| You vs Military | Solo or Duo against Military soldiers. **Kill target 25 on a 10-minute countdown** (no picking targets). Respawn as often as you like until the clock runs out. Reach 25 first to win; if the clock runs out, the side with more kills wins. |
-| Zombies | Solo or Duo against waves of zombies. **No respawns:** one life each; survive as many waves as you can. Each wave is bigger and faster. |
+| You vs Military ✅ (solo, 0.21) | Solo or Duo against Military soldiers. **Kill target 25 on a 10-minute countdown** (no picking targets). Respawn as often as you like until the clock runs out. Reach 25 first to win; if the clock runs out, the side with more kills wins. |
+| Zombies ✅ (solo, 0.21) | Solo or Duo against waves of zombies. **No respawns:** one life each; survive as many waves as you can. Each wave is bigger and faster. |
 | You vs Enemies | Solo or Duo against every enemy type, in waves. **3 respawns each, then game over.** Survive as long as you can. |
 | Training | Solo, about 3-5 minutes, can't fail. A guided run through the core of the game, one short step at a time, each with an on-screen hint: move and fly (arrows, jetpack, fuel) → type a word to shoot a target (lock-on, typos jam the gun) → switch guns (Shift) and throw a grenade (aim and release) → an airdrop lands: walk to it and pick from its panel → hide in a bush or under water, mind a hazard → a short live fight against two easy bots. Each step can be skipped; at the end a quick summary and "Play". |
 
 **Flow (all offline modes):** the match gets harder as it goes, so it never drags and never overwhelms. The countdown or wave number drives it: more enemies at once, tougher enemy types, better guns and smarter, faster bots step in every couple of minutes or waves (a short calm after each step, a warning when the next one is coming). Starting values to tune by play-testing.
+
+**You vs Military, built in 0.21** (`src/data/modes.js`, `src/systems/MatchSystem.js`): a countdown and the score at the top (YOU : MILITARY, first to 25), Military only, on any map. It's hard from the start and gets harder every two minutes, without telling you (no stage messages):
+| From | Enemies at once | Types | Their HP / damage | Reactions, attack speed, aim | Shooting at once |
+|---|---|---|---|---|---|
+| 0:00 | 3 | Soldiers, Mercenaries, Commandos | normal | normal | 2 |
+| 2:00 | 4 | + Armoured Troopers | +10% / +15% | 10% faster and sharper | 2 |
+| 4:00 | 4 | all | +20% / +30% | 20% | 3 |
+| 6:00 | 5 | all | +30% / +45% | 30% | 3 |
+| 8:00 | 6 | all | +40% / +60% | 40% | 4 |
+New enemies of a step arrive after a 4s calm. Drops get more generous each step. Your kills count (falls after you hurt them too); theirs are your deaths at their hands. At the end: Victory / Defeat / Draw with the score, kills, deaths, K/D and time (the full stats screen comes in step 4), R to play again.
+
+**Zombies, built in 0.21:** waves of the undead and **no respawns** (one life). The wave number and how many are left at the top; a 7s breather between waves (a countdown shows). Each wave sends more of them, more at once, new types join (Zombies → + Zombie K9s → + Skeletons → + Infected Soldiers) and they grow tougher and faster every wave; drops get more generous as the waves climb. Game over shows the waves survived, kills and time. Maps: Graveyard, Catacombs and Wastelands only (zombies walk and leap, they can't fly).
+
+**Modes pick their maps:** each mode lists the maps that fit it (`maps` in `modes.js`). Free play and You vs Military: all ten. Zombies: Graveyard, Catacombs, Wastelands. You vs Enemies and Training will get their own lists.
 
 **Drops keep it fair:** airdrops scale with the difficulty. The harder the enemies get, the more often crates bring specials and helpful gear (launchers, special guns, health packs, armor, shields, Jet Boost, tacticals). Weaker weapons (pistols, basic SMGs and rifles) drop less as it gets harder, but they never disappear: you still see them now and then.
 
@@ -558,7 +573,7 @@ keys-militia/
 | 5.5 | Arsenal II | Status effects, saw gun, nail gun, laser, flamethrower, sticky grenade (also the trip mine), molotov, combat axe, smoke, flashbang, concussion, EMP, cryo bomb, Jet Boost, riot shield, health pack, armor vest, mouse aiming, two throwable slots, crates and supply lanes | ✅ |
 | 6 | Effects | Blood, gibs, gore toggle, explosions, smoke/gas clouds with night vision, sounds made in code (shots, explosions, loops, voices, death cries), finishing touches | ✅ |
 | 7 | Maps | All launch maps with hazards and advantages, open and enclosed | ✅ Forest, Hell, Glacier, Desert, Catacombs, Graveyard, Monastery, Wastelands, Sky Islands, Space |
-| 8 | Offline modes | Solo or Duo (you + an AI partner of your chosen character): You vs Military (25 kills / 10 min, respawns), Zombies (waves, no respawns), You vs Enemies (waves, 3 respawns), Training (guided 3-5 min); difficulty that ramps for flow, drops that scale with it; K/D and stats, awards, MVP, local leaderboard | |
+| 8 | Offline modes | 🔄 You vs Military (solo) ✅, Zombies (solo) ✅. Solo or Duo (you + an AI partner of your chosen character): You vs Military (25 kills / 10 min, respawns), Zombies (waves, no respawns), You vs Enemies (waves, 3 respawns), Training (guided 3-5 min); difficulty that ramps for flow, drops that scale with it; K/D and stats, awards, MVP, local leaderboard | |
 | 9 | Menus and guest | Menu, settings, name and character select, local saves | |
 | 9.5 | Art pass | Replace placeholders with final sprites, tiles, backgrounds and effects; mode intro pop-ups with real gameplay screenshots and a Skip button | |
 | 10 | Launch | Published on itch.io, linked from the VAO site | |
@@ -587,6 +602,7 @@ keys-militia/
 ---
 
 ## 18. Changelog
+- **0.21:** Phase 8 steps 1 and 3a: You vs Military and Zombies. You vs Military: a 10-minute countdown, first to 25 kills, respawns until time is up, Military only; hard from the start and harder every two minutes without telling you (more enemies, tougher types, more HP and damage, faster and sharper; the damage cap rises with it), drops more generous as it climbs. Zombies: waves that grow (more, faster, tougher, new types), a breather between them, one life. Score / wave at the top, a result screen with K/D, R to play again. F8 or `?mode=` picks the mode, and each mode only plays on the maps that fit it. Fix: bots keep their low-gravity tuning when they respawn.
 - **0.20:** Graveyard: sloping tunnels from both ends of the crypt up to the surface (no dead ends). Hell: the lavafall pours into a lava pool on the lower floor (it no longer runs through the ground). Desert: the gap by the mesa widened to 4 tiles. Lower floors to fight on under Forest, Hell and Desert (rolling ground, a few gaps to the void), wider waterline floors in Glacier, more islands in Sky Islands and asteroids in Space, a third of airdrops reach the lower levels; no war props on Glacier's frozen lake (you can see the ice crack). Forest: a tunnel under the waterfall lake, its bed now stone instead of yellow sand. Desert: the temple's way in and out are 6 tiles wide. Sky Islands: wind gusts are rare (every 50-80s). Hell: the lavafall is harmless (it only pushes you down), and after lava or a geyser you keep burning only 1.5s. War-zone pass on every map: distant smoke and flashes, craters, sandbags, barbed wire, hedgehogs, supply crates, helmet crosses, burnt trees, wrecks (helicopters, trucks, an airship, a crashed ship), posters, bullet scars, the signal tower in Space. Darker, moodier skies (Forest and Sky Islands misty and overcast, Glacier and Desert muted). Catacombs: wall sconces and skull niches. Every smoke, gas, mist and glow effect is a soft formless wisp now, not a circle; war props are see-through.
 - **0.19:** Phase 7 done: the last four maps, each with three thick levels and room to fly. Monastery: halls, a courtyard and terraces on a mountain over the clouds; rockfalls with a warning, bamboo groves to hide in (they rustle). Wastelands: no void, an overpass, a street of wrecks and a sewer; toxic puddles and radiation zones. Sky Islands: floating islands, low gravity, gusts of wind that push everyone. Space: very low gravity, asteroids, a moon base, meteor showers with a red warning ring. Gravity tuning: jetpack, falls, knockback, throws, aim preview and all effects follow each map's gravity. Liquids: toxic sludge and quicksand react to grenades, blasts, molotovs, bullets and items. Radiation is a drifting gas cloud now. No more typing for map objects: icicles drop on their own, the Catacombs levers are gone. Navigation pass on every map (pass-through supports, no square cover blocks, more shortcuts, fewer dead ends). Monastery rebuilt with no stairs: three temple enclosures (the Oracle's temple, the scripture hall, the gong hall), roof hatches, courtyard openings down to the cloisters, a stupa. Wastelands: pillars you walk past, no road signs. Graveyard: a walkable floor with fewer graves, a watch tower, nothing floating, hollow graves, breakable coffins (cover, sometimes a health pack), see-through shadow graves vs solid stone ones, hands on an interval, a bell that rings when it senses movement; the bell tower's walls no longer block you. New sounds: geiger clicks, bamboo rustle, pebbles. Last polish: clean pagoda roofs (solid but drawn), a dark ice cave under Glacier's sheets, every opening wide enough for two players, cars and the tank drawn as real shapes, walk-through things drawn see-through, gas can't hurt machines.
 - **0.18:** Phase 7 part 3: Catacombs and Graveyard, both with no void. Catacombs: enclosed, everything built of rock pieces on a black background, three levels of tunnels, coffins, ossuaries and a flooded crypt; boulders roll down the ramps (hurt and throw you, no instant kill) and a lever's word sends one early onto enemies. Graveyard: night, a hill of tombstones that block bullets, a chapel and bell tower (type the bell's word to daze enemies), open graves into a crypt, fog, bats, lanterns; hands burst out of the ground and grab whoever stands on the graves. Crates drop inside tunnels on enclosed maps.

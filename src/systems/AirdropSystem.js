@@ -237,7 +237,7 @@ export default class AirdropSystem {
     const rareEntry = (e) => e.type === 'gun' && rare.categories.includes(e.category);
     let pool = c.pool;
 
-    if (pool.some(rareEntry) && now - this.lastRareAt >= rare.guaranteeMs) {
+    if (pool.some(rareEntry) && now - this.lastRareAt >= rare.guaranteeMs * (1 - 0.5 * (this.difficulty ?? 0))) {
       const category = Math.random() < rare.specialShare ? 'special' : 'launcher';
       this.lastRareAt = now;
       return { type: 'gun', key: this.randomGun(category) };
@@ -246,6 +246,20 @@ export default class AirdropSystem {
     const player = this.scene.player;
     if (c.hurt && player && player.hp / player.stats.maxHp < c.hurt.below) {
       pool = pool.map((e) => (e.type === 'health' ? { ...e, weight: e.weight * c.hurt.healthWeightScale } : e));
+    }
+
+    // Harder stages (a mode's difficulty ramp): more specials and helpful
+    // gear, fewer weak guns (they still turn up now and then).
+    const d = this.difficulty ?? 0;
+    if (d > 0) {
+      const helpful = new Set(['health', 'boost', 'armor', 'shield']);
+      const tactical = new Set(['flashbang', 'concussion', 'emp', 'cryo', 'gas', 'smoke']);
+      pool = pool.map((e) => {
+        let k = 1;
+        if (rareEntry(e) || helpful.has(e.type) || tactical.has(e.key)) k = 1 + 1.5 * d;
+        else if (e.type === 'gun' && e.category === 'pistol') k = 1 - 0.6 * d;
+        return { ...e, weight: e.weight * k };
+      });
     }
 
     const total = pool.reduce((sum, entry) => sum + entry.weight, 0);

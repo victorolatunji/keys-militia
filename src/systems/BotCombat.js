@@ -142,7 +142,8 @@ export default class BotCombat {
   // Does this bot get to attack now? It keeps a turn for holdMs, then rests
   // for restMs. New turns are only handed out while fewer than `max` are taken.
   hasTurn(bot, now) {
-    const { max, holdMs, restMs } = BOT_AI.turns;
+    const { holdMs, restMs } = BOT_AI.turns;
+    const max = this.maxTurns ?? BOT_AI.turns.max; // a mode's stage can change it
     if (bot.turnUntil > now) return true;
     if (now < (bot.turnRestUntil ?? 0)) return false;
 
@@ -176,7 +177,7 @@ export default class BotCombat {
     const letters = WORD_LETTERS[weapon.wordList] * (weapon.wordsPerShot ?? 1);
     const typing = (letters / bot.config.typingSpeed) * 1000;
     const damage = weapon.damage * this.scale(bot, weapon);
-    const capped = (damage / BOT_AI.maxDps) * 1000;
+    const capped = (damage / (BOT_AI.maxDps * (bot.config.dpsScale ?? 1))) * 1000; // a mode's harder stages raise the cap
     return Math.max(typing, capped) * Phaser.Math.FloatBetween(0.8, 1.2);
   }
 

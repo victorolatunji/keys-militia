@@ -149,6 +149,7 @@ export default class TypingSystem {
   // ---- Keyboard ----
 
   handleKey(event) {
+    if (this.scene.matchOver) return; // the match is over: no more shooting
     if (!this.player.alive) return;
     if (event.ctrlKey || event.metaKey || event.altKey) return;
 

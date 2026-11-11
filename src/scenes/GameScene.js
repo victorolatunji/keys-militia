@@ -20,6 +20,8 @@ import HazardSystem from '../systems/HazardSystem.js';
 import BackdropSystem from '../systems/BackdropSystem.js';
 import { MAPS, MAP_SELECT } from '../data/maps.js';
 import { PLAYER } from '../data/player.js';
+import { MODES, MODE_SELECT } from '../data/modes.js';
+import MatchSystem from '../systems/MatchSystem.js';
 
 const BOT_DROP_Y = 40;     // bots drop in from no higher than this...
 const BOT_DROP_PX = 600;   // ...and at most this far above their spawn point
@@ -57,6 +59,10 @@ export default class GameScene extends Phaser.Scene {
 
   init(data) {
     this.map = MAPS[data.mapKey] ?? MAPS[MAP_SELECT.default];
+    this.mode = MODES[data.modeKey] ?? MODES[this.mode?.key] ?? MODES[MODE_SELECT.default];
+    // A mode only plays on maps that fit it (Zombies can't fly).
+    if (this.mode.maps && !this.mode.maps.includes(this.map.key)) this.map = MAPS[this.mode.maps[0]];
+    this.matchOver = false;
     this.deaths = 0;
     this.suicides = 0;
     this.kills = 0;
@@ -73,6 +79,8 @@ export default class GameScene extends Phaser.Scene {
     this.hazards = new HazardSystem(this, this.tilemap, this.map, this.groundLayer);
     this.backdrop = new BackdropSystem(this, this.map, this.tilemap, this.groundLayer, { width, height });
     this.input.keyboard.on(`keydown-${MAP_SELECT.key}`, () => this.nextMap());
+    this.input.keyboard.on(`keydown-${MODE_SELECT.key}`, () => this.nextMode());
+    this.input.keyboard.addCapture(MODE_SELECT.key); // keep the browser from using the key
 
     // World bounds: walls left, right and top. No floor: below is the void
     // (maps with no void, like Catacombs and Graveyard, get a floor too).
@@ -125,15 +133,22 @@ export default class GameScene extends Phaser.Scene {
     }
 
     // Enemies: one bot per spawn slot in the map config; types picked at random.
-    this.spawner = new EnemySpawner(this, this.map.enemies);
+    // A mode with a clock (You vs Military) sets who comes and how many.
+    const ramp = this.mode.ramp?.[0];
+    const waves = Boolean(this.mode.waves);
+    const settings = ramp ? { slots: { main: ramp.bots }, families: [this.mode.family], allowed: ramp.types } : waves ? { slots: {} } : this.map.enemies;
+    this.spawner = new EnemySpawner(this, settings);
+    this.match = ramp || waves ? new MatchSystem(this, this.mode) : null;
     this.bots = this.spawner.startingSlots().map((slot) => this.spawnBot(slot));
     this.botCombat = new BotCombat(
       this, this.groundLayer, this.player, this.bots, this.weapons, this.collisions, height
     );
+    if (ramp) this.botCombat.maxTurns = ramp.turns;
 
     // Crates parachute in on a timer; get near a landed one to pick up its item.
     this.airdrops = new AirdropSystem(this, this.groundLayer, { width, height }, this.collisions);
     this.pickups = new PickupSystem(this, this.player, this.weapons, this.airdrops);
+    if (ramp) this.airdrops.difficulty = ramp.drops;
 
     this.voidSystem = this.map.void
       ? new VoidSystem(this, this.map, { width, height }, (player) => player.kill('void'))
@@ -161,7 +176,7 @@ export default class GameScene extends Phaser.Scene {
 
     // Debug readout, pinned to the screen.
     this.debugText = this.add
-      .text(16, 60, '', { fontFamily: 'monospace', fontSize: '14px', color: '#aaaacc' })
+      .text(16, 92, '', { fontFamily: 'monospace', fontSize: '14px', color: '#aaaacc' })
       .setScrollFactor(0)
       .setDepth(100);
   }
@@ -181,8 +196,8 @@ export default class GameScene extends Phaser.Scene {
     }, hitStopMs);
   }
 
-  spawnBot(slot) {
-    const config = this.spawner.pick(slot);
+  spawnBot(slot, given = null) {
+    const config = given ?? this.tuned(this.spawner.pick(slot));
     const point = this.botSpawnPoint(config);
     const bot = new Bot(this, point.x, point.y, config, this.groundLayer, () => this.player, slot);
 
@@ -221,16 +236,36 @@ export default class GameScene extends Phaser.Scene {
     return y;
   }
 
+  // An enemy type, tuned for the match's current stage (if a mode has one).
+  tuned(config) {
+    return this.match ? this.match.tune(config) : config;
+  }
+
+  // F7 (testing, until the menus): the next mode, remembered in this browser.
+  nextMode() {
+    const order = MODE_SELECT.order;
+    const next = order[(order.indexOf(this.mode.key) + 1) % order.length];
+    try {
+      window.localStorage.setItem(MODE_SELECT.storageKey, next);
+    } catch {
+      // storage blocked
+    }
+    const maps = MODES[next].maps;
+    const mapKey = !maps || maps.includes(this.map.key) ? this.map.key : maps[0];
+    this.scene.restart({ mapKey, modeKey: next });
+  }
+
   // F6 (testing): the next map in MAP_SELECT.order, remembered in this browser.
   nextMap() {
-    const order = MAP_SELECT.order;
+    // Only the maps that fit the mode (all of them in Free play).
+    const order = this.mode.maps ?? MAP_SELECT.order;
     const next = order[(order.indexOf(this.map.key) + 1) % order.length];
     try {
       window.localStorage.setItem(MAP_SELECT.storageKey, next);
     } catch {
       // storage blocked: still switch, just not remembered
     }
-    this.scene.restart({ mapKey: next });
+    this.scene.restart({ mapKey: next, modeKey: this.mode.key });
   }
 
   // The far end of the ground under you that it can walk to you from
@@ -270,9 +305,16 @@ export default class GameScene extends Phaser.Scene {
       this.airdrops.dropItems(bot.x, bot.y, bot.gear.items());
     }
 
+    // Waves: no respawn (the wave sends the next one).
+    if (this.match?.waves) {
+      this.match.onBotDeath(bot);
+      return;
+    }
+
     // A new random enemy takes its slot after a moment.
     this.time.delayedCall(bot.config.respawnDelay, () => {
-      const next = this.spawner.pick(bot.slot);
+      if (this.matchOver) return;
+      const next = this.tuned(this.spawner.pick(bot.slot));
       bot.respawn(this.botSpawnPoint(next), next);
     });
   }
@@ -332,8 +374,10 @@ export default class GameScene extends Phaser.Scene {
       message = `Killed by a ${attacker.config.name}`;
     }
     this.message.setText(message).setVisible(true);
+    this.match?.onPlayerDeath(cause, cause === 'bot' ? attacker : null);
 
     this.time.delayedCall(PLAYER.respawnDelay, () => {
+      if (this.matchOver) return;
       this.message.setVisible(false);
       this.player.respawn();
       this.weapons.resetLoadout(); // back to the default guns and grenades
@@ -341,6 +385,8 @@ export default class GameScene extends Phaser.Scene {
   }
 
   update(time, delta) {
+    this.match?.update();
+    if (this.matchOver) return; // the result is up: everything stops
     this.player.update(delta);
     for (const dummy of this.dummies) dummy.update();
     this.spawner.update();
@@ -363,7 +409,7 @@ export default class GameScene extends Phaser.Scene {
     const lock = this.typing.lock;
     const shot = this.weapons.lastShot;
     this.debugText.setText([
-      `map: ${this.map.name} (F6 next)  x: ${Math.round(this.player.x)}  y: ${Math.round(this.player.y)}  ${this.player.hidden ? 'HIDDEN' : ''}${this.player.submerged ? ` breath ${Math.ceil(this.player.hazard.breath / 1000)}s` : ''}`,
+      `map: ${this.map.name} (F6 next)  mode: ${this.mode.name} (F8)  x: ${Math.round(this.player.x)}  y: ${Math.round(this.player.y)}  ${this.player.hidden ? 'HIDDEN' : ''}${this.player.submerged ? ` breath ${Math.ceil(this.player.hazard.breath / 1000)}s` : ''}`,
       `vx: ${Math.round(b.velocity.x)}  vy: ${Math.round(b.velocity.y)}`,
       `onGround: ${this.player.onGround}  fuel: ${Math.round(this.player.fuel)}  hp: ${Math.round(this.player.hp)}`,
       `alive: ${this.player.alive}  deaths: ${this.deaths}  suicides: ${this.suicides}`,
