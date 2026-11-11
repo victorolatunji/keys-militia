@@ -18,7 +18,8 @@ import EnemySpawner from '../systems/EnemySpawner.js';
 import { isSolid, groundBelow } from '../systems/Terrain.js';
 import HazardSystem from '../systems/HazardSystem.js';
 import BackdropSystem from '../systems/BackdropSystem.js';
-import { MAPS, MAP_SELECT } from '../data/maps.js';
+import { MAPS, MAP_SELECT, TILE_FAMILY } from '../data/maps.js';
+const BREAKS = new Set(['thin', 'crumble']); // tiles that give way under you: never a spawn
 import { PLAYER } from '../data/player.js';
 import { MODES, MODE_SELECT } from '../data/modes.js';
 import MatchSystem from '../systems/MatchSystem.js';
@@ -219,17 +220,69 @@ export default class GameScene extends Phaser.Scene {
     }, hitStopMs);
   }
 
-  // Your three drop-in spots: of the map's spawn points (yours, the dummies'
-  // and the bots', all on safe ground), the ones nearest a fifth, half and
-  // four-fifths of the way across.
+  // Your three drop-in spots, left, middle and right (shares in
+  // PLAYER.spawnAt). Maps open to the sky: you drop in from the air onto the
+  // top level, at a spot that's solid and flat under you (a player's width
+  // either side, so you don't slide off an edge) and away from hazards
+  // (lava, water, geysers, falls...). Enclosed maps (Catacombs: no sky):
+  // the map's own spawn points nearest those spots.
   threeSpawns(width) {
+    // Each spot stays in its own third of the map.
+    const pick = (want, lo, hi) => (this.map.enclosed ? this.nearestSpawn(want) : this.airSpawn(want, lo, hi) ?? this.nearestSpawn(want));
     const spots = [];
-    for (const share of PLAYER.spawnAt) {
-      const want = width * share;
-      const best = [...this.spawnPoints].sort((a, b) => Math.abs(a.x - want) - Math.abs(b.x - want))[0];
-      if (best && !spots.includes(best)) spots.push(best);
-    }
+    PLAYER.spawnAt.forEach((share, i, all) => {
+      const spot = pick(width * share, (width * i) / all.length, (width * (i + 1)) / all.length);
+      if (spot && !spots.some((o) => Math.abs(o.x - spot.x) < 64)) spots.push(spot);
+    });
     return spots.length ? spots : [this.spawnPoints[0]];
+  }
+
+  nearestSpawn(x) {
+    return [...this.spawnPoints].sort((a, b) => Math.abs(a.x - x) - Math.abs(b.x - x))[0];
+  }
+
+  // Nearest good column to x on the top level, and a point in the air above it.
+  airSpawn(want, lo = 0, hi = Infinity) {
+    const layer = this.groundLayer;
+    const { tileWidth: tw, tileHeight: th, widthInPixels: W } = layer.tilemap;
+    const S = PLAYER.spawnDrop;
+    const hazards = (this.tilemap.getObjectLayer('hazards')?.objects ?? []).filter((o) => !S.everywhere.includes(o.name)).map((o) => {
+      const pad = o.width ? S.hazardPx : S.hazardPx / 2; // pools and falls: wide berth; geysers, vents: a little
+      return { x1: o.x - pad, x2: o.x + (o.width ?? 0) + pad, y1: o.y - pad, y2: o.y + (o.height ?? 0) + pad };
+    });
+    // The top of the first solid tile down from the sky at x, or null if
+    // there's none or it hits water / lava first.
+    const top = (x) => {
+      for (let y = th / 2; y < layer.tilemap.heightInPixels; y += th) {
+        if (layer.unsafeAt?.(x, y)) return null;
+        const tile = layer.getTileAtWorldXY(x, y);
+        if (tile?.collides) return BREAKS.has(TILE_FAMILY[tile.index]) ? null : Math.floor(y / th) * th; // not onto thin ice or crumbling rock
+      }
+      return null;
+    };
+    // The top level: a column that's open down to a lower floor (a gap or a
+    // shaft, with ground much higher either side of it) isn't it. If no
+    // spot passes that, any safe spot will do.
+    const inGap = (x, y) => [-S.gapPx, S.gapPx].some((d) => {
+      const t = top(x + d);
+      return t !== null && y - t > S.heightPx;
+    });
+    for (const strict of [true, false]) {
+    for (let off = 0; off < W / 3; off += tw / 2) {
+      for (const x of off ? [want - off, want + off] : [want]) {
+        if (x < Math.max(lo, S.edgePx) || x > Math.min(hi, W - S.edgePx)) continue;
+        const y = top(x);
+        if (y === null || (strict && (inGap(x, y) || y < S.heightPx + th * 2))) continue; // (and not a rooftop at the very top of the map: no room to drop in)
+        // A hazard near where you'd fall or land (not one deep under the map).
+        if (hazards.some((h) => x >= h.x1 && x <= h.x2 && h.y2 >= y - S.heightPx && h.y1 <= y + th * 2)) continue;
+        const l = top(x - S.flatPx);
+        const r = top(x + S.flatPx);
+        if (l === null || r === null || Math.abs(l - y) > th || Math.abs(r - y) > th) continue; // ground both sides (a gentle slope is fine)
+        return { x, y: Math.max(th, y - S.heightPx) };
+      }
+    }
+    }
+    return null;
   }
 
   spawnBot(slot, given = null) {

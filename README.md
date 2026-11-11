@@ -1,7 +1,7 @@
 # Keys Militia
 *A VAO game. Living plan book: update it whenever the plan changes.*
 
-**Version:** 0.26
+**Version:** 0.26.1
 **Owner:** Victor Olatunji / VAO
 **Budget:** $0, free tools and free assets only
 **Status:** Phase 8 (Offline modes) done; Phase 9 (Menus and guest) next.
@@ -108,7 +108,7 @@ A 2D arena shooter **influenced by Mini Militia**, but its own game: **typing is
 ## 5. Loadout and pickups
 **Slots:** 2 guns (1, 2) + 1 melee weapon (M, always there) + 2 throwable slots (T1, T2). The two throwable slots never mix: each holds one kind with its own count. The weapon in your hand shows at your side.
 
-**Default spawn (reshuffled every spawn):** a random assault rifle + a random sniper or marksman rifle (never the same gun twice in a row) + a random melee weapon + 3 frag grenades (`DEFAULT_LOADOUT` in `weapons.js`). Players spawn by dropping in from the sky, at one of three spots picked at random each time: left, middle or right of the map (`spawnAt` in `player.js`; Training uses its lessons' spots). Melee only ever comes with your spawn: it never drops anywhere.
+**Default spawn (reshuffled every spawn):** a random assault rifle + a random sniper or marksman rifle (never the same gun twice in a row) + a random melee weapon + 3 frag grenades (`DEFAULT_LOADOUT` in `weapons.js`). Players spawn by dropping in from the sky, at one of three spots picked at random each time: left, middle or right of the map (`spawnAt` and `spawnDrop` in `player.js`). **Spawn rule (0.26.1):** each spot is on the map's top level in its own third, found from the sky down: solid, roughly flat ground under you (never thin ice or crumbling rock), not down a gap to a lower floor, not a rooftop at the very top of the map, and clear of lava, water, toxic pools, geysers, vents and falls; you drop in from 260 px above it. Enclosed maps with no sky (Catacombs) use their own spawn points. Training uses its lessons' spots. Melee only ever comes with your spawn: it never drops anywhere.
 
 **HUD:** top right, one line per slot with ammo (`> 1. AK-47 18/18`, `M. Bat (melee)`), three lines about the weapon in hand (family and word list, damage, range or reach or belt), then both throwable slots (`> T1. Frag Grenade x3`) and your Riot Shield's HP. A picture of the weapon in hand sits left of the panel and pops when you switch. An **ARMOR** bar appears next to HP while you wear a vest.
 
@@ -649,6 +649,9 @@ keys-militia/
 ---
 
 ## 18. Changelog
+
+Bugs found and how they were fixed are logged in [BUGS.md](BUGS.md) (newest first). Every new bug gets an entry there.
+- **0.26.1:** Spawn fix: you always drop in from the air onto the top level (left, middle or right third), never onto a lower floor, into lava or water, onto thin ice or next to a geyser. Checked on every map.
 - **0.26:** Art pass, step 3. Shots leave the gun's muzzle (the packer finds each barrel's end) with a flash sized by gun family (small for pistols and SMGs, big for shotguns, LMGs, snipers and launchers, a blue glow for the laser). Rockets, grenade shells, saw blades, nails, the laser beam and flame puffs use their sprites; thrown things fly with their own art, tumbling. Melee strikes swing the arm (wind-up, slash). Drone and Zombie K9 rigs (the K9 a bit smaller now); zombies, skeletons, mutants and K9s charge, strike and fall back. A ROOKIE tag over your head (`callsign` in `player.js`). Your partner moves more smoothly (no stop-go stutter, eased speed, no pose flicker on bumps); your Soldier partner is called Elite. Training's coaches stay with you and fly with you; the Tech is now Android R. You spawn at random on the left, middle or right of the map. Airdrops never stack, never bury an item and never land where they'd tip into the void.
 - **0.25:** Phase 8 done: Training. Its own map (Militia Camp: tents, a flagpole, a watchtower, a firing range, a sandbag wall, a helipad, a live-fire yard, gates between stations that sink into the ground as you go). Two coaches, the Sergeant (Commando) and the Tech (Android), teach 8 fixed lessons in speech bubbles: move, fly, type to shoot, typos and moving, switching to melee, throwing over a wall, taking a gun from an airdrop, and a live fight against two easy Soldiers. Enter skips a lesson, Esc leaves; a graduation screen sums it up. F8 now goes Free play → Training → the match modes.
 - **0.24.1:** Partner picks: 12 characters (no Drone, Scrap Bot or Zombie K9; a saved pick of one of them falls back to Solo). Training plan agreed (Militia Camp map, 2 coaches, 8 fixed lessons). Duo partner reworked: it replays your exact path (tunnels, flying, drops) instead of steering on its own, catches up as fast as it needs to, waits at the edge instead of following you into the void, and attacks more often but lighter (every 1-1.6s, 7-12 hits a kill). Fix: enemies no longer drop through the ground when a spawn point ended up buried by a map's new floors (they rise out of the rock before dropping in).

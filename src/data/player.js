@@ -38,4 +38,5 @@ export const PLAYER = {
   // Death and respawn
   respawnDelay: 1500,   // ms between dying and dropping back in
   spawnAt: [0.2, 0.5, 0.8], // you drop in near one of these (shares of the map width), at random
+  spawnDrop: { heightPx: 260, flatPx: 40, hazardPx: 140, edgePx: 96, gapPx: 160, everywhere: ['hands', 'meteor', 'rockfall'] }, // dropping in: from this high over the top level, ground flat this far either side, this far from hazards and the map's sides, not down a gap (hazards that strike all over the map, like the graveyard's hands, don't count), with ground far higher either side (that's a lower level), each spot within its own third of the map
 };
