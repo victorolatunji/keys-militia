@@ -181,6 +181,7 @@ export default class TypingSystem {
       this.lock = target;
       this.progress = 0;
       target.label.setLocked(true);
+      this.scene.stats?.onWordStart();
     }
 
     const word = this.lock.word;
@@ -199,6 +200,7 @@ export default class TypingSystem {
 
   fire() {
     const target = this.lock;
+    this.scene.stats?.onWordDone(target.word);
     this.clearLock();
     this.onFire(target);
 

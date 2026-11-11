@@ -22,6 +22,7 @@ import { MAPS, MAP_SELECT } from '../data/maps.js';
 import { PLAYER } from '../data/player.js';
 import { MODES, MODE_SELECT } from '../data/modes.js';
 import MatchSystem from '../systems/MatchSystem.js';
+import StatsSystem from '../systems/StatsSystem.js';
 import PartnerSystem from '../systems/PartnerSystem.js';
 import { PARTNER } from '../data/partner.js';
 
@@ -143,6 +144,8 @@ export default class GameScene extends Phaser.Scene {
     const waves = Boolean(this.mode.waves);
     const settings = ramp ? { slots: { main: ramp.bots }, families: [this.mode.family], allowed: ramp.types } : waves ? { slots: {} } : this.map.enemies;
     this.spawner = new EnemySpawner(this, settings);
+    // Everyone's numbers for the end-of-match screen (before anyone spawns).
+    this.stats = new StatsSystem(this);
     this.match = ramp || waves ? new MatchSystem(this, this.mode) : null;
     this.bots = this.spawner.startingSlots().map((slot) => this.spawnBot(slot));
     this.botCombat = new BotCombat(
@@ -316,7 +319,9 @@ export default class GameScene extends Phaser.Scene {
 
   handleBotDeath(bot, cause) {
     // Your kill: you finished it, or it fell into the void soon after you hurt it.
-    if (cause === 'player' || (MAP_DEATHS.has(cause) && bot.fallCredited)) this.kills += 1;
+    const yours = cause === 'player' || (MAP_DEATHS.has(cause) && bot.fallCredited);
+    if (yours) this.kills += 1;
+    this.stats.onBotDeath(bot, yours ? 'player' : cause === 'partner' ? 'partner' : null);
     if (cause === 'player') this.hitStop(); // your kill: a split-second freeze
 
     // Only Military enemies (the ones that swap weapons) drop their gear,
@@ -394,12 +399,14 @@ export default class GameScene extends Phaser.Scene {
       message = `Killed by a ${attacker.config.name}`;
     }
     this.message.setText(message).setVisible(true);
+    this.stats.onPlayerDeath(cause === 'bot' ? attacker : null);
     this.match?.onPlayerDeath(cause, cause === 'bot' ? attacker : null);
 
     this.time.delayedCall(PLAYER.respawnDelay, () => {
       if (this.matchOver) return;
       this.message.setVisible(false);
       this.player.respawn();
+      this.stats.onPlayerRespawn();
       this.weapons.resetLoadout(); // back to the default guns and grenades
     });
   }

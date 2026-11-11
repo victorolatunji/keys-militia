@@ -1,7 +1,7 @@
 # Keys Militia
 *A VAO game. Living plan book: update it whenever the plan changes.*
 
-**Version:** 0.23
+**Version:** 0.24
 **Owner:** Victor Olatunji / VAO
 **Budget:** $0, free tools and free assets only
 **Status:** Phase 7 (Maps) in progress: Forest, Hell, Glacier, Desert, Catacombs and Graveyard done, four launch maps to go.
@@ -374,6 +374,16 @@ Stats live in `src/data/weapons.js` (guns, specials, throwables), `src/data/item
 
 **Leaderboard:** your best results per mode and map, saved in the browser (local, Phase 8); a shared online leaderboard comes with sign-in (Phase 11).
 
+**Built in 0.24** (`src/systems/StatsSystem.js`, `src/data/scoring.js`, the end screen in `src/systems/MatchSystem.js`):
+- **Assist:** you hurt an enemy in the last 10s and someone else (your partner, the map) finished it. Same for your partner.
+- **Accuracy:** a word counts as started when you lock onto it (its first letter) and finished when you fire it. A typo, moving off, or the target leaving sight loses that word.
+- **WPM:** letters of finished words ÷ 5, per minute spent typing them (from the first letter to the last).
+- **Time alive:** your longest single life ("LIFE" on the scoreboard; Survivor goes to the longest).
+- **Scoreboard:** you, your partner, and one row per enemy type ("Soldier ×4": how many took the field), the top 6 enemy types by score. Enemy kills are kills on you; their damage is damage to you.
+- **Awards:** each goes to the best value; ties go to you, then your partner. Sharpshooter and Fastest Fingers need 5 or more words, and typing awards are yours or nobody's (bots don't type real words).
+- **Leaderboard:** your top 5 per mode and map in this browser (`keys-militia.best`). Wave modes rank by waves survived first, then score. The end screen shows the list, marks this match, and says NEW BEST! when it tops it.
+- The end screen also shows: the result, mode, map, solo or duo, match time, the score or waves; your typing line (accuracy, WPM, typos, damage taken). R plays again.
+
 ---
 
 ## 10. Game modes
@@ -531,7 +541,9 @@ keys-militia/
 │   │   ├── EnemySpawner.js      ✅ spawn slots, random types, family rotation
 │   │   ├── HazardSystem.js      ✅ water, lava, quicksand, geysers, vents, bushes, falls, hiding, breath, splashes, blasts and throwables in liquids, icebergs, slippery and thin ice (blasts smash it), icicles, igloos, cacti, dust devils, sandstorms, boulders and levers, grabbing hands, the church bell, rockfalls and meteors, bamboo, toxic, radiation, wind and updrafts
 │   │   ├── BackdropSystem.js    ✅ sky, sun, clouds, parallax hills/spires/mountains/mesas, birds, camel caravan, far icebergs and whales, heat shimmer, leaves, snow, northern lights, embers, fireflies, tumbleweeds, penguins, scorpions, moon, bats, fog, coffins, cobwebs, candles, lanterns, fences, dead trees, crosses, trees, pines, palms, cacti, rocks, caves, grass
-│   │   └── ScoreSystem.js       # kills, assists, fall credit, MVP
+│   │   ├── MatchSystem.js       ✅ a mode's match: countdown or waves, hidden difficulty ramp, lives, HUD, end-of-match screen
+│   │   ├── PartnerSystem.js     ✅ your Duo partner: follows your path, watches, fights, respawns
+│   │   └── StatsSystem.js       ✅ everyone's match numbers (kills, assists, damage, streaks, lives, typing), awards, local leaderboard
 │   ├── ui/
 │   │   ├── Hud.js               ✅ HP, fuel and armor bars, weapon panel + icon, throwable slots, state tag
 │   │   ├── Icons.js             ✅ builds item icon textures at boot
@@ -552,6 +564,9 @@ keys-militia/
 │       ├── icons.js             ✅ placeholder icon shapes
 │       ├── enemies.js           ✅ target dummy, enemy roster (BOTS), bot AI, ranges, bullets, spawner
 │       ├── airdrops.js          ✅ crate timing and contents, parachute, tipping, pickup radius, supply-drop lanes, death drops
+│       ├── modes.js             ✅ offline modes, the Military ramp, Zombie and Enemy waves, mode select (F8)
+│       ├── partner.js           ✅ Duo partner tuning, partner select (` key)
+│       ├── scoring.js           ✅ score points, assist window, awards, leaderboard size
 │       └── characters.js
 ├── public/assets/
 │   ├── maps/                    # Tiled maps (.json): test, forest, hell, glacier, desert, catacombs, graveyard ✅
@@ -577,7 +592,7 @@ keys-militia/
 | 5.5 | Arsenal II | Status effects, saw gun, nail gun, laser, flamethrower, sticky grenade (also the trip mine), molotov, combat axe, smoke, flashbang, concussion, EMP, cryo bomb, Jet Boost, riot shield, health pack, armor vest, mouse aiming, two throwable slots, crates and supply lanes | ✅ |
 | 6 | Effects | Blood, gibs, gore toggle, explosions, smoke/gas clouds with night vision, sounds made in code (shots, explosions, loops, voices, death cries), finishing touches | ✅ |
 | 7 | Maps | All launch maps with hazards and advantages, open and enclosed | ✅ Forest, Hell, Glacier, Desert, Catacombs, Graveyard, Monastery, Wastelands, Sky Islands, Space |
-| 8 | Offline modes | 🔄 You vs Military, Zombies, You vs Enemies ✅, Duo (AI partner) ✅. Solo or Duo (you + an AI partner of your chosen character): You vs Military (25 kills / 10 min, respawns), Zombies (waves, no respawns), You vs Enemies (waves, 3 respawns), Training (guided 3-5 min); difficulty that ramps for flow, drops that scale with it; K/D and stats, awards, MVP, local leaderboard | |
+| 8 | Offline modes | 🔄 You vs Military, Zombies, You vs Enemies ✅, Duo (AI partner) ✅, stats + end screen + awards + local leaderboard ✅. Solo or Duo (you + an AI partner of your chosen character): You vs Military (25 kills / 10 min, respawns), Zombies (waves, no respawns), You vs Enemies (waves, 3 respawns), Training (guided 3-5 min); difficulty that ramps for flow, drops that scale with it; K/D and stats, awards, MVP, local leaderboard | |
 | 9 | Menus and guest | Menu, settings, name and character select, local saves | |
 | 9.5 | Art pass | Replace placeholders with final sprites, tiles, backgrounds and effects; mode intro pop-ups with real gameplay screenshots and a Skip button | |
 | 10 | Launch | Published on itch.io, linked from the VAO site | |
@@ -606,6 +621,7 @@ keys-militia/
 ---
 
 ## 18. Changelog
+- **0.24:** Phase 8 step 4: stats and the end-of-match screen. Every match keeps kills, deaths, assists, score (kills ×100 + assists ×50 − deaths ×25), K/D, best streak, damage dealt and taken, longest life, and your typing accuracy and WPM. The end screen has a scoreboard of you, your partner and each enemy type, six awards (MVP, Most Kills, Best K/D, Sharpshooter, Fastest Fingers, Survivor), and your top 5 on this mode and map, saved in the browser.
 - **0.23:** Phase 8 step 2: Duo. An AI partner of any character (`` ` `` key or `?partner=`; F-keys open browser tools), in every mode: it walks your path a moment behind you (through tunnels, up and down, in the air), gives you room, watches for enemies instead of staring at you, shoots or strikes the nearest enemy every few seconds (3-5 hits a kill), its kills are its own, enemies ignore it, it can't be typed at, it heals and only a fall can kill it (then it's back beside you). Its kills show on the result screen.
 - **0.22:** Phase 8 step 3b: You vs Enemies. Waves of every enemy type mixed together, a new kind joining most waves, tougher every wave, 3 respawns then game over, an 8s breather between waves, respawns left on screen; all maps but Sky Islands and Space. The result screen shows K/D for wave modes too. Picking up a gun or a throwable now puts it straight in your hand.
 - **0.21:** Phase 8 steps 1 and 3a: You vs Military and Zombies. You vs Military: a 10-minute countdown, first to 25 kills, respawns until time is up, Military only; hard from the start and harder every two minutes without telling you (more enemies, tougher types, more HP and damage, faster and sharper; the damage cap rises with it), drops more generous as it climbs. Zombies: waves that grow (more, faster, tougher, new types), a breather between them, one life. Score / wave at the top, a result screen with K/D, R to play again. F8 or `?mode=` picks the mode, and each mode only plays on the maps that fit it. Fix: bots keep their low-gravity tuning when they respawn.

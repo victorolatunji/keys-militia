@@ -52,6 +52,7 @@ export default class Bot extends Player {
 
     this.brain = new BotBrain(this, groundLayer, getTarget);
     this.layout();
+    scene.stats?.onSpawn(this);
   }
 
   // Become this character: looks, size, HP, speeds, movement and a fresh loadout.
@@ -212,6 +213,7 @@ export default class Bot extends Player {
     this.hpBg.setVisible(true);
     this.hpFill.setVisible(true);
     this.layout();
+    this.scene.stats?.onSpawn(this);
   }
 
   layout() {

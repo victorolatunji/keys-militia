@@ -33,7 +33,10 @@ export default class PartnerSystem {
     bot.setStrokeStyle(2, PARTNER.color);
     bot.hpFill.setFillStyle(PARTNER.color);
     scene.physics.add.collider(bot, scene.groundLayer);
-    bot.on('died', () => scene.time.delayedCall(PARTNER.respawnMs, () => this.respawn()));
+    bot.on('died', () => {
+      scene.stats?.onPartnerDeath(bot);
+      scene.time.delayedCall(PARTNER.respawnMs, () => this.respawn());
+    });
     this.bot = bot;
     this.tag = scene.add
       .text(0, 0, `ALLY · ${base.name}`, { fontFamily: 'monospace', fontSize: '12px', color: '#06d6a0', backgroundColor: '#000000aa', padding: { x: 4, y: 1 } })

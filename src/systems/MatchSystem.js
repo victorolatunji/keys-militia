@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { BOTS } from '../data/enemies.js';
+import { SCORING, clock } from '../data/scoring.js';
 
 const HUD_DEPTH = 105;
 
@@ -157,21 +158,92 @@ export default class MatchSystem {
     scene.matchOver = true;
     scene.physics.world.pause();
     scene.message?.setVisible(false);
-    const kd = scene.kills / Math.max(1, scene.deaths);
-    const time = this.clock(scene.time.now - this.startAt);
+    this.drawHud();
+    this.showResults(result);
+    scene.input.keyboard.once('keydown-R', () => scene.scene.restart({ mapKey: scene.map.key, modeKey: this.mode.key }));
+  }
+
+  // The end-of-match screen: result, scoreboard, your typing, awards and
+  // your best results on this mode and map (README section 9).
+  showResults(result) {
+    const scene = this.scene;
+    const { rows, awards, you, timeMs } = scene.stats.summary();
+    const waves = this.waves ? this.wave : null;
+    const { list, rank } = scene.stats.save(this.mode.key, scene.map.key, {
+      score: you.score, kills: you.kills, deaths: you.deaths, kd: Number(you.kd.toFixed(2)),
+      wpm: Math.round(you.wpm), accuracy: Math.round(you.accuracy * 100), waves, result,
+      ally: scene.partner?.config.name ?? null, at: new Date().toISOString().slice(0, 10),
+    });
+
+    scene.debugText?.setVisible(false); // the testing readout
+    const depth = HUD_DEPTH + 5;
+    const objects = [];
+    const font = (size, color, extra = {}) => ({ fontFamily: 'monospace', fontSize: `${size}px`, color, ...extra });
+    const text = (x, y, str, style, originX = 0) => {
+      const t = scene.add.text(x, y, str, style).setOrigin(originX, 0).setScrollFactor(0).setDepth(depth + 1);
+      objects.push(t);
+      return t;
+    };
+    objects.push(scene.add.rectangle(640, 360, 1180, 690, 0x05070d, 0.96).setStrokeStyle(2, 0x2a3345).setScrollFactor(0).setDepth(depth));
+
+    // Result
     const title = { win: 'VICTORY', lose: 'DEFEAT', draw: 'DRAW', over: 'GAME OVER' }[result];
     const color = { win: '#06d6a0', lose: '#ff4d6d', draw: '#ffd166', over: '#ff4d6d' }[result];
-    const lines = this.waves
-      ? [`Waves survived ${this.wave}`, '', `Kills ${scene.kills}   Deaths ${scene.deaths}   K/D ${kd.toFixed(2)}`, `Time ${time}`]
-      : [`You ${scene.kills}  :  ${this.enemyKills} Military`, '', `Kills ${scene.kills}   Deaths ${scene.deaths}   K/D ${kd.toFixed(2)}`, `Time ${time}`];
-    if (scene.partner) lines.push(`Ally ${scene.partner.config.name}: ${scene.partner.kills} kills (its own)`);
-    lines.push('', 'R: play again    F8: mode    F6: map    `: partner');
-    const cx = 640;
-    this.endBg = scene.add.rectangle(cx, 330, 640, 300, 0x000000, 0.78).setScrollFactor(0).setDepth(HUD_DEPTH + 5);
-    this.endTitle = scene.add.text(cx, 220, title, { fontFamily: 'monospace', fontSize: '54px', color, fontStyle: 'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(HUD_DEPTH + 6);
-    this.endText = scene.add.text(cx, 360, lines.join('\n'), { fontFamily: 'monospace', fontSize: '20px', color: '#ffffff', align: 'center' }).setOrigin(0.5).setScrollFactor(0).setDepth(HUD_DEPTH + 6);
-    this.drawHud();
-    scene.input.keyboard.once('keydown-R', () => scene.scene.restart({ mapKey: scene.map.key, modeKey: this.mode.key }));
+    text(640, 26, title, font(46, color, { fontStyle: 'bold' }), 0.5);
+    const score = this.waves ? `Waves survived ${waves}` : `You ${scene.kills}  :  ${this.enemyKills} Military`;
+    const team = scene.partner ? `Duo with ${scene.partner.config.name}` : 'Solo';
+    text(640, 82, `${this.mode.name} · ${scene.map.name} · ${team} · ${clock(timeMs)}   ·   ${score}`, font(17, '#c9d1e0'), 0.5);
+
+    // Scoreboard
+    const cols = [['', 24], ['SCORE', 7], ['K', 5], ['D', 5], ['A', 5], ['K/D', 7], ['STREAK', 8], ['DAMAGE', 8], ['LIFE', 6]];
+    const line = (cells) => cells.map((c, i) => (i === 0 ? String(c).padEnd(cols[i][1]) : String(c).padStart(cols[i][1]))).join('');
+    const left = 640 - 37 * 10.2;
+    let y = 122;
+    text(left, y, line(cols.map((c) => c[0])), font(17, '#7d879c'));
+    y += 26;
+    const enemies = rows.filter((r) => r.team === 'enemy').slice(0, SCORING.enemyRows);
+    const shown = rows.filter((r) => r.team !== 'enemy' || enemies.includes(r));
+    for (const r of shown) {
+      const name = r.team === 'enemy' ? `${r.name} ×${r.count}` : r.name;
+      const rowColor = { you: '#ffd166', ally: '#06d6a0', enemy: '#ff8fa3' }[r.team];
+      text(left, y, line([name, r.score, r.kills, r.deaths, r.assists, r.kd.toFixed(2), r.bestStreak, Math.round(r.damageDealt), clock(r.longestLifeMs)]), font(17, rowColor));
+      y += 24;
+    }
+
+    // Your typing
+    y += 10;
+    const t = you.typing;
+    text(640, y, `Your typing   accuracy ${Math.round(you.accuracy * 100)}% (${t.finished} of ${t.started} words)   ·   ${Math.round(you.wpm)} WPM   ·   ${you.typos} typos   ·   ${Math.round(you.damageTaken)} damage taken`, font(16, '#ffffff'), 0.5);
+
+    // Awards (left) and your best results here (right)
+    y += 40;
+    const colA = 110;
+    const colB = 660;
+    text(colA, y, 'AWARDS', font(18, '#ffd166', { fontStyle: 'bold' }));
+    text(colB, y, `YOUR BEST · ${this.mode.name} on ${scene.map.name}`, font(18, '#ffd166', { fontStyle: 'bold' }));
+    let ay = y + 30;
+    for (const a of awards) {
+      const who = a.winner.name;
+      const c = { you: '#ffd166', ally: '#06d6a0', enemy: '#ff8fa3' }[a.winner.team];
+      text(colA, ay, a.name.padEnd(17), font(16, '#c9d1e0'));
+      text(colA + 175, ay, `${who}  (${a.text})`, font(16, c));
+      ay += 24;
+    }
+    if (!awards.length) text(colA, ay, 'none this time', font(16, '#7d879c'));
+    let by = y + 30;
+    list.forEach((e, i) => {
+      const mine = i === rank;
+      const what = e.waves != null ? `wave ${e.waves}` : `${e.kills}K ${e.deaths}D`;
+      const day = new Date(`${e.at}T12:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const str = `${i + 1}. ${String(e.score).padStart(5)} pts  ${what.padEnd(9)} ${String(e.wpm).padStart(3)} WPM  ${day.padEnd(6)}${mine ? ' ◀ now' : ''}`;
+      text(colB, by, str, font(16, mine ? '#ffffff' : '#9aa3b5', mine ? { fontStyle: 'bold' } : {}));
+      by += 24;
+    });
+    if (rank === 0 && list.length > 1) text(colB, by + 4, 'NEW BEST!', font(18, '#06d6a0', { fontStyle: 'bold' }));
+    else if (rank === -1) text(colB, by + 4, `This match: ${you.score} pts (not in your top ${list.length})`, font(15, '#7d879c'));
+
+    text(640, 668, 'R: play again    F8: mode    F6: map    ` (left of 1): partner', font(16, '#7d879c'), 0.5);
+    this.endObjects = objects;
   }
 
   // ---- On screen ----
