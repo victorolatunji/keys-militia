@@ -157,7 +157,10 @@ export default class CharacterRig {
     const now = this.scene.time.now;
     const dt = delta / 1000;
     const vx = o.body.velocity.x;
-    const ground = o.onGround;
+    // On the ground, or left it a moment ago and not rising (bumps, tile
+    // seams and slopes): no flicker between running and falling poses.
+    if (o.onGround) this.groundAt = now;
+    const ground = o.onGround || (now - (this.groundAt ?? -1e9) < RIG.groundGraceMs && !o.thrusting && o.body.velocity.y > -60);
     const R = RIG;
     let pose;
     let lean;
@@ -202,9 +205,17 @@ export default class CharacterRig {
     const A = R.aim;
     const a1 = aim - 90 + A.upperF;
     const a2 = A.foreF;
-    turn(this.frontArm.root, melee ? -30 : a1);
-    turn(this.frontArm.joint, melee ? -40 : a2);
-    this.held.angle = melee ? R.melee.holdDeg : aim - this.frontArm.root.angle - this.frontArm.joint.angle;
+    const swing = melee && this.swingPose(now);
+    if (swing) {
+      // Mid-strike: set straight, no easing (it has to be quick).
+      this.frontArm.root.angle = swing.arm;
+      this.frontArm.joint.angle = swing.fore;
+      this.held.angle = swing.held;
+    } else {
+      turn(this.frontArm.root, melee ? -30 : a1);
+      turn(this.frontArm.joint, melee ? -40 : a2);
+      this.held.angle = melee ? R.melee.holdDeg : aim - this.frontArm.root.angle - this.frontArm.joint.angle;
+    }
     turn(this.backArm.root, (melee ? 10 : aim - 90 + A.upperB));
     turn(this.backArm.joint, melee ? -20 : A.foreB);
     turn(this.head, Phaser.Math.Clamp(aim * A.headFollow, -14, 14));
@@ -212,7 +223,7 @@ export default class CharacterRig {
     // Jet flame: on while thrusting, flickering.
     // Walkers (Zombie, Skeleton, Mutant) only wear their jetpack when
     // they're you or your partner; anything that flies always does.
-    if (this.pack) this.pack.setVisible(o === this.scene.player || o.isPartner || o.movement === 'jetpack');
+    if (this.pack) this.pack.setVisible(o === this.scene.player || o.isPartner || o.isCoach || o.movement === 'jetpack');
     for (const f of this.bootFlames) {
       f.setVisible(o.thrusting);
       if (o.thrusting) f.setScale(RIG.bootFlame.scale * Phaser.Math.FloatBetween(0.85, 1.15), RIG.bootFlame.scale * Phaser.Math.FloatBetween(0.75, 1.2));
@@ -317,6 +328,33 @@ export default class CharacterRig {
       }
     }
     return w?.category === 'melee';
+  }
+
+  // Swinging a melee weapon (owner.lastSwingAt, set when it strikes): the
+  // front arm's angles right now, or null when it isn't.
+  swingPose(now) {
+    const M = RIG.melee;
+    const t = (now - (this.owner.lastSwingAt ?? -1e9)) / M.swingMs;
+    if (t < 0 || t >= 1) return null;
+    const rest = { arm: -30, fore: -40, held: M.holdDeg };
+    const mix = (a, b, k) => ({ arm: a.arm + (b.arm - a.arm) * k, fore: a.fore + (b.fore - a.fore) * k, held: a.held + (b.held - a.held) * k });
+    if (t < M.windUp) return mix(rest, M.up, Phaser.Math.Easing.Quadratic.Out(t / M.windUp));
+    return mix(M.up, M.down, Phaser.Math.Easing.Cubic.Out((t - M.windUp) / (1 - M.windUp)));
+  }
+
+  // Where shots leave the gun: the end of the barrel in the world, and the
+  // way the barrel points (radians). Null when no gun is in hand.
+  muzzle() {
+    const h = this.held;
+    if (!this.root.visible || !h.visible || !this.heldKey || this.heldKey.startsWith('throw:')) return null;
+    const art = SPRITES.weapons[this.heldKey];
+    if (!art) return null; // melee
+    const m = h.getWorldTransformMatrix();
+    const lx = h.width * (art.muzzle[0] - h.originX);
+    const ly = h.height * (art.muzzle[1] - h.originY);
+    const tip = m.transformPoint(lx, ly, { x: 0, y: 0 });
+    const back = m.transformPoint(lx - 10, ly, { x: 0, y: 0 });
+    return { x: tip.x, y: tip.y, angle: Math.atan2(tip.y - back.y, tip.x - back.x) };
   }
 
   // Hit flash (white), clouds (smoke and gas tint you), otherwise normal.

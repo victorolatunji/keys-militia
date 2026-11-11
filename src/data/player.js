@@ -3,6 +3,7 @@ export const PLAYER = {
   width: 32,
   height: 48,
   color: 0x4cc9f0,      // placeholder team accent
+  callsign: 'ROOKIE',   // the name over your head (the story names you later)
   eyeColor: 0xffffff,   // small marker showing which way you face
   flameColor: 0xff9f1c,
 
@@ -36,4 +37,5 @@ export const PLAYER = {
 
   // Death and respawn
   respawnDelay: 1500,   // ms between dying and dropping back in
+  spawnAt: [0.2, 0.5, 0.8], // you drop in near one of these (shares of the map width), at random
 };

@@ -14,6 +14,8 @@ export const AIRDROPS = {
   edgeMarginPx: 96,      // keep away from the left and right walls
   tries: 12,             // random spots to try before giving up on "above ground"
   lowShare: 0.35,        // this share of crates aim for the lower levels (through the gaps and holes)
+  clearPx: 170,          // never land this close (sideways) to another crate or an item on the ground
+  footPx: 30,            // the ground must be flat this far either side of the crate's middle (no tipping into the void)
 
   // Parachute fall
   fallSpeed: 90,         // px per second while the chute is open

@@ -1,4 +1,6 @@
 import Phaser from 'phaser';
+import { SHOT_ART } from '../data/bullets.js';
+import { projKey, shotImage } from '../systems/ShotFx.js';
 
 const MAX_LIFE_MS = 2000; // safety: never fly forever
 
@@ -27,6 +29,23 @@ export default class Bullet extends Phaser.GameObjects.Rectangle {
     this.goalX = target.x + offset.x;
     this.goalY = target.y + offset.y;
     this.rotation = Phaser.Math.Angle.Between(x, y, this.goalX, this.goalY);
+
+    // Shots with their own art (the Nail Gun's nails): a picture instead of a streak.
+    const art = style.art && SHOT_ART[style.art];
+    this.look = art ? shotImage(scene, projKey(art.art), art.length, 40) : null;
+    if (this.look) {
+      this.setVisible(false);
+      this.syncLook();
+    }
+  }
+
+  syncLook() {
+    this.look?.setPosition(this.x, this.y).setRotation(this.rotation);
+  }
+
+  preDestroy() {
+    this.look?.destroy();
+    super.preDestroy?.();
   }
 
   update(delta) {
@@ -49,6 +68,7 @@ export default class Bullet extends Phaser.GameObjects.Rectangle {
     this.rotation = Phaser.Math.Angle.Between(this.x, this.y, this.goalX, this.goalY);
     this.x += Math.cos(this.rotation) * step;
     this.y += Math.sin(this.rotation) * step;
+    this.syncLook();
   }
 
   arrive() {

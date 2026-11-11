@@ -12,6 +12,9 @@ export const PARTNER = {
     order: ['soldier', 'mercenary', 'commando', 'armouredTrooper', 'zombie', 'skeleton', 'infectedSoldier',
       'android', 'robot', 'alien', 'cyborg', 'mutant'],
   },
+  // Its name on your side (its tag and the end screen), where it differs
+  // from the enemy one: your Soldier is an Elite.
+  callsigns: { Soldier: 'Elite' },
   hpScale: 3,               // much tougher than the enemy version
   regenPerSec: 6,           // heals itself
 
@@ -23,6 +26,8 @@ export const PARTNER = {
     maxPoints: 500,         // (about 6000px of your path is kept)
     reachPx: 14,            // close enough to a point: on to the next
     roomPx: 120,            // it stays this far behind you, measured along the path
+    startPx: 60,            // ...and sets off again only once you're this much farther (no stop-go stutter)
+    steer: 0.35,            // share of the way to its wanted speed per frame (smooth, no snapping)
     makeWayPx: 56,          // you walk into it: it steps aside
     catchUp: { perPx: 4, maxSpeed: 1000 }, // behind by more than roomPx: 4 px/s faster per px, up to 1000 px/s (you fall up to 900)
     stuckMs: 700,           // no progress toward a point for this long...

@@ -259,21 +259,47 @@ export default class TrainingSystem {
     }
   }
 
-  // Walk to the spot (or hop there if something's in the way), then face you.
+  // Stay with you, one either side: run beside you on the ground, fly with
+  // their jetpacks when you're up in the air (or a ledge is in the way),
+  // and never past a gate that's still closed. Close by: face you.
   moveCoach(coach, delta, now) {
     const p = this.scene.player;
-    const dx = coach.goalX - coach.x;
-    if (Math.abs(dx) > 6) {
-      coach.body.setVelocityX(Math.sign(dx) * TRAINING.coachSpeed);
-      coach.facing = Math.sign(dx);
-      if (Math.abs(coach.body.velocity.x) > 10 || coach.lastX !== Math.round(coach.x)) coach.movedAt = now;
-      if (now - coach.movedAt > 1000) coach.body.reset(coach.goalX, this.groundY - 40);
-      coach.lastX = Math.round(coach.x);
-    } else {
-      coach.body.setVelocityX(0);
-      coach.movedAt = now;
-      coach.faceToward(p.x);
+    const body = coach.body;
+    const who = coach === this.coaches.sarge ? 'sarge' : 'tech';
+    let gx = p.x + TRAINING.coachSide[who];
+    for (const g of this.gates) {
+      if (g.open) continue;
+      const wall = g.rect.x;
+      if (p.x < wall) gx = Math.min(gx, wall - 30);
+      else gx = Math.max(gx, wall + g.rect.width + 30);
     }
+    const gy = p.alive ? p.y : this.groundY - 40;
+    const dx = gx - coach.x;
+    const dy = gy - coach.y;
+    const blocked = body.blocked.left || body.blocked.right;
+    const fly = !coach.onGround || dy < -40 || (blocked && Math.abs(dx) > 10) || (p.alive && !p.onGround);
+    coach.thrusting = false;
+    if (Math.abs(dx) < 14 && Math.abs(dy) < 40 && coach.onGround) {
+      body.setAllowGravity(true);
+      body.setVelocityX(body.velocity.x * 0.6);
+      coach.faceToward(p.x);
+    } else if (!fly) {
+      body.setAllowGravity(true);
+      body.setVelocityX(Phaser.Math.Clamp(dx * 6, -TRAINING.coachSpeed, TRAINING.coachSpeed));
+      coach.facing = Math.sign(dx) || coach.facing;
+    } else {
+      // Fly straight there; wedged on a ledge: up and over it.
+      const want = Math.min(TRAINING.coachFly, Math.hypot(dx, dy) * 4);
+      const d = Math.max(1, Math.hypot(dx, dy));
+      const vy = blocked ? -TRAINING.coachFly * 0.8 : (dy / d) * want;
+      body.setAllowGravity(dy > 30 && Math.abs(dx) < 40); // right above where it's going: drop down
+      body.setVelocity(body.velocity.x + ((dx / d) * want - body.velocity.x) * 0.3, body.velocity.y + (vy - body.velocity.y) * 0.3);
+      coach.thrusting = vy < -4;
+      if (Math.abs(dx) > 14) coach.facing = Math.sign(dx);
+      else coach.faceToward(p.x);
+    }
+    // Lost (fell far behind, a respawn): back beside you.
+    if (p.alive && Phaser.Math.Distance.Between(coach.x, coach.y, gx, gy) > 900) body.reset(gx, gy - 20);
     coach.updateVisuals();
     coach.layout();
     coach.tag.setPosition(coach.x, coach.visualTop - 10);

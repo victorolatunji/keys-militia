@@ -23,13 +23,15 @@
 export const TRAINING = {
   coaches: {
     sarge: { bot: 'commando', title: 'Sergeant' },  // moving and fighting
-    tech: { bot: 'android', title: 'Tech' },        // typing and gear
+    tech: { bot: 'android', title: 'Android R' },   // typing and gear
   },
   targetHp: 20,           // one finished word takes a target down
   lettersPerSec: 40,      // speech bubbles type out this fast
   readMs: 1800,           // a line stays up at least this long (plus 45 ms a letter) before the next
   goodMs: 1600,           // after "Good": the next lesson starts this much later
-  coachSpeed: 300,        // coaches walk to the next station this fast (px/s)
+  coachSpeed: 300,        // coaches run this fast (px/s)...
+  coachFly: 420,          // ...and fly this fast with their jetpacks, staying with you
+  coachSide: { sarge: 85, tech: -85 }, // where each stays, from you (px; + = to your right)
   enemy: { bot: 'soldier', hp: 0.6, damage: 0.35, reaction: 1.5, typing: 0.6 }, // live fire: easy Soldiers
   storageKey: 'keys-militia.trained', // set once you graduate
 
@@ -51,7 +53,7 @@ export const TRAINING = {
         ['sarge', 'Down drops you faster.'],
       ],
       keys: '↑   jetpack      ↑ + ← →   fly sideways      ↓   drop',
-      good: ['sarge', 'Nice landing. Come down. Tech takes it from here.'],
+      good: ['sarge', 'Nice landing. Come down. Android R takes it from here.'],
     },
     {
       key: 'type', title: 'Type to shoot', check: 'targets', points: 'target', gate: false,

@@ -4,6 +4,7 @@ import EnemyBullet from '../entities/EnemyBullet.js';
 import { BOTS } from '../data/enemies.js';
 import { PARTNER } from '../data/partner.js';
 import { hasLineOfSight } from './LineOfSight.js';
+import { muzzleOf, muzzleFlash } from './ShotFx.js';
 import { groundBelow } from './Terrain.js';
 
 // Your AI partner (Duo). It replays YOUR path: each time you move a few px
@@ -44,7 +45,7 @@ export default class PartnerSystem {
     });
     this.bot = bot;
     this.tag = scene.add
-      .text(0, 0, `ALLY · ${base.name}`, { fontFamily: 'monospace', fontSize: '12px', color: '#06d6a0', backgroundColor: '#000000aa', padding: { x: 4, y: 1 } })
+      .text(0, 0, `ALLY · ${PARTNER.callsigns[base.name] ?? base.name}`, { fontFamily: 'monospace', fontSize: '12px', color: '#06d6a0', backgroundColor: '#000000aa', padding: { x: 4, y: 1 } })
       .setOrigin(0.5)
       .setDepth(44);
   }
@@ -151,7 +152,11 @@ export default class PartnerSystem {
     const left = this.pathLeft();
     const target = t[this.cursor];
     const overVoid = target && target.id > (this.lastSafeId ?? 0); // you're still out over the void
-    if (!p.alive || !target || left < cfg.roomPx || overVoid) {
+    // Stops at roomPx, sets off again past roomPx + startPx.
+    if (this.following ? left < cfg.roomPx : left < cfg.roomPx + cfg.startPx) this.following = false;
+    else this.following = true;
+    if (!p.alive || !target || !this.following || overVoid) {
+      this.following = false;
       this.idle();
       return;
     }
@@ -162,18 +167,19 @@ export default class PartnerSystem {
     const dx = target.x - bot.x;
     const dy = target.y - bot.y;
     const walking = target.ground && bot.onGround && Math.abs(dy) < 20;
+    const ease = (v, want) => (left > cfg.roomPx * 3 ? want : v + (want - v) * cfg.steer); // far behind: no easing, just catch up
     body.setAcceleration(0, 0);
     if (walking) {
       // On the ground where you walked: run, gravity keeps it on the floor.
       const speed = pace(bot.stats.runSpeed);
       body.setAllowGravity(true);
-      body.setVelocityX(Math.sign(dx) * Math.min(speed, Math.abs(dx) * 12));
+      body.setVelocityX(ease(body.velocity.x, Math.sign(dx) * Math.min(speed, Math.abs(dx) * 12)));
     } else {
       // Where you flew, fell or climbed: it flies the same line.
       const speed = pace(bot.stats.airSpeed);
       const d = Math.max(1, Math.hypot(dx, dy));
       body.setAllowGravity(false);
-      body.setVelocity((dx / d) * speed, (dy / d) * speed);
+      body.setVelocity(ease(body.velocity.x, (dx / d) * speed), ease(body.velocity.y, (dy / d) * speed));
       bot.thrusting = dy < -4; // your partner always has its jetpack (or boots) on
     }
     this.checkStuck(now, target);
@@ -277,15 +283,17 @@ export default class PartnerSystem {
     bot.faceToward?.(best.x);
     const damage = Math.max(1, Math.round(best.maxHp * Phaser.Math.FloatBetween(...PARTNER.damageShare)));
     if (melee) {
+      bot.lastSwingAt = scene.time.now; // its arm swings (CharacterRig.swingPose)
       this.hit(best, damage);
       scene.sfx?.play('meleeHit', best);
       return;
     }
     const style = PARTNER.bullet;
-    const x = bot.x + (bot.facing ?? 1) * 14;
-    const y = bot.y - 8;
+    const at = muzzleOf(bot, best, scene.groundLayer);
+    const { x, y } = at;
     const angle = Phaser.Math.Angle.Between(x, y, best.x, best.y - 6) + Phaser.Math.DegToRad(Phaser.Math.FloatBetween(-3, 3));
     this.bullets.push(new EnemyBullet(scene, x, y, angle, style.speed, style, scene.groundLayer, best, PARTNER.rangePx + 200, (victim) => this.hit(victim, damage)));
+    muzzleFlash(scene, bot.gear.current, { x, y, angle });
     scene.sfx?.play(bot.gear.current.category ?? 'assault', bot, { volume: 0.6 });
   }
 

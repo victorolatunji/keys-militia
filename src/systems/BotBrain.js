@@ -55,6 +55,8 @@ export default class BotBrain {
     if (!bot.alive || bot.staggered) return;
 
     const now = bot.scene.time.now;
+    // Rushers sprint (charging in and falling back).
+    bot.speedBoost = bot.config.rush && (this.mode === 'charge' || this.retreating) ? bot.config.rush.speed : 1;
     if (now >= this.nextThink) {
       this.think(now);
       this.nextThink = now + BOT_AI.thinkMs * Phaser.Math.FloatBetween(0.8, 1.2);
@@ -142,6 +144,32 @@ export default class BotBrain {
     const { min, max } = bot.gear.range;
     const side = Math.sign(t.x - bot.x) || 1;
     const melee = bot.gear.current.category === 'melee';
+
+    // Melee rushers: charge straight in, stop dead in reach and strike
+    // (BotCombat makes them back off after the hit). No hovering at the
+    // edge of reach, no shuffling against other bots.
+    const rush = bot.config.rush;
+    if (rush && melee && this.sees) {
+      const reach = bot.gear.current.reach ?? 60;
+      // Only a couple come at you at once (attack turns); the rest prowl
+      // at a distance on their side, waiting for their go.
+      const combat = bot.scene.botCombat;
+      if (combat && !combat.hasTurn(bot, now)) {
+        this.mode = 'prowl';
+        this.goalX = t.x - side * rush.prowlPx;
+        this.goalY = t.y;
+        return;
+      }
+      if (dist <= reach * 0.85) {
+        this.mode = 'strike';
+        this.goalX = bot.x;
+      } else {
+        this.mode = 'charge';
+        this.goalX = t.x;
+      }
+      this.goalY = t.y;
+      return;
+    }
 
     if (!this.sees) {
       // Go where it last saw you (or straight for you once that memory fades).
@@ -351,7 +379,7 @@ export default class BotBrain {
     // keep it out of the void, water and lava.
     if (now >= (this.progressAt ?? 0)) {
       const d = Math.hypot(this.goalX - bot.x, (this.goalY ?? bot.y) - bot.y);
-      const chasing = this.mode === 'approach' || this.mode === 'hunt' || this.mode === 'loot';
+      const chasing = this.mode === 'approach' || this.mode === 'hunt' || this.mode === 'loot' || this.mode === 'charge';
       if (chasing && this.lastGoalDist !== undefined && d > 140 && d > this.lastGoalDist - 40) {
         this.wanderDir = this.wanderDir ? -this.wanderDir : -(Math.sign(this.goalX - bot.x) || 1);
         this.wanderUntil = now + BOT_AI.wanderMs;
@@ -453,9 +481,18 @@ export default class BotBrain {
         if (!isSolid(layer, wallX, clearY)) bot.jump();
         else dir = 0;
       }
-      // Goal above and close: jump for it (onto a ledge or a crate).
-      if (bot.onGround && this.goalY < bot.y - BOT_AI.climbMarginPx && Math.abs(this.goalX - bot.x) < 120) {
-        bot.jump();
+      // Goal above and close: jump for it (onto a ledge or a crate), but
+      // only if a jump gets there. Out of reach overhead: don't hop on the
+      // spot under it; go and look for another way up.
+      const above = bot.y - this.goalY;
+      if (bot.onGround && above > BOT_AI.climbMarginPx && Math.abs(this.goalX - bot.x) < 120) {
+        if (above < this.jumpHeight() * 1.15) {
+          bot.jump();
+        } else if (now >= (this.wanderUntil ?? 0)) {
+          this.wanderDir = this.wanderDir ? -this.wanderDir : (Math.random() < 0.5 ? -1 : 1);
+          this.wanderUntil = now + BOT_AI.wanderMs;
+          dir = this.wanderDir;
+        }
       }
       // Landed on your head? Slide off to the side.
       const t = this.target;

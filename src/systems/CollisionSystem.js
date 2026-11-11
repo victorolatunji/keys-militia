@@ -20,11 +20,18 @@ export default class CollisionSystem {
     this.crates = scene.add.group();
     this.grenades = scene.add.group();
 
-    physics.add.collider(this.characters, this.characters);
+    physics.add.collider(this.characters, this.characters, null, this.charactersBump, this);
     physics.add.collider(this.crates, this.crates);
     physics.add.collider(this.crates, this.characters, null, this.crateIsSolid, this);
     physics.add.collider(this.grenades, this.crates);
     physics.add.collider(this.grenades, this.characters, null, this.grenadeCanHit, this);
+  }
+
+  // Melee rushers (zombies, skeletons, mutants, K9s) run through other
+  // enemies like a horde instead of queueing behind them; you still block them.
+  charactersBump(a, b) {
+    const enemies = a.brain && b.brain;
+    return !(enemies && (a.config?.rush || b.config?.rush));
   }
 
   addCharacter(obj) {

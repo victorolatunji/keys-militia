@@ -77,6 +77,7 @@ export default class AirdropSystem {
 
     this.supplies = this.supplies.filter((s) => s.active);
     for (const supply of this.supplies) supply.update(delta);
+    this.unbury();
 
     if (this.paused) return; // Training: no drops on a timer
     if (now >= this.nextDropAt) {
@@ -90,6 +91,23 @@ export default class AirdropSystem {
       const onMap = this.supplies.filter((s) => s.lane === lane.name).length;
       const loose = this.supplies.length + this.drops.length;
       if (onMap < lane.config.maxOnMap && loose < SUPPLY_DROPS.maxLoose) this.dropSupply(lane);
+    }
+  }
+
+  // An item lying under a landed crate (it dropped there after the crate
+  // picked its spot, e.g. a death drop) is pushed out to the crate's side,
+  // whichever side has ground, so you can still reach it.
+  unbury() {
+    for (const crate of this.crates) {
+      if (crate.state !== 'settled') continue;
+      const box = crate.getBounds();
+      for (const item of [...this.drops, ...this.supplies]) {
+        if (!item.active || !box.contains(item.x, item.y)) continue;
+        const out = box.width / 2 + 18;
+        const sides = item.x < crate.x ? [-1, 1] : [1, -1];
+        const side = sides.find((d) => this.flatLanding(crate.x + d * out) !== null) ?? sides[0];
+        item.body.reset(crate.x + side * out, box.top - 10);
+      }
     }
   }
 
@@ -172,6 +190,7 @@ export default class AirdropSystem {
     const th = layer.tilemap.tileHeight;
     for (let i = 0; i < 40; i++) {
       const x = Phaser.Math.Between(AIRDROPS.edgeMarginPx, this.width - AIRDROPS.edgeMarginPx);
+      if (i < 30 && !this.clearOfOthers(x)) continue;
       const open = [];
       for (let y = th; y < this.height - th; y += th) {
         const here = layer.getTileAtWorldXY(x, y)?.collides;
@@ -186,23 +205,43 @@ export default class AirdropSystem {
   // Where a crate drops: over ground. About a third of the time it aims for
   // the lower levels instead, falling through a gap or hole in the floors
   // above, so every level gets crates, not just the top one.
+  // A spot is only used if the crate lands flat (solid under both sides,
+  // so it can't tip off into the void) and clear of other crates and items
+  // (so two never stack and none buries a pickup).
   findDropX() {
     const min = AIRDROPS.edgeMarginPx;
     const max = this.width - AIRDROPS.edgeMarginPx;
-    let x = Phaser.Math.Between(min, max);
     const wantLow = Math.random() < AIRDROPS.lowShare;
 
-    for (let pass = wantLow ? 0 : 1; pass < 2; pass++) {
+    for (let pass = wantLow ? 0 : 1; pass < 3; pass++) {
       for (let i = 0; i < AIRDROPS.tries * 3; i++) {
-        x = Phaser.Math.Between(min, max);
-        const land = this.landingY(x);
+        const x = Phaser.Math.Between(min, max);
+        const land = this.flatLanding(x);
         if (land === null) continue;
         if (pass === 0 && land < this.height * 0.55) continue; // lands up top: try again for a low one
+        if (pass < 2 && !this.clearOfOthers(x)) continue;     // last pass: anywhere safe will do
         return x;
       }
     }
+    // Still nothing (a crowded map): walk the map for the first safe spot.
+    for (let x = min; x <= max; x += 16) if (this.flatLanding(x) !== null && this.clearOfOthers(x)) return x;
+    for (let x = min; x <= max; x += 16) if (this.flatLanding(x) !== null) return x;
+    return Phaser.Math.Between(min, max);
+  }
 
-    return x; // no luck: this one may fall into the void
+  // Lands at the same height under the crate's middle and both its sides.
+  flatLanding(x) {
+    const y = this.landingY(x);
+    if (y === null) return null;
+    const f = AIRDROPS.footPx;
+    return this.landingY(x - f) === y && this.landingY(x + f) === y ? y : null;
+  }
+
+  // Far enough sideways from every crate and every item lying on the map.
+  clearOfOthers(x) {
+    const near = (o) => o.active && Math.abs(o.x - x) < AIRDROPS.clearPx;
+    if (this.crates.some(near) || this.supplies.some(near) || this.drops.some(near)) return false;
+    return !this.scene.children.list.some((o) => o instanceof Pickup && near(o));
   }
 
   // The top of the first solid ground straight below the top of the map at

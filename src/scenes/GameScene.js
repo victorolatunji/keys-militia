@@ -96,8 +96,13 @@ export default class GameScene extends Phaser.Scene {
     this.physics.world.setBounds(0, 0, width, height, true, true, true, !this.map.void);
     this.physics.world.gravity.y = this.map.gravity ?? 800; // Space: very low
 
-    this.player = new Player(this, spawn.x, spawn.y);
+    // You drop in at one of three spots (left, middle or right of the map),
+    // a different one at random each time (Training puts you at its lessons).
+    this.playerSpawns = this.mode.training ? [spawn] : this.threeSpawns(width);
+    const start = Phaser.Utils.Array.GetRandom(this.playerSpawns);
+    this.player = new Player(this, start.x, start.y);
     this.player.setRig('player'); // drawn from its body parts (art pass)
+    this.player.showTag(PLAYER.callsign); // ROOKIE: which one is you
     this.physics.add.collider(this.player, this.groundLayer);
     this.player.on('died', (cause) => this.handlePlayerDeath(cause));
 
@@ -212,6 +217,19 @@ export default class GameScene extends Phaser.Scene {
       this.hitStopping = false;
       if (this.sys.isActive()) this.physics.world.resume();
     }, hitStopMs);
+  }
+
+  // Your three drop-in spots: of the map's spawn points (yours, the dummies'
+  // and the bots', all on safe ground), the ones nearest a fifth, half and
+  // four-fifths of the way across.
+  threeSpawns(width) {
+    const spots = [];
+    for (const share of PLAYER.spawnAt) {
+      const want = width * share;
+      const best = [...this.spawnPoints].sort((a, b) => Math.abs(a.x - want) - Math.abs(b.x - want))[0];
+      if (best && !spots.includes(best)) spots.push(best);
+    }
+    return spots.length ? spots : [this.spawnPoints[0]];
   }
 
   spawnBot(slot, given = null) {
@@ -419,6 +437,7 @@ export default class GameScene extends Phaser.Scene {
     this.time.delayedCall(PLAYER.respawnDelay, () => {
       if (this.matchOver) return;
       this.message.setVisible(false);
+      if (!this.training) this.player.spawnPoint = Phaser.Utils.Array.GetRandom(this.playerSpawns);
       this.player.respawn();
       this.stats.onPlayerRespawn();
       this.weapons.resetLoadout(); // back to the default guns and grenades

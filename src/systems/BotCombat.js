@@ -3,7 +3,8 @@ import EnemyBullet from '../entities/EnemyBullet.js';
 import Grenade from '../entities/Grenade.js';
 import Projectile from '../entities/Projectile.js';
 import { GUN_SWITCH_MS } from '../data/weapons.js';
-import { BULLETS, BULLET_DEFAULT, MUZZLE_FLASH } from '../data/bullets.js';
+import { BULLETS, BULLET_DEFAULT } from '../data/bullets.js';
+import { muzzleOf, muzzleFlash } from './ShotFx.js';
 import { BOT_AI, BOT_BULLETS, WORD_LETTERS } from '../data/enemies.js';
 import { hasLineOfSight } from './LineOfSight.js';
 import { STATUS } from '../data/status.js';
@@ -49,7 +50,7 @@ export default class BotCombat {
     for (const bullet of this.bullets) bullet.update(delta);
 
     this.thrown = this.thrown.filter((g) => g.active);
-    for (const thing of this.thrown) thing.update();
+    for (const thing of this.thrown) thing.update(delta);
   }
 
   // ---- Attacks (guns, launchers, melee) ----
@@ -72,7 +73,9 @@ export default class BotCombat {
     }
 
     // Wait for an attack turn (only a couple of bots shoot at you at once).
-    if (!this.hasTurn(bot, now)) return;
+    // Melee rushers don't wait: every charge ends in a strike.
+    const rusher = weapon.category === 'melee' && bot.config.rush;
+    if (!rusher && !this.hasTurn(bot, now)) return;
 
     // Melee: only once you're within reach.
     if (weapon.category === 'melee') {
@@ -85,6 +88,7 @@ export default class BotCombat {
       bot.spottedAt = now;
       bot.nextShotAt = Math.max(bot.nextShotAt, now + bot.config.reactionMs + this.typeTime(bot, weapon));
     }
+    if (rusher) bot.nextShotAt = Math.min(bot.nextShotAt, now + bot.config.rush.strikeWaitMs); // in reach: strike soon
     if (now < bot.nextShotAt) return;
 
     if (weapon.category === 'melee') this.swing(bot, brain.target, weapon);
@@ -207,7 +211,8 @@ export default class BotCombat {
 
   fireBullet(bot, target, gun, amount, fanDeg) {
     const style = BULLETS[gun.category] ?? BULLET_DEFAULT;
-    const { x, y } = this.muzzle(bot);
+    const at = this.muzzle(bot, target);
+    const { x, y } = at;
 
     const angle = this.aimAngle(bot, target, x, y, style.speed) + Phaser.Math.DegToRad(fanDeg);
     const look = { length: style.length, width: BOT_BULLETS.width, color: BOT_BULLETS.color };
@@ -218,11 +223,12 @@ export default class BotCombat {
     );
     this.bullets.push(bullet);
     this.shotsFired += 1;
-    this.muzzleFlash(x, y, bot.facing);
+    this.muzzleFlash(at, gun, bot.facing);
   }
 
-  muzzle(bot) {
-    return { x: bot.x + bot.facing * 16, y: bot.y - 4 };
+  // The end of the bot's barrel (its rig), or just in front of it.
+  muzzle(bot, target) {
+    return muzzleOf(bot, target, this.groundLayer);
   }
 
   // Where the bot aims: at you, led a little by your speed, then thrown off
@@ -300,12 +306,14 @@ export default class BotCombat {
     if (weapon.knockback && target.applyKnockback) {
       target.applyKnockback(bot.facing * weapon.knockback, -weapon.knockback * 0.4);
     }
+    bot.lastSwingAt = this.scene.time.now; // the rig snaps the K9's jaw / swings the arm
     this.scene.sfx?.play('swing', bot, { volume: 0.7 });
     this.scene.sfx?.play('meleeHit', target);
     this.damage(bot, target, Math.max(1, Math.round(weapon.damage * this.scale(bot))), 'melee');
 
-    // Hit and run (Zombie K9): back off for a moment after each bite.
-    const run = bot.config.hitAndRun;
+    // Rushers (and hit and run): fall back after each hit, then come again.
+    const rush = bot.config.rush;
+    const run = rush ? { px: rush.backPx, ms: rush.backMs } : bot.config.hitAndRun;
     if (run) bot.brain.retreat(target, run.px, run.ms);
   }
 
@@ -329,7 +337,8 @@ export default class BotCombat {
 
   spawnRound(bot, target, weapon, spread) {
     const spec = weapon.projectile;
-    const { x, y } = this.muzzle(bot);
+    const at = this.muzzle(bot, target);
+    const { x, y } = at;
     let vx;
     let vy;
     let fuseMs = null;
@@ -356,7 +365,7 @@ export default class BotCombat {
       this.blast(bot, ex, ey, weapon.blast, this.scale(bot));
     });
     this.thrown.push(round);
-    this.muzzleFlash(x, y);
+    this.muzzleFlash(at, weapon);
   }
 
   // Lob a grenade now and then: sometimes while it sees you, more often when
@@ -472,16 +481,10 @@ export default class BotCombat {
 
   // ---- Effects ----
 
-  muzzleFlash(x, y, dir = 0) {
-    if (dir) this.scene.blastFx?.muzzleSmoke(x, y, dir);
-    const flash = this.scene.add.circle(x, y, MUZZLE_FLASH.radius, MUZZLE_FLASH.color).setDepth(41);
-    this.scene.tweens.add({
-      targets: flash,
-      alpha: 0,
-      scale: 0.4,
-      duration: MUZZLE_FLASH.durationMs,
-      onComplete: () => flash.destroy(),
-    });
+  // at: { x, y, angle } from muzzle(). Sized by the gun's family.
+  muzzleFlash(at, weapon, dir = 0) {
+    if (dir) this.scene.blastFx?.muzzleSmoke(at.x, at.y, dir);
+    muzzleFlash(this.scene, weapon, at);
   }
 
   note(bot, message) {

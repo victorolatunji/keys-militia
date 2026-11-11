@@ -1,4 +1,6 @@
 import Phaser from 'phaser';
+import { SHOT_ART } from '../data/bullets.js';
+import { projKey, shotImage } from '../systems/ShotFx.js';
 
 const TRAIL_EVERY_MS = 30;
 
@@ -32,11 +34,36 @@ export default class Projectile extends Phaser.GameObjects.Arc {
     this.body.setVelocity(vx, vy);
 
     this.collider = scene.physics.add.collider(this, groundLayer);
+
+    // Drawn with its art (rocket, grenade shell) over the hidden hit circle.
+    this.art = SHOT_ART[spec.kind];
+    this.look = this.art ? shotImage(scene, projKey(this.art.art), this.art.length, 41) : null;
+    if (this.look) {
+      this.setVisible(false);
+      if (this.art.origin) this.look.setOrigin(...this.art.origin);
+      this.look.setRotation(Math.atan2(vy, vx));
+      this.syncLook(0);
+    }
   }
 
-  update() {
+  // Rockets and shells point the way they fly; bombs tumble.
+  syncLook(delta) {
+    if (!this.look) return;
+    this.look.setPosition(this.x, this.y);
+    const v = this.body.velocity;
+    if (this.art.tumble) this.look.rotation += (this.art.tumble * delta * (v.x < 0 ? -1 : 1)) / 1000;
+    else if (v.x * v.x + v.y * v.y > 400) this.look.setRotation(Math.atan2(v.y, v.x));
+  }
+
+  preDestroy() {
+    this.look?.destroy();
+    super.preDestroy?.();
+  }
+
+  update(delta = 16) {
     if (!this.active) return;
     const now = this.scene.time.now;
+    this.syncLook(delta);
 
     // Fell into the void: gone, no explosion.
     if (this.y > this.worldHeight) {
@@ -79,16 +106,19 @@ export default class Projectile extends Phaser.GameObjects.Arc {
     if (!this.spec.trailColor || now < this.nextTrail) return;
     this.nextTrail = now + TRAIL_EVERY_MS;
 
-    const puff = this.scene.add
-      .circle(this.x, this.y, this.spec.radius * 0.8, this.spec.trailColor, 0.6)
-      .setDepth(40);
-    this.scene.tweens.add({
-      targets: puff,
-      alpha: 0,
-      scale: 2,
-      duration: 300,
-      onComplete: () => puff.destroy(),
-    });
+    // From the tail of the round: a soft wisp of smoke (no circles).
+    const v = this.body.velocity;
+    const len = Math.hypot(v.x, v.y) || 1;
+    const back = (this.art?.length ?? 0) * 0.45;
+    const x = this.x - (v.x / len) * back;
+    const y = this.y - (v.y / len) * back;
+    const fx = this.scene.blastFx;
+    if (fx) {
+      fx.blob(x, y, this.spec.radius * 2.6, this.spec.trailColor, { alpha: 0.5, grow: 2.2, life: 380, rise: 6, depth: 40 });
+      return;
+    }
+    const puff = this.scene.add.circle(x, y, this.spec.radius * 0.8, this.spec.trailColor, 0.6).setDepth(40);
+    this.scene.tweens.add({ targets: puff, alpha: 0, scale: 2, duration: 300, onComplete: () => puff.destroy() });
   }
 
   explode() {

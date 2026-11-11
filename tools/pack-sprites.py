@@ -29,10 +29,14 @@ MANIFEST = os.path.join(ROOT, 'src', 'data', 'spriteManifest.js')
 CHARACTERS = sys.argv[1:] or ['player', 'soldier']
 CHARACTER_HEIGHT = 230   # a character's assembled standing height in the packed art (px)
 WEAPON_SCALE = 0.17      # every gun, melee weapon and throwable
+# Shots and effects: packed a bit bigger than they're drawn (the game sizes them).
+GROUP_SCALE = {'projectiles': 0.25, 'effects': 0.5}
 # Heads whose art hangs below the neck (long hair): where the neck is, as a
 # fraction of the head art's height (default: the bottom). Keep in step with
 # OVERRIDES in src/data/rigs.js.
 NECK = {'mercenary': 0.6}
+# Not humanoids: scaled so one part ends up this size instead (part, 'w' or 'h', px).
+CREATURES = {'drone': ('body', 'h', 110), 'k9': ('body', 'w', 160)}
 
 
 def joints(a):
@@ -48,6 +52,9 @@ def joints(a):
             if len(row):
                 xs.append((row.min() + row.max()) / 2)
                 ws.append(row.max() - row.min())
+        if not xs:  # a very flat part (a rotor): just its middle
+            cols = np.where(a.any(0))[0]
+            return float((cols.min() + cols.max()) / 2), 0.0
         return float(np.mean(xs)), float(np.median(ws))
 
     cx, w = centre(range(top + int(h * 0.04), top + int(h * 0.18) + 1))
@@ -74,12 +81,27 @@ def character(folder):
     # One factor for the whole character, from its standing height.
     size = {p: Image.open(os.path.join(src, p + '.png')).getbbox() for p in parts}
     tall = lambda p: size[p][3] - size[p][1]
-    standing = tall('head') * NECK.get(folder, 1) + tall('torso') * 0.86 + tall('front-thigh') * 0.82 + tall('front-shin') * 0.9
-    scale = CHARACTER_HEIGHT / standing
+    if folder in CREATURES:
+        part, side, px = CREATURES[folder]
+        b = size[part]
+        scale = px / ((b[2] - b[0]) if side == 'w' else (b[3] - b[1]))
+    else:
+        standing = tall('head') * NECK.get(folder, 1) + tall('torso') * 0.86 + tall('front-thigh') * 0.82 + tall('front-shin') * 0.9
+        scale = CHARACTER_HEIGHT / standing
     out = {}
     for p in parts:
         out[p] = pack(os.path.join(src, p + '.png'), scale, os.path.join(OUT, folder, p + '.png'))
     return {'scale': round(scale, 4), 'parts': out}
+
+
+def muzzle(path):
+    """Guns point right: the middle of the barrel's end (the right-most few
+    columns of the art), as fractions of the packed width and height."""
+    a = np.array(Image.open(path))[:, :, 3] > 40
+    cols = np.where(a.any(0))[0]
+    end = a[:, cols.max() - max(2, int(a.shape[1] * 0.03)):cols.max() + 1]
+    rows = np.where(end.any(1))[0]
+    return [1.0, round(float(rows.mean()) / a.shape[0], 3)]
 
 
 def items(folder):
@@ -87,8 +109,11 @@ def items(folder):
     out = {}
     for f in sorted(os.listdir(src)):
         if f.endswith('.png'):
-            info = pack(os.path.join(src, f), WEAPON_SCALE, os.path.join(OUT, folder, f))
+            dest = os.path.join(OUT, folder, f)
+            info = pack(os.path.join(src, f), GROUP_SCALE.get(folder, WEAPON_SCALE), dest)
             out[f[:-4]] = {'w': info['w'], 'h': info['h']}
+            if folder == 'weapons':
+                out[f[:-4]]['muzzle'] = muzzle(dest)
     return out
 
 
@@ -97,11 +122,11 @@ def main():
     if os.path.exists(MANIFEST):  # keep characters packed earlier
         text = open(MANIFEST).read()
         old = json.loads(text[text.index('{'):text.rindex('}') + 1])
-    manifest = {'characters': old.get('characters', {}), 'weapons': {}, 'melee': {}, 'throwables': {}}
+    manifest = {'characters': old.get('characters', {}), 'weapons': {}, 'melee': {}, 'throwables': {}, 'projectiles': {}, 'effects': {}}
     for c in CHARACTERS:
         manifest['characters'][c] = character(c)
         print('packed', c)
-    for group in ['weapons', 'melee', 'throwables']:
+    for group in ['weapons', 'melee', 'throwables', 'projectiles', 'effects']:
         manifest[group] = items(group)
         print('packed', group, len(manifest[group]))
     with open(MANIFEST, 'w') as f:

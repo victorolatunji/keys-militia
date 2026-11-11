@@ -37,7 +37,7 @@ export const ENEMIES = {
 //   airScale: sideways speed in the air compared to yours (leapers jump far)
 //   size: { width, height } if it isn't human-sized
 //   bomber: runs at you and explodes (see bomb)
-//   hitAndRun: after each melee hit it backs off px for ms before coming
+//   rush: melee rusher (see RUSH). hitAndRun: after each melee hit it backs off px for ms before coming
 //     back, so you get a moment to breathe (and to type)
 //   Bots "type" too: the time between attacks is the time to type that
 //     weapon's words at typingSpeed letters per second.
@@ -64,6 +64,13 @@ export const NATURAL_WEAPONS = {
   charge: { key: 'charge', name: 'Charge', category: 'melee', wordList: 'short', damage: 0, ammo: null, reach: 30, knockback: 0, natural: true },
 };
 const BARE = { guns: [], throwable: NO_THROWABLES };
+
+// Melee rushers (Zombie, Skeleton, Mutant, Zombie K9): no hanging about at
+// arm's length. They sprint at you (speed: times their usual speed), stop
+// and strike once in reach (waiting at most strikeWaitMs), then fall back
+// backPx for backMs to come again. Only those with an attack turn charge
+// (at most a couple at once); the rest prowl prowlPx away until it's their go.
+const RUSH = { speed: 1.7, backPx: 200, backMs: 1000, strikeWaitMs: 350, prowlPx: 260 };
 
 export const BOTS = {
   // ---- Military: the smart ones ----
@@ -163,6 +170,7 @@ export const BOTS = {
     speedScale: 0.35,
     movement: 'walker',
     jumpSpeed: 420,
+    rush: RUSH,
     smart: false,
     loadout: { ...BARE, melee: 'claws' },
     typingSpeed: 1.2,
@@ -181,6 +189,7 @@ export const BOTS = {
     speedScale: 0.55,
     movement: 'walker',
     jumpSpeed: 500,
+    rush: RUSH,
     smart: false,
     loadout: { ...BARE, melee: 'boneClub' },
     typingSpeed: 1.6,
@@ -340,6 +349,7 @@ export const BOTS = {
     jumpSpeed: 520,
     size: { width: 40, height: 56 },
     knockbackScale: 0.4,
+    rush: RUSH,
     smart: false,
     loadout: { ...BARE, melee: 'fists' },
     typingSpeed: 1.1,
@@ -360,9 +370,9 @@ export const BOTS = {
     airScale: 0.9,
     movement: 'leaper',
     jumpSpeed: 560,
-    size: { width: 40, height: 26 },
+    size: { width: 32, height: 21 },   // a dog: smaller than a person
     pouncePx: 160,         // leaps at you from this close
-    hitAndRun: { px: 180, ms: 1400 },
+    rush: { ...RUSH, speed: 1.8, backPx: 220, backMs: 1200 }, // bites, leaps back, comes again
     smart: false,
     loadout: { ...BARE, melee: 'bite' },
     typingSpeed: 1.6,

@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
 import { hasLineOfSight } from '../systems/LineOfSight.js';
+import { SHOT_ART } from '../data/bullets.js';
+import { projKey } from '../systems/ShotFx.js';
 
 const TEXTURE = 'saw-blade';
 const TEETH = 10;
@@ -16,10 +18,14 @@ const PATTERNS = ['zigzag', 'wave', 'diagonal'];
 export default class Saw extends Phaser.GameObjects.Image {
   // spec: the weapon's `saw` settings. targets: everything it can hit.
   constructor(scene, x, y, target, spec, targets, groundLayer, hooks) {
-    Saw.makeTexture(scene, spec);
-    super(scene, x, y, TEXTURE);
+    // The saw-blade art if it's packed, else a blade drawn in code.
+    const art = projKey(SHOT_ART.saw.art);
+    const packed = scene.textures.exists(art);
+    if (!packed) Saw.makeTexture(scene, spec);
+    super(scene, x, y, packed ? art : TEXTURE);
     scene.add.existing(this);
     this.setDepth(42);
+    if (packed) this.setScale((spec.radius * SHOT_ART.saw.size) / this.width);
 
     this.spec = spec;
     this.target = target;

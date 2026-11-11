@@ -22,6 +22,7 @@ export const RIG = {
   backTint: 0xb4b4b4,    // back arm and leg: a bit darker, so they read as further away
   flashMs: 80,           // hit flash (white)
   depth: 12,             // above the map, below word labels
+  groundGraceMs: 110,    // off the ground shorter than this (a bump): keep the running pose
 
   // Where things sit on the torso, as fractions of its width and height
   // (x from its back, y from its top). Per-character fixes go in OVERRIDES.
@@ -51,7 +52,14 @@ export const RIG = {
     upperB: 12, foreB: -58, // back arm reaches forward to steady the gun
     headFollow: 0.3,
   },
-  melee: { holdDeg: -55 },  // a melee weapon is held up, ready to swing
+  melee: {
+    holdDeg: -55,           // a melee weapon is held up, ready to swing
+    // A strike: the arm winds up over the head, then slashes down and forward.
+    swingMs: 280,
+    windUp: 0.3,            // share of the swing spent winding up
+    up: { arm: -185, fore: -35, held: -60 },   // wound up, weapon over the shoulder
+    down: { arm: -25, fore: -5, held: 15 },    // follow-through, low in front
+  },
 };
 
 // Per-character fixes (same keys as RIG.torso / RIG.head / RIG.jetpack).
@@ -88,3 +96,34 @@ export const MELEE_GRIP = [0.12, 0.5];   // the handle end
 export const THROWABLE_SIZE = 0.15;      // a throwable in the hand, as a fraction of the drawn height
 // Throwable art whose file name differs from its THROWABLES key.
 export const THROWABLE_ART = { grenade: 'frag' };
+
+// Drone (CreatureRigs.js). Fractions of each part's art: arms meet the
+// body at its sides, rotors sit on the pods, the gun claw hangs under it.
+export const DRONE_RIG = {
+  drawWidth: 2.4,        // drawn this many times the hitbox's width (arms and rotors included)
+  widthOverBody: 2.6,    // the whole drone is this many body-widths wide
+  armAt: { back: [0.1, 0.36], front: [0.9, 0.36] },      // on the body
+  armJoint: { back: [0.97, 0.55], front: [0.03, 0.55] }, // on the arm: where it meets the body
+  rotorAt: { back: [0.2, 0.02], front: [0.8, 0.02] },    // on the arm: top of the pod
+  mountAt: [0.5, 0.84],  // on the body: the claw's hinge
+  tilt: 0.04,            // degrees of tilt per px/s of sideways speed
+};
+
+// Zombie K9 (CreatureRigs.js). Fractions of the body art (x from its tail
+// end, y from its back) unless noted.
+export const K9_RIG = {
+  drawWidth: 1.25,       // the body is drawn this many times the hitbox's width
+  hipNear: [0.22, 0.55], hipFar: [0.17, 0.5],
+  shoulderNear: [0.8, 0.55], shoulderFar: [0.75, 0.5],
+  neckAt: [0.9, 0.32],
+  tailAt: [0.04, 0.3],
+  tailBase: [0.92, 0.1],  // on the tail art: where it joins the body
+  headNeck: [0.22, 0.62], // on the head art: where it joins the body
+  jawAt: [0.5, 0.63],     // on the head art: the jaw's hinge
+  jawHinge: [0.06, 0.35], // on the jaw art
+  stand: { fn: [0, 0], ff: [3, 0], bn: [0, 0], bf: [-3, 0] },
+  leap: { fn: [-55, 25], ff: [-42, 30], bn: [48, -12], bf: [38, -8] }, // front legs reach, back legs kick
+  swing: 34, knee: 32, stride: 0.06,
+  jawSnarl: 8, jawBite: 34, biteMs: 220,
+  tailWag: 14,
+};

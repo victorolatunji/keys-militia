@@ -581,7 +581,7 @@ export const WEAPONS = {
     hitDelayMs: 45,
     ammo: 18,
     falloff: { startPx: 250, endPx: 550, minMultiplier: 0.5 },
-    bullet: { speed: 1300, length: 8 },
+    bullet: { speed: 1300, length: 8, art: 'nail' }, // drawn as a nail (SHOT_ART in bullets.js)
     pins: true,
     tracerColor: 0xadb5bd,
     tracerWidth: 2,

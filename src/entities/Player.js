@@ -3,7 +3,7 @@ import Phaser from 'phaser';
 import { PLAYER } from '../data/player.js';
 import { STATUS } from '../data/status.js';
 import { blendColor } from '../ui/color.js';
-import CharacterRig from './CharacterRig.js';
+import { makeRig } from './rigFactory.js';
 
 const SMOKE_COLOR = 0x9a9a9a;
 const HIT_FLASH_MS = 80;
@@ -77,7 +77,7 @@ export default class Player extends Phaser.GameObjects.Rectangle {
     let scale = 1;
     if (this.hasStatus('dazed')) scale = Math.min(scale, STATUS.dazed.moveScale);
     if (this.hasStatus('frozen')) scale = Math.min(scale, STATUS.frozen.moveScale);
-    return scale;
+    return scale * (this.speedBoost ?? 1); // melee rushers sprint (BotBrain)
   }
 
   // Shocked (EMP) or frozen: the jetpack and Jet Boost don't work.
@@ -395,7 +395,17 @@ export default class Player extends Phaser.GameObjects.Rectangle {
     }
   }
 
+  // Your name over your head, so you can find yourself in a fight.
+  showTag(text) {
+    this.tag ??= this.scene.add
+      .text(0, 0, '', { fontFamily: 'monospace', fontSize: '12px', fontStyle: 'bold', color: '#4cc9f0', backgroundColor: '#000000aa', padding: { x: 4, y: 1 } })
+      .setOrigin(0.5)
+      .setDepth(44);
+    this.tag.setText(text);
+  }
+
   updateVisuals() {
+    this.tag?.setVisible(this.alive).setPosition(this.x, this.visualTop - 26).setAlpha(Math.max(0.35, this.alpha));
     this.eye.setPosition(this.x + this.facing * 8, this.y - 12);
 
     // Riot Shield: held on the side you face.
@@ -484,7 +494,7 @@ export default class Player extends Phaser.GameObjects.Rectangle {
   setRig(folder) {
     if ((this.rig?.folder ?? null) === folder) return;
     this.rig?.destroy();
-    this.rig = folder ? new CharacterRig(this.scene, this, folder) : null;
+    this.rig = folder ? makeRig(this.scene, this, folder) : null;
     this.isFilled = !this.rig;
   }
 

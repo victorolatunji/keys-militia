@@ -20,7 +20,9 @@ import {
   GUN_SWITCH_MS,
 } from '../data/weapons.js';
 import { ITEMS } from '../data/items.js';
-import { BULLETS, BULLET_DEFAULT, MUZZLE_FLASH, DAMAGE_MERGE_MS } from '../data/bullets.js';
+import { BULLETS, BULLET_DEFAULT, DAMAGE_MERGE_MS, SHOT_ART } from '../data/bullets.js';
+import { RIG } from '../data/rigs.js';
+import { muzzleOf, muzzleFlash, shotImage, projKey } from './ShotFx.js';
 
 const DAMAGE_COLOR = '#ff9f1c';  // full-damage hit
 const REDUCED_COLOR = '#ffe8b0'; // hit weakened by range falloff
@@ -365,8 +367,8 @@ export default class WeaponSystem {
   spawnRound(target, weapon, spread) {
     const spec = weapon.projectile;
     const p = this.player;
-    const x = p.x + p.facing * 18;
-    const y = p.y - 6;
+    const at = muzzleOf(p, target, this.groundLayer);
+    const { x, y } = at;
     let vx;
     let vy;
     let fuseMs = null;
@@ -397,6 +399,7 @@ export default class WeaponSystem {
       this.explode(ex, ey, weapon.blast);
     });
     this.projectiles.push(round);
+    muzzleFlash(this.scene, weapon, at);
   }
 
   // ---- Laser and Flamethrower ----
@@ -407,8 +410,8 @@ export default class WeaponSystem {
   fireLaser(target, weapon, damage) {
     const beam = weapon.beam;
     const p = this.player;
-    const x1 = p.x + p.facing * 16;
-    const y1 = p.y - 4;
+    const at = muzzleOf(p, target, this.groundLayer);
+    const { x: x1, y: y1 } = at;
     const angle = Phaser.Math.Angle.Between(x1, y1, target.x, target.y);
     const end = this.beamEnd(x1, y1, angle, beam.rangePx);
 
@@ -426,14 +429,30 @@ export default class WeaponSystem {
       amount *= beam.pierceShare;
     }
 
-    // Glowing core with a wider soft glow, fading out.
+    this.drawBeam(x1, y1, end, beam);
+    muzzleFlash(this.scene, weapon, { x: x1, y: y1, angle });
+  }
+
+  // The laser-beam art stretched from the muzzle to where it stopped, with a
+  // glow where it hits, both fading out. (No art: two drawn lines.)
+  drawBeam(x1, y1, end, beam) {
+    const art = SHOT_ART.laser;
+    const length = Phaser.Math.Distance.Between(x1, y1, end.x, end.y);
+    const ray = this.scene.textures.exists(projKey(art.beam)) && this.scene.add.image(x1, y1, projKey(art.beam));
+    if (ray) {
+      ray.setOrigin(0, 0.5).setDepth(45).setBlendMode(Phaser.BlendModes.ADD);
+      ray.setDisplaySize(length, beam.width * art.thick).setRotation(Phaser.Math.Angle.Between(x1, y1, end.x, end.y));
+      const glow = shotImage(this.scene, projKey(art.glow), art.glowSize, 45).setPosition(end.x, end.y).setBlendMode(Phaser.BlendModes.ADD);
+      this.scene.tweens.add({ targets: [ray, glow], alpha: 0, duration: beam.fadeMs, onComplete: () => { ray.destroy(); glow.destroy(); } });
+      this.scene.tweens.add({ targets: ray, scaleY: ray.scaleY * 0.3, duration: beam.fadeMs });
+      return;
+    }
     const g = this.scene.add.graphics().setDepth(45);
     g.lineStyle(beam.width * 2.5, beam.color, 0.35);
     g.lineBetween(x1, y1, end.x, end.y);
     g.lineStyle(beam.width, beam.glowColor, 1);
     g.lineBetween(x1, y1, end.x, end.y);
     this.scene.tweens.add({ targets: g, alpha: 0, duration: beam.fadeMs, onComplete: () => g.destroy() });
-    this.muzzleFlash(x1, y1);
   }
 
   // Where a beam from (x, y) at this angle stops: the first solid tile,
@@ -455,8 +474,7 @@ export default class WeaponSystem {
   sprayFlame(target, weapon, damage) {
     const flame = weapon.flame;
     const p = this.player;
-    const x = p.x + p.facing * 16;
-    const y = p.y - 4;
+    const { x, y } = muzzleOf(p, target, this.groundLayer);
     const angle = Phaser.Math.Angle.Between(x, y, target.x, target.y);
     const half = Phaser.Math.DegToRad(flame.coneDeg / 2);
 
@@ -470,22 +488,29 @@ export default class WeaponSystem {
       this.status.apply(t, 'burning');
     }
 
-    // Puffs of fire rushing out along the cone.
+    // Puffs of fire (the flame-puff art) rushing out along the cone, growing.
+    const art = SHOT_ART.flame;
     for (let i = 0; i < 14; i++) {
       const a = angle + Phaser.Math.FloatBetween(-half, half);
-      const dist = Phaser.Math.FloatBetween(weapon.reach * 0.5, weapon.reach);
-      const puff = this.scene.add
-        .circle(x, y, Phaser.Math.Between(4, 8), i % 3 ? flame.color : flame.coreColor, 0.85)
-        .setDepth(44);
-      this.scene.tweens.add({
-        targets: puff,
-        x: x + Math.cos(a) * dist,
-        y: y + Math.sin(a) * dist - Phaser.Math.Between(0, 14),
-        scale: 2.2,
-        alpha: 0,
-        delay: i * 12,
-        duration: 320,
-        onComplete: () => puff.destroy(),
+      const dist = Phaser.Math.FloatBetween(weapon.reach * 0.6, weapon.reach);
+      const puff =
+        shotImage(this.scene, projKey(art.art), art.length * Phaser.Math.FloatBetween(0.7, 1.1), 44) ??
+        this.scene.add.circle(0, 0, Phaser.Math.Between(4, 8), i % 3 ? flame.color : flame.coreColor, 0.85).setDepth(44);
+      puff.setPosition(x, y).setRotation(a).setAlpha(0.95).setVisible(i === 0);
+      if (Math.random() < 0.5) puff.setFlipY?.(true);
+      // One after another (a tween's own delay left later puffs stuck at the muzzle).
+      this.scene.time.delayedCall(i * 20, () => {
+        puff.setVisible(true);
+        this.scene.tweens.add({
+          targets: puff,
+          x: x + Math.cos(a) * dist,
+          y: y + Math.sin(a) * dist - Phaser.Math.Between(0, 14),
+          scale: puff.scale * art.grow,
+          alpha: 0,
+          duration: 300,
+          ease: 'Quad.easeOut',
+          onComplete: () => puff.destroy(),
+        });
       });
     }
   }
@@ -494,8 +519,8 @@ export default class WeaponSystem {
 
   launchSaw(target, weapon) {
     const p = this.player;
-    const x = p.x + p.facing * 20;
-    const y = p.y - 6;
+    const at = muzzleOf(p, target, this.groundLayer);
+    const { x, y } = at;
     const saw = new Saw(this.scene, x, y, target, weapon.saw, this.typing.targets, this.groundLayer, {
       cut: (enemy, dmg) => this.addDamage(enemy, dmg, REDUCED_COLOR),
       grind: (enemy, dmg) => {
@@ -509,7 +534,7 @@ export default class WeaponSystem {
       },
     });
     this.saws.push(saw);
-    this.muzzleFlash(x, y);
+    muzzleFlash(this.scene, weapon, at);
   }
 
   // Orange flash and a little camera shake.
@@ -551,8 +576,8 @@ export default class WeaponSystem {
 
   fireBullet(target, weapon, scatter, onArrive) {
     const p = this.player;
-    const x = p.x + p.facing * 16;
-    const y = p.y - 4;
+    const at = muzzleOf(p, target, this.groundLayer);
+    const { x, y } = at;
     const offset = {
       x: scatter ? Phaser.Math.Between(-scatter, scatter) : 0,
       y: scatter ? Phaser.Math.Between(-scatter, scatter) : 0,
@@ -562,21 +587,8 @@ export default class WeaponSystem {
     this.bullets.push(
       new Bullet(this.scene, x, y, target, offset, style, weapon.tracerColor, weapon.tracerWidth, onArrive)
     );
-    this.muzzleFlash(x, y);
+    muzzleFlash(this.scene, weapon, at);
     this.scene.blastFx?.muzzleSmoke(x, y, p.facing);
-  }
-
-  muzzleFlash(x, y) {
-    const flash = this.scene.add
-      .circle(x, y, MUZZLE_FLASH.radius, MUZZLE_FLASH.color)
-      .setDepth(41);
-    this.scene.tweens.add({
-      targets: flash,
-      alpha: 0,
-      scale: 0.4,
-      duration: MUZZLE_FLASH.durationMs,
-      onComplete: () => flash.destroy(),
-    });
   }
 
   // A bullet landed: damage, and one damage number per target that counts up
@@ -625,6 +637,18 @@ export default class WeaponSystem {
 
   // Melee hit: a quick arc in front of you.
   drawSwing(weapon) {
+    const p = this.player;
+    p.lastSwingAt = this.scene.time.now; // the rig swings your arm (CharacterRig.swingPose)
+    // The slash trail shows as the arm comes down (after the wind-up).
+    if (p.rig) {
+      const M = RIG.melee;
+      this.scene.time.delayedCall(M.swingMs * M.windUp, () => this.drawSlash(weapon));
+      return;
+    }
+    this.drawSlash(weapon);
+  }
+
+  drawSlash(weapon) {
     const p = this.player;
     const g = this.scene.add.graphics().setDepth(40);
     const radius = weapon.reach * 0.6;
@@ -1462,7 +1486,7 @@ export default class WeaponSystem {
     for (const grenade of this.grenades) grenade.update();
 
     this.projectiles = this.projectiles.filter((r) => r.active);
-    for (const round of this.projectiles) round.update();
+    for (const round of this.projectiles) round.update(delta);
 
     this.bullets = this.bullets.filter((b) => b.active);
     for (const bullet of this.bullets) bullet.update(delta);

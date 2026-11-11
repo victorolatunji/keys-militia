@@ -16,7 +16,7 @@ Voice lines for the two Training coaches. Each line plays along with its speech 
 | Coach | Character | Voice |
 |---|---|---|
 | **Sergeant** | Commando | Firm drill sergeant: gruff, loud and short, but encouraging. |
-| **Tech** | Android | Calm and precise, slightly synthetic. Speaks evenly, never rushed. |
+| **Android R** | Android | Calm and precise, slightly synthetic. Speaks evenly, never rushed. |
 
 ## Lines (31 files)
 
@@ -33,23 +33,23 @@ Voice lines for the two Training coaches. Each line plays along with its speech 
 | sarge_fly_1.mp3 | Sergeant | Hold Up to fire your jetpack. |
 | sarge_fly_2.mp3 | Sergeant | Land on top of the watchtower. Fuel only refills on the ground. |
 | sarge_fly_3.mp3 | Sergeant | Down drops you faster. |
-| sarge_fly_good.mp3 | Sergeant | Nice landing. Come down. Tech takes it from here. |
+| sarge_fly_good.mp3 | Sergeant | Nice landing. Come down. Android R takes it from here. |
 
 ### Lesson 3: Type to shoot
 | File | Coach | Line |
 |---|---|---|
-| tech_type_1.mp3 | Tech | Your keyboard is your trigger. |
-| tech_type_2.mp3 | Tech | Every target you can see gets a word. Type it to shoot. |
-| tech_type_3.mp3 | Tech | The first letter locks on. Take down all three. |
-| tech_type_good.mp3 | Tech | Clean. Now, about mistakes. |
+| tech_type_1.mp3 | Android R | Your keyboard is your trigger. |
+| tech_type_2.mp3 | Android R | Every target you can see gets a word. Type it to shoot. |
+| tech_type_3.mp3 | Android R | The first letter locks on. Take down all three. |
+| tech_type_good.mp3 | Android R | Clean. Now, about mistakes. |
 
 ### Lesson 4: Typos and moving
 | File | Coach | Line |
 |---|---|---|
-| tech_typos_1.mp3 | Tech | A wrong letter jams your gun for a moment. Stay accurate. |
-| tech_typos_2.mp3 | Tech | While you type you stand still. Any arrow moves you again. |
-| tech_typos_3.mp3 | Tech | Your half-typed word waits for you. Two more targets. |
-| tech_typos_good.mp3 | Tech | Good hands. The sergeant wants you up close. |
+| tech_typos_1.mp3 | Android R | A wrong letter jams your gun for a moment. Stay accurate. |
+| tech_typos_2.mp3 | Android R | While you type you stand still. Any arrow moves you again. |
+| tech_typos_3.mp3 | Android R | Your half-typed word waits for you. Two more targets. |
+| tech_typos_good.mp3 | Android R | Good hands. The sergeant wants you up close. |
 
 ### Lesson 5: Switch weapons
 | File | Coach | Line |
@@ -73,10 +73,10 @@ Voice lines for the two Training coaches. Each line plays along with its speech 
 ### Lesson 7: Airdrop
 | File | Coach | Line |
 |---|---|---|
-| tech_airdrop_1.mp3 | Tech | Crates drop from the sky during a fight. One's coming in now. |
-| tech_airdrop_2.mp3 | Tech | Walk up to it. Each gun inside has a number: press it to take that gun. |
-| tech_airdrop_3.mp3 | Tech | It goes straight to your hand. |
-| tech_airdrop_good.mp3 | Tech | Locked and loaded. Last test, recruit. |
+| tech_airdrop_1.mp3 | Android R | Crates drop from the sky during a fight. One's coming in now. |
+| tech_airdrop_2.mp3 | Android R | Walk up to it. Each gun inside has a number: press it to take that gun. |
+| tech_airdrop_3.mp3 | Android R | It goes straight to your hand. |
+| tech_airdrop_good.mp3 | Android R | Locked and loaded. Last test, recruit. |
 
 ### Lesson 8: Live fire
 | File | Coach | Line |

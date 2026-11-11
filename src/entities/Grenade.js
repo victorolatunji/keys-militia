@@ -1,4 +1,6 @@
 import Phaser from 'phaser';
+import { throwKey } from './CharacterRig.js';
+import { THROWN_SIZE } from '../data/bullets.js';
 
 const BLINK_COLOR = 0xff4d6d;
 
@@ -52,19 +54,45 @@ export default class Grenade extends Phaser.GameObjects.Arc {
 
     this.collider = scene.physics.add.collider(this, groundLayer);
 
-    // Combat Axe: drawn as an axe (its icon) spinning over the hit circle.
-    if (this.kind === 'axe') {
-      this.setVisible(false);
+    // Drawn with its throwable art (the same picture as in the hand),
+    // tumbling over the hidden hit circle. The Combat Axe falls back to its icon.
+    this.spinDir = 1;
+    const art = throwKey(config.key);
+    if (scene.textures.exists(art)) {
+      this.look = scene.add.image(x, y, art).setDepth(41);
+      const size = THROWN_SIZE * (this.kind === 'axe' ? 1.4 : 1);
+      this.look.setScale(size / Math.max(this.look.width, this.look.height));
+    } else if (this.kind === 'axe') {
       this.look = scene.add.image(x, y, 'icon-combatAxe').setScale(0.8).setDepth(41);
-      this.spinDir = 1;
     }
+    if (this.look) this.setVisible(false);
   }
 
-  // The axe picture follows the (hidden) circle that does the physics.
+  // The picture follows the (hidden) circle that does the physics.
   syncLook() {
     if (!this.look) return;
     this.look.setPosition(this.x, this.y).setRotation(this.rotation);
     this.look.setFlipX(this.spinDir < 0);
+  }
+
+  // Blinking (frag fuse, armed trip mine, about to blow): the art lights up.
+  paint(color) {
+    if (!this.look) {
+      this.setFillStyle(color);
+      return;
+    }
+    if (color === this.config.color) this.look.clearTint();
+    else if (color === 0xffffff) this.look.setTintFill(0xffffff);
+    else this.look.setTint(color);
+  }
+
+  // Tumbles end over end in the air (the axe fastest), rolls on the ground.
+  spin() {
+    if (this.planted) return;
+    const b = this.body;
+    this.spinDir = Math.sign(b.velocity.x) || this.spinDir;
+    if (b.blocked.down) this.rotation += (b.velocity.x / (this.config.radius * 60)) * 0.6;
+    else this.rotation += (this.kind === 'axe' ? 0.35 : 0.18) * this.spinDir;
   }
 
   update() {
@@ -80,7 +108,7 @@ export default class Grenade extends Phaser.GameObjects.Arc {
     // Tripped or caught in a blast: fast beeping, then boom.
     if (this.settingOff) {
       if (now >= this.blowAt) this.explode();
-      else this.setFillStyle(Math.floor(now / 60) % 2 ? 0xffffff : BLINK_COLOR);
+      else this.paint(Math.floor(now / 60) % 2 ? 0xffffff : BLINK_COLOR);
       return;
     }
 
@@ -93,10 +121,7 @@ export default class Grenade extends Phaser.GameObjects.Arc {
       }
     }
 
-    if (this.kind === 'axe' && !this.planted) {
-      this.spinDir = Math.sign(this.body.velocity.x) || this.spinDir;
-      this.rotation += 0.35 * this.spinDir; // spins in flight, end over end
-    }
+    this.spin();
     this.syncLook();
 
     const b = this.body;
@@ -146,7 +171,7 @@ export default class Grenade extends Phaser.GameObjects.Arc {
     if (this.kind === 'frag') {
       const timeLeft = this.explodeAt - now;
       const rate = timeLeft < 600 ? 80 : 200;
-      this.setFillStyle(Math.floor(now / rate) % 2 ? BLINK_COLOR : this.config.color);
+      this.paint(Math.floor(now / rate) % 2 ? BLINK_COLOR : this.config.color);
     }
 
     if (now >= this.explodeAt) {
@@ -186,7 +211,7 @@ export default class Grenade extends Phaser.GameObjects.Arc {
         .setStrokeStyle(1, BLINK_COLOR, 0.35)
         .setDepth(40);
     }
-    this.setFillStyle(Math.floor(now / 500) % 2 ? BLINK_COLOR : this.config.color);
+    this.paint(Math.floor(now / 500) % 2 ? BLINK_COLOR : this.config.color);
 
     const near = (t) => {
       if (!t || !t.alive || !t.body) return false;
