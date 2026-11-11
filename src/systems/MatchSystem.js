@@ -29,7 +29,8 @@ export default class MatchSystem {
     this.breakUntil = now + 3000; // a moment before the first wave
     this.nextSpawnAt = 0;
     this.makeHud();
-    this.banner(mode.name, this.waves ? 'Survive the waves · no respawns' : `First to ${mode.killTarget} kills · ${Math.round(mode.timeMs / 60000)} minutes`);
+    const lifeLine = !this.waves ? '' : mode.respawns ? `Survive the waves · ${mode.respawns} respawns` : 'Survive the waves · no respawns';
+    this.banner(mode.name, this.waves ? lifeLine : `First to ${mode.killTarget} kills · ${Math.round(mode.timeMs / 60000)} minutes`);
   }
 
   get stage() {
@@ -161,7 +162,7 @@ export default class MatchSystem {
     const title = { win: 'VICTORY', lose: 'DEFEAT', draw: 'DRAW', over: 'GAME OVER' }[result];
     const color = { win: '#06d6a0', lose: '#ff4d6d', draw: '#ffd166', over: '#ff4d6d' }[result];
     const lines = this.waves
-      ? [`Waves survived ${this.wave}`, '', `Kills ${scene.kills}   Time ${time}`]
+      ? [`Waves survived ${this.wave}`, '', `Kills ${scene.kills}   Deaths ${scene.deaths}   K/D ${kd.toFixed(2)}`, `Time ${time}`]
       : [`You ${scene.kills}  :  ${this.enemyKills} Military`, '', `Kills ${scene.kills}   Deaths ${scene.deaths}   K/D ${kd.toFixed(2)}`, `Time ${time}`];
     lines.push('', 'R: play again    F8: change mode    F6: change map');
     const cx = 640;
@@ -188,7 +189,8 @@ export default class MatchSystem {
       this.timerText.setText(`WAVE ${this.wave + 1}`);
       this.timerText.setColor('#ffffff');
       const breakLeft = this.breakUntil ? Math.ceil((this.breakUntil - scene.time.now) / 1000) : 0;
-      this.scoreText.setText(breakLeft > 0 ? `Next wave in ${breakLeft}   ·   kills ${scene.kills}` : `${alive + this.toSpawn} left   ·   kills ${scene.kills}`);
+      const lives = this.mode.respawns ? `   ·   respawns ${Math.max(0, this.lives - 1)}` : '';
+      this.scoreText.setText((breakLeft > 0 ? `Next wave in ${breakLeft}` : `${alive + this.toSpawn} left`) + `   ·   kills ${scene.kills}${lives}`);
       return;
     }
     const left = this.timeLeft;
