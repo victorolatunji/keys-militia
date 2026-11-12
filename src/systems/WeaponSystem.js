@@ -6,7 +6,7 @@ import Saw from '../entities/Saw.js';
 import StatusSystem from './StatusSystem.js';
 import FirePatch from '../entities/FirePatch.js';
 import Cloud from '../entities/Cloud.js';
-import { FAMILY_MATERIAL, CLOUD_TINTS, BLAST_THROUGH_WALL, JUICE } from '../data/effects.js';
+import { FAMILY_MATERIAL, CLOUD_TINTS, BLAST_THROUGH_WALL, JUICE, FIRE_LOOK } from '../data/effects.js';
 import { iconKey } from '../ui/Icons.js';
 import { TACTICAL_SOUNDS } from '../data/sounds.js';
 import { groundBelow } from './Terrain.js';
@@ -496,7 +496,8 @@ export default class WeaponSystem {
       const puff =
         shotImage(this.scene, projKey(art.art), art.length * Phaser.Math.FloatBetween(0.7, 1.1), 44) ??
         this.scene.add.circle(0, 0, Phaser.Math.Between(4, 8), i % 3 ? flame.color : flame.coreColor, 0.85).setDepth(44);
-      puff.setPosition(x, y).setRotation(a).setAlpha(0.95).setVisible(i === 0);
+      puff.setPosition(x, y).setRotation(a).setAlpha(FIRE_LOOK.puffAlpha).setVisible(i === 0); // see-through fire
+      if (FIRE_LOOK.glow) puff.setBlendMode?.(Phaser.BlendModes.ADD); // no dark outline
       if (Math.random() < 0.5) puff.setFlipY?.(true);
       // One after another (a tween's own delay left later puffs stuck at the muzzle).
       this.scene.time.delayedCall(i * 20, () => {
@@ -976,7 +977,7 @@ export default class WeaponSystem {
   explode(x, y, config) {
     this.scene.sfx?.play(this.scene.hazards?.blastSound(x, y) ?? 'explosion', { x, y }); // muffled under water
     const style = config.kind === 'sticky' ? 'sticky' : config.kind === 'frag' ? 'frag' : 'rocket';
-    this.scene.blastFx?.explosion(x, y, config.blastRadius, style);
+    this.scene.blastFx?.explosion(x, y, config.blastRadius, style, config.damage);
     this.chainReaction(x, y, config.blastRadius);
     for (const target of this.typing.targets) {
       this.applyBlast(x, y, config, target, 1);

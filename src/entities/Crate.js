@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { AIRDROPS } from '../data/airdrops.js';
 import { iconKey } from '../ui/Icons.js';
+import { dropKey } from '../ui/ItemArt.js';
 
 // An airdrop crate. States:
 //   falling  - under the parachute, slow and swaying
@@ -30,10 +31,20 @@ export default class Crate extends Phaser.GameObjects.Rectangle {
 
     this.setStrokeStyle(2, strokeColor);
 
+    // With art: the crate's own sprite (roped for the drop, then landed),
+    // the gun icons cycling small on its front, and a real parachute.
+    this.hasArt = scene.textures.exists(dropKey('crate-airdrop'));
+    if (this.hasArt) {
+      this.setFillStyle(0, 0);
+      this.isStroked = false;
+      this.look = scene.add.image(x, y, dropKey('crate-airdrop')).setDepth(11);
+      this.icon.setDepth(11.5);
+    }
+
     // Cap the fall speed: gravity still pulls, the chute holds it to a slow drift.
     this.body.setMaxVelocity(AIRDROPS.swaySpeed * 2, AIRDROPS.fallSpeed * Math.sqrt(scene.physics.world.gravity.y / 800));
 
-    this.chute = this.drawChute(scene);
+    this.chute = this.hasArt ? this.makeChute(scene) : this.drawChute(scene);
     this.collider = scene.physics.add.collider(this, groundLayer);
   }
 
@@ -71,6 +82,41 @@ export default class Crate extends Phaser.GameObjects.Rectangle {
   // Standing on a tile or on a settled crate this frame.
   get onSomething() {
     return this.body.blocked.down || this.body.touching.down;
+  }
+
+  // Where the crate art's box sits in each picture (share of its height):
+  // the roped drop art has the ropes above the box.
+  static ART = { 'crate-airdrop': { boxMid: 0.66, top: 0 }, 'crate-landed': { boxMid: 0.5 } };
+
+  // Show this crate picture, sized to the crate, its box centred on it.
+  setLook(name) {
+    if (!this.look || this.lookName === name) return;
+    this.lookName = name;
+    this.look.setTexture(dropKey(name));
+    const w = AIRDROPS.crate.art.width * (name === 'crate-landed' ? 1.12 : 1);
+    this.look.setScale(w / this.look.width).setOrigin(0.5, Crate.ART[name].boxMid);
+  }
+
+  // The parachute art, its ring at the top of the ropes; it pivots on the
+  // crate's middle so it tilts with the sway.
+  makeChute(scene) {
+    this.setLook('crate-airdrop');
+    const img = scene.add.image(this.x, this.y, dropKey('parachute')).setDepth(10.5);
+    img.setScale(AIRDROPS.crate.art.chuteWidth / img.width);
+    const ropesTop = this.look.displayHeight * Crate.ART['crate-airdrop'].boxMid;
+    img.setOrigin(0.5, 0.97 + (ropesTop - 2) / img.displayHeight);
+    return img;
+  }
+
+  // The pickup panel is about this crate: it lights up (art), or gets an
+  // outline (placeholder box).
+  setHighlight(on, color) {
+    if (!this.look) {
+      this.setStrokeStyle(2, on ? color : AIRDROPS.crate.strokeColor);
+      return;
+    }
+    if (on) this.look.setTint(0xffffff, 0xffffff, 0xfff3b0, 0xfff3b0);
+    else this.look.clearTint();
   }
 
   // Canopy and strings, drawn once around (0, 0) and moved with the crate.
@@ -120,7 +166,15 @@ export default class Crate extends Phaser.GameObjects.Rectangle {
   }
 
   syncIcon() {
-    this.icon.setPosition(this.x, this.y);
+    if (this.look) {
+      this.setLook(this.state === 'falling' && this.chute ? 'crate-airdrop' : 'crate-landed');
+      this.look.setPosition(this.x, this.y).setRotation(this.rotation).setAlpha(this.alpha);
+      // the icon on the crate's front, a little below the middle
+      const dy = AIRDROPS.crate.height * AIRDROPS.crate.art.iconY;
+      this.icon.setPosition(this.x - Math.sin(this.rotation) * dy, this.y + Math.cos(this.rotation) * dy);
+    } else {
+      this.icon.setPosition(this.x, this.y);
+    }
     this.icon.setRotation(this.rotation);
     this.icon.setAlpha(this.alpha);
   }
@@ -260,6 +314,7 @@ export default class Crate extends Phaser.GameObjects.Rectangle {
 
   remove() {
     if (this.chute) this.chute.destroy();
+    this.look?.destroy();
     this.icon.destroy();
     this.collider.destroy();
     this.destroy();

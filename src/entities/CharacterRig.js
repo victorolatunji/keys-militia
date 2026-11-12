@@ -124,8 +124,22 @@ export default class CharacterRig {
     this.held = s.add.image(0, 0, '__DEFAULT').setVisible(false);
     this.frontArm.end.add(this.held);
 
+    // Armor Vest: worn over the torso, turning with it (shown while you wear one).
+    this.vest = null;
+    if (s.textures.exists('spr-util-armorVest-worn')) {
+      const V = RIG.vest;
+      const w = T.w * V.size[0];
+      const h = T.h * V.size[1];
+      const dx = T.w * (V.at[0] - A.hip[0]);
+      const dy = T.h * (V.at[1] - A.hip[1]);
+      this.vest = s.add.image(0, 0, 'spr-util-armorVest-worn').setVisible(false);
+      this.vest.setDisplaySize(w, h).setOrigin(0.5 - dx / w, 0.5 - dy / h);
+      this.vest.baseTint = V.tint ?? 0xffffff;
+      this.images.push(this.vest);
+    }
+
     const back = [this.backArm.root, this.backLeg.root];
-    this.root.add([...back, ...(this.pack ? [this.pack] : []), this.torso, this.head, this.frontLeg.root, this.frontArm.root]);
+    this.root.add([...back, ...(this.pack ? [this.pack] : []), this.torso, ...(this.vest ? [this.vest] : []), this.head, this.frontLeg.root, this.frontArm.root]);
 
     // Size: the drawn height (feet to the top of the head) is heightScale x the hitbox.
     const leg = this.parts['front-thigh'];
@@ -149,7 +163,7 @@ export default class CharacterRig {
     const visible = o.alive && o.visible !== false && !o.hidden;
     this.root.setVisible(o.alive);
     if (!o.alive) return;
-    this.root.setAlpha(o.hidden && o === this.scene.player ? 0.45 : 1); // you, hiding in a bush or under water: faint
+    this.root.setAlpha((o.hidden && o === this.scene.player ? 0.45 : 1) * (this.heatShimmer ?? 1)); // you, hiding in a bush or under water: faint; seen through a cloud: shimmering
     // The physics box stays, but you don't see it.
     o.isFilled = false;
     o.isStroked = false;
@@ -198,6 +212,7 @@ export default class CharacterRig {
     turn(this.backLeg.root, pose.thighB);
     turn(this.backLeg.joint, pose.shinB);
     turn(this.torso, lean);
+    if (this.vest) this.vest.setVisible(Boolean(o.armor)).setAngle(this.torso.angle);
 
     // Arms: point the held weapon at the target (or a little down).
     const aim = this.aimDeg(facing);

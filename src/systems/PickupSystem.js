@@ -65,10 +65,14 @@ export default class PickupSystem {
 
     // Outline what the panel is about (and restore the old outline after).
     if (target !== this.target) {
-      if (this.target?.active) this.target.setStrokeStyle(2, this.targetStroke);
+      if (this.target?.active) {
+        if (this.target.setHighlight) this.target.setHighlight(false);
+        else this.target.setStrokeStyle(2, this.targetStroke);
+      }
       if (target) {
         this.targetStroke = target.strokeColor;
-        target.setStrokeStyle(2, AIRDROPS.crate.highlightColor);
+        if (target.setHighlight) target.setHighlight(true, AIRDROPS.crate.highlightColor);
+        else target.setStrokeStyle(2, AIRDROPS.crate.highlightColor);
       }
       this.target = target;
     }

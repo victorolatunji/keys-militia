@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { SPRITES } from '../data/spriteManifest.js';
 import { partKey, gunKey, meleeKey } from '../entities/CharacterRig.js';
 import { projKey, fxKey } from '../systems/ShotFx.js';
+import { dropKey, utilKey } from '../ui/ItemArt.js';
 import { MAPS, MAP_SELECT } from '../data/maps.js';
 import { MODES, MODE_SELECT } from '../data/modes.js';
 import { PARTNER } from '../data/partner.js';
@@ -66,6 +67,8 @@ export default class BootScene extends Phaser.Scene {
     for (const key of Object.keys(SPRITES.throwables)) this.load.image(`spr-throw-${key}`, `assets/sprites/throwables/${key}.png`);
     for (const key of Object.keys(SPRITES.projectiles ?? {})) this.load.image(projKey(key), `assets/sprites/projectiles/${key}.png`);
     for (const key of Object.keys(SPRITES.effects ?? {})) this.load.image(fxKey(key), `assets/sprites/effects/${key}.png`);
+    for (const key of Object.keys(SPRITES.drops ?? {})) this.load.image(dropKey(key), `assets/sprites/drops/${key}.png`);
+    for (const key of Object.keys(SPRITES.utility ?? {})) this.load.image(utilKey(key), `assets/sprites/utility/${key}.png`);
 
     for (const map of Object.values(MAPS)) {
       this.load.tilemapTiledJSON(map.tilemapKey, map.tilemapFile);

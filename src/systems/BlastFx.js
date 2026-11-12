@@ -2,7 +2,8 @@ import { gravityK } from './Gravity.js';
 import Phaser from 'phaser';
 import Cloud from '../entities/Cloud.js';
 import { groundBelow } from './Terrain.js';
-import { BLAST_FX, CLOUD_VISION, JUICE } from '../data/effects.js';
+import { BLAST_FX, BANG, CLOUD_VISION, JUICE } from '../data/effects.js';
+import { RIG } from '../data/rigs.js';
 
 const DEPTH = 44;
 
@@ -113,9 +114,12 @@ export default class BlastFx {
   // ---- Explosions ----
 
   // style: 'frag', 'sticky', 'rocket' or 'bomb' (see BLAST_FX).
-  explosion(x, y, radius, style = 'frag') {
+  // damage: the blast's damage; a bigger hit makes a bigger bang
+  // (BANG.perDamage in effects.js).
+  explosion(x, y, radius, style = 'frag', damage = 100) {
     const fx = BLAST_FX[style] ?? BLAST_FX.frag;
-    const k = (radius / 120) * fx.size;
+    const power = Phaser.Math.Clamp(Math.sqrt(damage / 100), BANG.power[0], BANG.power[1]);
+    const k = (radius / 120) * fx.size * power;
 
     // Under water: no fire at all, a column of water instead. In lava: lava
     // flies everywhere. Just above a surface: spray.
@@ -139,6 +143,7 @@ export default class BlastFx {
 
     // A white-hot flash at the heart of it.
     this.blob(x, y, 90 * k, 0xfff3c4, { alpha: 1, grow: 1.6, life: 140, add: true, depth: DEPTH + 2 });
+    this.bang(x, y, radius * power);
 
     // Fireballs rolling out and up (glowing).
     for (let i = 0; i < fx.fireballs; i++) {
@@ -160,7 +165,7 @@ export default class BlastFx {
     }
 
     // Sparks and burning bits flying out.
-    this.streaks(x, y, fx.sparks, [0xffd166, 0xff9f1c, 0xffffff], [200, 520], 380, { gravity: 600 });
+    this.streaks(x, y, Math.round(fx.sparks * power), [0xffd166, 0xff9f1c, 0xffffff], [200 * power, 520 * power], 380, { gravity: 600 });
 
     // Dirt and shrapnel thrown about (they bounce on the ground): chunks of
     // whatever ground it went off against, else grey shrapnel.
@@ -179,7 +184,28 @@ export default class BlastFx {
       }
     }
 
-    this.scene.cameras.main.shake(fx.shakeMs, fx.shake);
+    this.scene.cameras.main.shake(fx.shakeMs * power, fx.shake * power);
+  }
+
+  // The "bang": a jagged starburst of light that snaps out and is gone,
+  // with a few hot rays shooting out from it (spikes, never a circle).
+  bang(x, y, size) {
+    const B = BANG;
+    const s = this.scene;
+    for (const [outer, color, alpha] of [[size * B.outer, B.colors[0], 0.95], [size * B.outer * 0.55, B.colors[1], 1]]) {
+      const star = s.add.star(x, y, Phaser.Math.Between(B.points[0], B.points[1]), outer * B.inner, outer, color, alpha)
+        .setDepth(DEPTH + 3).setBlendMode(Phaser.BlendModes.ADD).setAngle(Math.random() * 360).setScale(0.35);
+      s.tweens.add({ targets: star, scale: 1, alpha: 0, angle: star.angle + Phaser.Math.Between(-12, 12), duration: B.ms, ease: 'Cubic.easeOut', onComplete: () => star.destroy() });
+    }
+    // Rays: long thin bright wedges flung out.
+    for (let i = 0; i < B.rays; i++) {
+      const a = (i / B.rays) * Math.PI * 2 + Phaser.Math.FloatBetween(-0.2, 0.2);
+      const len = size * Phaser.Math.FloatBetween(0.7, 1.2);
+      const w = Math.max(3, size * 0.05);
+      const ray = s.add.triangle(x, y, 0, -w, 0, w, len, 0, B.colors[0], 0.9)
+        .setOrigin(0, 0).setRotation(a).setDepth(DEPTH + 3).setBlendMode(Phaser.BlendModes.ADD).setScale(0.2, 1);
+      s.tweens.add({ targets: ray, scaleX: 1, alpha: 0, duration: B.ms * 1.2, ease: 'Quad.easeOut', onComplete: () => ray.destroy() });
+    }
   }
 
   // ---- Tactical grenades: each its own look ----
@@ -306,6 +332,14 @@ export default class BlastFx {
   // kind: 'smoke', 'gas' or null (back to normal). Colors in CLOUD_VISION.
   setHeat(target, kind) {
     target.label?.setSmoke?.(kind === 'smoke' && target.alive);
+    // Drawn characters: no box. They're simply drawn over the cloud (their
+    // cloud tint, CLOUD_TINTS, already colors them), shimmering a little.
+    if (target.rig) {
+      const on = Boolean(kind && target.alive);
+      target.rig.root.setDepth(on ? 72 : RIG.depth);
+      target.rig.heatShimmer = on ? 1 - CLOUD_VISION[kind].flicker + Math.random() * CLOUD_VISION[kind].flicker : null;
+      return;
+    }
     let mark = this.heat.get(target);
     if (!kind || !target.alive) {
       if (mark) {

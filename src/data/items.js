@@ -31,6 +31,7 @@ export const ITEMS = {
     width: 8,
     height: 54,
     offsetX: 20,          // px in front of your center
+    art: { height: 62, y: 4 }, // the held shield art: this tall (px), this far below your center
     color: 0x34495e,
     rimColor: 0x48cae4,
     damagedColor: 0xe76f51,

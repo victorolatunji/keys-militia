@@ -1,5 +1,14 @@
 import Phaser from 'phaser';
 import { STATUS } from '../data/status.js';
+import { projKey, fxKey } from './ShotFx.js';
+import { FIRE_LOOK } from '../data/effects.js';
+
+// The drawn character's box (its art is taller than the physics box).
+const drawn = (t) => {
+  const top = t.visualTop ?? t.y - t.height / 2;
+  const bottom = t.body?.bottom ?? t.y + t.height / 2;
+  return { top, bottom, mid: (top + bottom) / 2, h: bottom - top, w: t.rig ? t.width * 1.25 : t.width };
+};
 
 // Status effects on any character (you or a bot). Each effect lives on the
 // character as statuses[type] = { until, source, ... } and is ticked here.
@@ -75,7 +84,7 @@ export default class StatusSystem {
         if (!target.alive || now >= s.until) {
           if (s.nails) s.nails.forEach((n) => n.img.destroy());
           if (s.axes) s.axes.forEach((a) => this.dropAxe(a, target));
-          if (s.overlay) s.overlay.destroy();
+          if (s.overlay) this.shatter(s.overlay);
           if (type === 'pinned' || type === 'grabbed') target.pinnedUntil = 0;
           delete statuses[type];
           continue;
@@ -112,7 +121,7 @@ export default class StatusSystem {
       this.damage(target, amount, s.source);
     }
     if (now >= s.nextFxAt) {
-      s.nextFxAt = now + 70;
+      s.nextFxAt = now + config.flameEveryMs;
       this.flame(target, Math.random() < 0.7 ? config.flameColor : config.flameCoreColor);
     }
   }
@@ -155,8 +164,22 @@ export default class StatusSystem {
     });
   }
 
-  // Shocked: blue sparks crackling on the body.
+  // Shocked: lightning (the arc art) crackling over the body.
   spark(target) {
+    const cfg = STATUS.shocked;
+    const key = fxKey(Phaser.Utils.Array.GetRandom(cfg.arcArt));
+    if (this.scene.textures.exists(key)) {
+      const d = drawn(target);
+      const img = this.scene.add
+        .image(target.x + Phaser.Math.Between(-d.w / 3, d.w / 3), Phaser.Math.Between(d.top + d.h * 0.15, d.bottom - d.h * 0.15), key)
+        .setRotation(Math.random() * Math.PI * 2)
+        .setFlipY(Math.random() < 0.5)
+        .setBlendMode(Phaser.BlendModes.ADD)
+        .setDepth(44);
+      img.setScale(Phaser.Math.Between(...cfg.arcSize) / img.width);
+      this.scene.time.delayedCall(90, () => img.destroy());
+      return;
+    }
     const x = target.x + Phaser.Math.Between(-target.width / 2, target.width / 2);
     const y = target.y + Phaser.Math.Between(-target.height / 2, target.height / 2);
     const sp = this.scene.add
@@ -191,28 +214,72 @@ export default class StatusSystem {
     this.scene.tweens.add({ targets: g, scale: 1.8, alpha: 0, duration: 300, onComplete: () => g.destroy() });
   }
 
-  // Frozen: a sheet of ice over the body that follows it.
+  // Frozen: a rough block of ice around the body (jagged sides, a few
+  // cracks across it), following it. Drawn once, then just moved.
   ice(target, s) {
+    const cfg = STATUS.frozen.ice;
+    const d = drawn(target);
     if (!s.overlay) {
-      s.overlay = this.scene.add
-        .rectangle(target.x, target.y, target.width + 4, target.height + 4, STATUS.frozen.fxColor, 0.5)
-        .setStrokeStyle(2, 0xffffff, 0.8)
-        .setDepth(44);
+      const g = this.scene.add.graphics().setDepth(44);
+      const hw = Math.max(d.w * 0.75, d.h * 0.32);
+      const hh = d.h * 0.56;
+      const pts = [];
+      for (let i = 0; i < cfg.sides; i++) {
+        const a = (i / cfg.sides) * Math.PI * 2 + Phaser.Math.FloatBetween(-0.2, 0.2);
+        const r = 1 + Phaser.Math.FloatBetween(-cfg.rough, cfg.rough);
+        // a squarish block (not round): push the points out toward the corners
+        const c = Math.cos(a), sn = Math.sin(a);
+        const sq = 1 / Math.max(Math.abs(c), Math.abs(sn));
+        pts.push(new Phaser.Math.Vector2(c * sq * hw * r * 0.92, sn * sq * hh * r * 0.92));
+      }
+      g.fillStyle(STATUS.frozen.fxColor, cfg.alpha);
+      g.fillPoints(pts, true);
+      g.lineStyle(2, cfg.edge, cfg.edgeAlpha);
+      g.strokePoints(pts, true);
+      // cracks and a shine
+      g.lineStyle(1, cfg.facets, 0.6);
+      for (let i = 0; i < 3; i++) {
+        const p = pts[Phaser.Math.Between(0, pts.length - 1)];
+        g.lineBetween(p.x * 0.9, p.y * 0.9, Phaser.Math.Between(-hw / 3, hw / 3), Phaser.Math.Between(-hh / 3, hh / 3));
+      }
+      g.fillStyle(0xffffff, 0.35);
+      g.fillTriangle(-hw * 0.6, -hh * 0.75, -hw * 0.35, -hh * 0.8, -hw * 0.7, -hh * 0.2);
+      s.overlay = g;
     }
-    s.overlay.setPosition(target.x, target.y);
+    s.overlay.setPosition(target.x, d.mid).setVisible(target.visible !== false);
+  }
+
+  // An effect drawn over a character ends: the ice cracks away (grows a
+  // little and fades) rather than vanishing.
+  shatter(img) {
+    if (!img.active) return;
+    this.scene.tweens.add({ targets: img, alpha: 0, scaleX: img.scaleX * 1.15, scaleY: img.scaleY * 1.08, duration: 220, onComplete: () => img.destroy() });
   }
 
   // A few grey nails stuck into the character, at random spots.
+  // Nails (the Nail Gun's nail art) driven into the body, tip first,
+  // from the side they came from. (No art: little grey bars.)
   makeNails(target, config) {
     const nails = [];
+    const d = drawn(target);
+    const key = projKey('nail');
+    const art = this.scene.textures.exists(key);
     for (let i = 0; i < config.nails; i++) {
-      const dx = Phaser.Math.Between(-target.width / 2, target.width / 2);
-      const dy = Phaser.Math.Between(-target.height / 2 + 4, target.height / 2 - 4);
-      const img = this.scene.add
-        .rectangle(target.x + dx, target.y + dy, 10, 3, config.nailColor)
-        .setStrokeStyle(1, 0x000000)
-        .setRotation(Phaser.Math.FloatBetween(-0.6, 0.6))
-        .setDepth(44);
+      const dx = Phaser.Math.Between(-d.w * 0.3, d.w * 0.3);
+      const dy = Phaser.Math.Between(d.top + d.h * 0.2, d.bottom - d.h * 0.25) - target.y;
+      let img;
+      if (art) {
+        const from = dx < 0 ? 1 : -1; // tip points into the body
+        img = this.scene.add.image(target.x + dx, target.y + dy, key).setOrigin(0.85, 0.5).setDepth(44);
+        img.setScale(config.nailSize / img.width).setFlipX(from < 0).setRotation(Phaser.Math.FloatBetween(-0.5, 0.5));
+        if (from < 0) img.setOrigin(0.15, 0.5);
+      } else {
+        img = this.scene.add
+          .rectangle(target.x + dx, target.y + dy, 10, 3, config.nailColor)
+          .setStrokeStyle(1, 0x000000)
+          .setRotation(Phaser.Math.FloatBetween(-0.6, 0.6))
+          .setDepth(44);
+      }
       nails.push({ img, dx, dy });
     }
     return nails;
@@ -250,8 +317,31 @@ export default class StatusSystem {
     });
   }
 
-  // A small flame that rises off a burning character.
+  // A flame (the flame-puff art) licking up off a burning character:
+  // turned so its tongues point up, rising and fading. (No art: a dot.)
   flame(target, color) {
+    const cfg = STATUS.burning;
+    const key = projKey(cfg.flameArt);
+    if (this.scene.textures.exists(key)) {
+      const d = drawn(target);
+      const f = this.scene.add
+        .image(target.x + Phaser.Math.Between(-d.w * 0.4, d.w * 0.4), Phaser.Math.Between(d.top + d.h * 0.15, d.bottom - d.h * 0.1), key)
+        .setRotation(Math.PI / 2 + Phaser.Math.FloatBetween(-0.35, 0.35))
+        .setFlipY(Math.random() < 0.5)
+        .setDepth(44);
+      f.setScale(Phaser.Math.Between(...cfg.flameSize) / f.width).setAlpha(cfg.flameAlpha);
+      if (FIRE_LOOK.glow) f.setBlendMode(Phaser.BlendModes.ADD); // glowing, no dark outline
+      this.scene.tweens.add({
+        targets: f,
+        y: f.y - Phaser.Math.Between(14, 28),
+        x: f.x + Phaser.Math.Between(-4, 4),
+        alpha: 0,
+        scale: f.scale * 0.45,
+        duration: Phaser.Math.Between(320, 460),
+        onComplete: () => f.destroy(),
+      });
+      return;
+    }
     const f = this.scene.add
       .circle(
         target.x + Phaser.Math.Between(-target.width / 2, target.width / 2),
@@ -273,6 +363,7 @@ export default class StatusSystem {
 
   // "burning" / "pinned" floats up once when it starts.
   label(target, type) {
+    if (STATUS[type].noLabel) return;
     const text = this.scene.add
       .text(target.x, target.y - 46, type, {
         fontFamily: 'monospace',

@@ -1,4 +1,6 @@
 import Phaser from 'phaser';
+import { fxKey, projKey } from '../systems/ShotFx.js';
+import { FIRE_LOOK } from '../data/effects.js';
 
 const FLAME_COLORS = [0xe5383b, 0xe5383b, 0xff9f1c, 0xffd166];
 
@@ -22,10 +24,25 @@ export default class FirePatch {
       x - fire.widthPx / 2, surfaceY - fire.heightPx, fire.widthPx, fire.heightPx
     );
 
-    // A dark scorch mark under the flames.
-    this.scorch = scene.add
-      .rectangle(x, surfaceY - 2, fire.widthPx, 5, 0x2b1d14, 0.8)
-      .setDepth(39);
+    // A soft burnt smudge on the ground under it (no hard line), fading
+    // a little after the fire's out.
+    scene.blastFx?.groundMark(x, surfaceY - 4, fire.widthPx, FIRE_LOOK.scorch.color, FIRE_LOOK.scorch.alpha, fire.durationMs + 2500);
+
+    // The fire itself: the fire-patch art along the ground, flickering
+    // (two copies, one flipped, swaying out of step).
+    this.sheets = [];
+    if (scene.textures.exists(fxKey('fire-patch'))) {
+      for (let i = 0; i < 2; i++) {
+        const img = scene.add.image(x + (i ? 6 : -6), surfaceY + 2, fxKey('fire-patch')).setOrigin(0.5, 1).setDepth(42 + i).setFlipX(i === 1);
+        img.setDisplaySize(fire.widthPx * (i ? 0.9 : 1.05), fire.heightPx * (i ? 0.95 : 1.15));
+        img.baseX = img.scaleX;
+        img.baseY = img.scaleY;
+        img.setAlpha(0);
+        if (FIRE_LOOK.glow) img.setBlendMode(Phaser.BlendModes.ADD); // no dark outline: glowing, formless
+        scene.tweens.add({ targets: img, alpha: FIRE_LOOK.patchAlpha[i], duration: 160 }); // see-through fire
+        this.sheets.push(img);
+      }
+    }
   }
 
   update() {
@@ -52,6 +69,11 @@ export default class FirePatch {
 
     // Flames licking up along the patch, thinning out near the end.
     const left = (this.endsAt - now) / this.fire.durationMs;
+    const fade = Math.min(1, left * 4); // the last quarter: dying down
+    this.sheets.forEach((img, i) => {
+      const t = now / (i ? 130 : 170) + i * 2;
+      img.setScale(img.baseX * (1 + Math.sin(t) * 0.04), img.baseY * fade * (0.9 + Math.sin(t * 1.7) * 0.1));
+    });
     if (now >= this.nextFxAt) {
       this.nextFxAt = now + 40;
       const count = left > 0.3 ? 3 : 1;
@@ -61,6 +83,16 @@ export default class FirePatch {
 
   flame() {
     const a = this.area;
+    // With the art: a few flame puffs rising off it (tongues up).
+    if (this.sheets.length) {
+      if (Math.random() < 0.6) return;
+      const f = this.scene.add.image(Phaser.Math.Between(a.left + 6, a.right - 6), a.bottom - Phaser.Math.Between(6, 16), projKey('flame-puff'))
+        .setRotation(Math.PI / 2 + Phaser.Math.FloatBetween(-0.3, 0.3)).setDepth(43);
+      f.setScale(Phaser.Math.Between(12, 20) / f.width).setAlpha(FIRE_LOOK.puffAlpha);
+      if (FIRE_LOOK.glow) f.setBlendMode(Phaser.BlendModes.ADD);
+      this.scene.tweens.add({ targets: f, y: f.y - Phaser.Math.Between(18, this.fire.heightPx), alpha: 0, scale: f.scale * 0.4, duration: Phaser.Math.Between(350, 550), onComplete: () => f.destroy() });
+      return;
+    }
     const f = this.scene.add
       .circle(
         Phaser.Math.Between(a.left + 4, a.right - 4),
@@ -82,6 +114,6 @@ export default class FirePatch {
 
   remove() {
     this.active = false;
-    this.scene.tweens.add({ targets: this.scorch, alpha: 0, duration: 800, onComplete: () => this.scorch.destroy() });
+    for (const img of this.sheets) this.scene.tweens.add({ targets: img, alpha: 0, duration: 300, onComplete: () => img.destroy() });
   }
 }

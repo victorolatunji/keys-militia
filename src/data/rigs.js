@@ -52,6 +52,8 @@ export const RIG = {
     upperB: 12, foreB: -58, // back arm reaches forward to steady the gun
     headFollow: 0.3,
   },
+  // Armor Vest worn over the torso (utility art), as shares of the torso art.
+  vest: { at: [0.52, 0.42], size: [1.12, 0.78], tint: 0x9aa5b8 }, // tint: a little darker, so it reads over the player's own blue top
   melee: {
     holdDeg: -55,           // a melee weapon is held up, ready to swing
     // A strike: the arm winds up over the head, then slashes down and forward.

@@ -871,8 +871,8 @@ export const THROWABLES = {
       growMs: 1200,       // billows out (no bang)
       fadeMs: 2000,       // thins away at the end
       puffs: 26,
-      color: 0xc9ced6,
-      alpha: 0.85,        // how thick it looks to everyone else
+      color: 0x5c636a,    // dark grey smoke...
+      alpha: 0.72,        // ...still a little see-through (how thick it looks to everyone else)
       ownerAlpha: 0.4,    // how thick it looks to whoever threw it
     },
   },
@@ -892,8 +892,8 @@ export const THROWABLES = {
       growMs: 1200,
       fadeMs: 1800,
       puffs: 22,
-      color: 0x8ac926,
-      alpha: 0.32,
+      color: 0x3fa34d,    // a toxic green
+      alpha: 0.4,
     },
     dps: 20,              // ~5s in the middle kills you from full HP (armor or not)
     tickMs: 500,
@@ -979,5 +979,5 @@ export const DEFAULT_LOADOUT = {
   // A random melee weapon from this list, new every time you spawn.
   // Melee weapons never drop and can't be picked up.
   melee: ['knife', 'machete', 'bat', 'spade', 'hammer', 'sword', 'axe'],
-  throwable: { key: 'grenade', count: 3 },
+  throwable: { key: 'molotov', count: 3 },
 };

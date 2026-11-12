@@ -459,7 +459,7 @@ export default class BotCombat {
   blast(bot, x, y, config, scale) {
     this.scene.sfx?.play(this.scene.hazards?.blastSound(x, y) ?? 'explosion', { x, y }); // muffled under water
     const style = config.kind === 'frag' ? 'frag' : config === bot.config.bomb ? 'bomb' : 'rocket';
-    this.scene.blastFx?.explosion(x, y, config.blastRadius, style);
+    this.scene.blastFx?.explosion(x, y, config.blastRadius, style, config.damage);
     this.weapons.chainReaction(x, y, config.blastRadius);
     if (this.player.alive && this.inBlast(x, y, config, this.player)) {
       this.player.lastAttacker = bot;

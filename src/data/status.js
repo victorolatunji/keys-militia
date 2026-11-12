@@ -16,6 +16,8 @@
 // Tacticals affect anyone in range they can reach, you included.
 export const STATUS = {
   burning: {
+    noLabel: true,      // no "burning" text: the flames on the body say it
+    flameArt: 'flame-puff', flameSize: [18, 28], flameEveryMs: 50, flameAlpha: 0.9, // flames licking up the body (projectiles art), a little see-through
     durationMs: 5000,   // a new hit restarts the timer
     dps: 6,             // damage per second while burning
     tickMs: 500,        // damage lands in small ticks
@@ -27,7 +29,8 @@ export const STATUS = {
     durationMs: 4000,
     textColor: '#c9c9c9',
     nailColor: 0xadb5bd,
-    nails: 3,           // nails drawn sticking out of a pinned character
+    nails: 3,           // nails stuck in a pinned character (the Nail Gun's nail art)
+    nailSize: 24,       // px long
   },
   bleeding: {
     durationMs: 5000,   // the axe falls out after this (a new axe restarts it)
@@ -65,6 +68,7 @@ export const STATUS = {
     attackScale: 1.3,
     textColor: '#4cc9f0',
     fxColor: 0x4cc9f0,  // sparks
+    arcArt: ['arc-1', 'arc-2'], arcSize: [34, 54], // lightning crackling over the body (effects art)
   },
   frozen: {
     durationMs: 4000,
@@ -72,5 +76,6 @@ export const STATUS = {
     attackScale: 1.8,
     textColor: '#a8dadc',
     fxColor: 0xa8dadc,  // ice over the body
+    ice: { alpha: 0.55, edge: 0xffffff, edgeAlpha: 0.85, facets: 0xffffff, sides: 9, rough: 0.16 }, // a rough block of ice around the body (drawn: jagged sides, cracks)
   },
 };

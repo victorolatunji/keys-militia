@@ -30,7 +30,7 @@ CHARACTERS = sys.argv[1:] or ['player', 'soldier']
 CHARACTER_HEIGHT = 230   # a character's assembled standing height in the packed art (px)
 WEAPON_SCALE = 0.17      # every gun, melee weapon and throwable
 # Shots and effects: packed a bit bigger than they're drawn (the game sizes them).
-GROUP_SCALE = {'projectiles': 0.25, 'effects': 0.5}
+GROUP_SCALE = {'projectiles': 0.25, 'effects': 0.5, 'drops': 0.2, 'utility': 0.2}
 # Heads whose art hangs below the neck (long hair): where the neck is, as a
 # fraction of the head art's height (default: the bottom). Keep in step with
 # OVERRIDES in src/data/rigs.js.
@@ -122,11 +122,11 @@ def main():
     if os.path.exists(MANIFEST):  # keep characters packed earlier
         text = open(MANIFEST).read()
         old = json.loads(text[text.index('{'):text.rindex('}') + 1])
-    manifest = {'characters': old.get('characters', {}), 'weapons': {}, 'melee': {}, 'throwables': {}, 'projectiles': {}, 'effects': {}}
+    manifest = {'characters': old.get('characters', {}), 'weapons': {}, 'melee': {}, 'throwables': {}, 'projectiles': {}, 'effects': {}, 'drops': {}, 'utility': {}}
     for c in CHARACTERS:
         manifest['characters'][c] = character(c)
         print('packed', c)
-    for group in ['weapons', 'melee', 'throwables', 'projectiles', 'effects']:
+    for group in ['weapons', 'melee', 'throwables', 'projectiles', 'effects', 'drops', 'utility']:
         manifest[group] = items(group)
         print('packed', group, len(manifest[group]))
     with open(MANIFEST, 'w') as f:

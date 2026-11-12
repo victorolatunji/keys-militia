@@ -2712,5 +2712,45 @@ export const SPRITES = {
    "w": 72,
    "h": 44
   }
+ },
+ "drops": {
+  "crate-airdrop": {
+   "w": 124,
+   "h": 153
+  },
+  "crate-landed": {
+   "w": 141,
+   "h": 109
+  },
+  "parachute": {
+   "w": 123,
+   "h": 123
+  }
+ },
+ "utility": {
+  "armorVest-worn": {
+   "w": 42,
+   "h": 63
+  },
+  "armorVest": {
+   "w": 65,
+   "h": 76
+  },
+  "healthPack": {
+   "w": 70,
+   "h": 71
+  },
+  "jetBoost": {
+   "w": 75,
+   "h": 79
+  },
+  "riotShield-held": {
+   "w": 56,
+   "h": 104
+  },
+  "riotShield": {
+   "w": 63,
+   "h": 101
+  }
  }
 };

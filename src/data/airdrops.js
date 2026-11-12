@@ -40,8 +40,9 @@ export const AIRDROPS = {
     color: 0x8d6e3f,
     strokeColor: 0x4a3720,
     highlightColor: 0xffd166, // outline of the crate your panel is showing
-    iconScale: 0.7,      // gun icons cycle on the crate's side (icons are 50 x 26 px)
+    iconScale: 0.55,     // gun icons cycle on the crate's front (icons are 50 x 26 px)
     iconCycleMs: 700,
+    art: { width: 52, chuteWidth: 80, iconY: 0.15 }, // with art: drawn this wide (px); iconY: icon below the middle (share of height)
   },
   chute: {
     radius: 34,          // canopy half-width
@@ -71,6 +72,9 @@ export const DEATH_DROPS = {
   maxOnMap: 6,           // oldest drop disappears past this
 
   // Look: the item's icon on a small dark tag (also used by supply drops)
+  // With art: the item itself (its sprite) this many px across, a soft glow
+  // behind it (pulsing) and its name under it once it's landed.
+  art: { size: 30, glow: 46, glowAlpha: [0.35, 0.6], pulseMs: 700, tagSize: '10px' },
   look: {
     iconScale: 0.6,      // icons are 50 x 26 px; drops show them smaller
     width: 34,

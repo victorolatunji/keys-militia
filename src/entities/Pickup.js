@@ -1,6 +1,8 @@
 import Phaser from 'phaser';
 import { DEATH_DROPS } from '../data/airdrops.js';
 import { iconKey } from '../ui/Icons.js';
+import { itemArtKey, itemName, itemGlow } from '../ui/ItemArt.js';
+import Cloud from './Cloud.js';
 
 // An item lying loose on the map: a death drop (pops out when someone dies)
 // or a supply drop (falls from the sky, spinning). Shows the item's icon on a
@@ -16,13 +18,20 @@ export default class Pickup extends Phaser.GameObjects.Rectangle {
     scene.physics.add.existing(this);
 
     this.icon = scene.add.image(x, y, iconKey(item)).setScale(look.iconScale);
-    this.item = item;          // { type, key, count?, ammo? } (setter: updates the icon)
+    // With art: no tag box, the item's own sprite with a soft glow behind
+    // it and its name under it.
+    const A = DEATH_DROPS.art;
+    this.glow = scene.add.image(x, y, Cloud.puffTexture(scene)).setBlendMode(Phaser.BlendModes.ADD).setDepth(10).setScale(A.glow / 128).setVisible(false);
+    this.icon.setDepth(11); // items lie under the characters (12), over the ground
+    this.tag = scene.add.text(x, y, '', { fontFamily: 'monospace', fontSize: A.tagSize, color: '#ffffff', stroke: '#000000', strokeThickness: 3 }).setOrigin(0.5, 1).setDepth(11).setVisible(false);
+    this.item = item;          // { type, key, count?, ammo? } (setter: updates the picture)
     this.worldHeight = worldHeight;
     this.expiresAt = scene.time.now + (options.lifetimeMs ?? DEATH_DROPS.lifetimeMs);
     this.spin = options.spin ?? 0;
     this.landed = false;
 
     this.setStrokeStyle(2, look.strokeColor);
+    if (this.hasArt) this.isStroked = false;
     this.body.setBounce(0.3);
     this.body.setCollideWorldBounds(true); // walls and top; no floor (the void)
     if (options.maxFallSpeed) this.body.setMaxVelocityY(options.maxFallSpeed);
@@ -44,7 +53,31 @@ export default class Pickup extends Phaser.GameObjects.Rectangle {
 
   set item(item) {
     this._item = item;
-    this.icon.setTexture(iconKey(item));
+    const art = itemArtKey(this.scene, item);
+    this.hasArt = Boolean(art);
+    if (art) {
+      this.icon.setTexture(art);
+      this.icon.setScale(DEATH_DROPS.art.size / Math.max(this.icon.width, this.icon.height));
+      this.setFillStyle(0, 0);
+      this.isStroked = false;
+      this.glow.setTint(itemGlow(item)).setVisible(true);
+      this.tag.setText(itemName(item));
+    } else {
+      this.icon.setTexture(iconKey(item)).setScale(DEATH_DROPS.look.iconScale);
+    }
+  }
+
+  // The pickup panel is about this one: it lights up (art), or gets an
+  // outline (placeholder box).
+  setHighlight(on, color) {
+    this.highlighted = on;
+    if (!this.hasArt) {
+      this.setStrokeStyle(2, on ? color : DEATH_DROPS.look.strokeColor);
+      return;
+    }
+    if (on) this.icon.setTint(0xffffff, 0xffffff, 0xfff3b0, 0xfff3b0);
+    else this.icon.clearTint();
+    this.tag.setColor(on ? '#ffd166' : '#ffffff');
   }
 
   // Resting on the ground: the pickup panel only shows for settled items.
@@ -86,9 +119,21 @@ export default class Pickup extends Phaser.GameObjects.Rectangle {
     this.icon.setPosition(this.x, this.y);
     this.icon.setRotation(this.rotation);
     this.icon.setAlpha(this.alpha);
+    if (!this.hasArt) return;
+    const A = DEATH_DROPS.art;
+    const t = (Math.sin(this.scene.time.now / A.pulseMs * Math.PI) + 1) / 2;
+    const [lo, hi] = A.glowAlpha;
+    this.glow.setPosition(this.x, this.y).setAlpha((lo + (hi - lo) * t) * (this.highlighted ? 1.4 : 1) * this.alpha);
+    // sitting on the ground (its bottom on the box's bottom), name above it
+    const lift = this.landed ? this.height / 2 - this.icon.displayHeight / 2 : 0;
+    this.icon.y += lift;
+    this.glow.y += lift;
+    this.tag.setPosition(this.x, this.icon.y - this.icon.displayHeight / 2 - 2).setVisible(this.landed).setAlpha(this.alpha);
   }
 
   remove() {
+    this.glow.destroy();
+    this.tag.destroy();
     this.icon.destroy();
     this.collider.destroy();
     this.destroy();

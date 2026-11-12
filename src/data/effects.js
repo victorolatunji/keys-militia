@@ -122,7 +122,7 @@ export const CLOUD_TINTS = {
 // fill: inside of the shape (fillAlpha: how see-through), edge: the outline,
 // flicker: how much it shimmers, scanlines: night-vision lines across it.
 export const CLOUD_VISION = {
-  smoke: { fill: 0x1b5e20, fillAlpha: 0.45, edge: 0x9dff8a, edgeWidth: 2, flicker: 0.15, scanlines: true },
+  smoke: { fill: 0x1b5e20, fillAlpha: 0.45, edge: 0x9dff8a, edgeWidth: 2, flicker: 0.15, scanlines: true }, // (box: only characters without art; the drawn ones just show over the cloud, tinted)
   gas: { fill: 0x7a2e00, fillAlpha: 0.4, edge: 0xffb703, edgeWidth: 2, flicker: 0.2, scanlines: false },
 };
 
@@ -157,6 +157,33 @@ export const BLAST_FX = {
     debrisColors: [0x495057, 0xadb5bd, 0xb08968],
     scorchMs: 10000, shake: 0.01, shakeMs: 260,
   },
+};
+
+// Fire from a molotov and the flamethrower: see-through, not a solid wall.
+// patchAlpha: the two flickering fire-patch sheets; puffAlpha: the flame
+// puffs (rising off the patch, and the flamethrower's spray); scorch: the
+// soft burnt smudge left on the ground under a patch.
+// glow: drawn additively (light added on top), so the art's dark outline
+// disappears and the fire looks formless and glowing.
+export const FIRE_LOOK = {
+  glow: true,
+  patchAlpha: [0.85, 0.6],
+  puffAlpha: 0.8,
+  scorch: { color: 0x1b1410, alpha: 0.55 },
+};
+
+// The bang at the heart of every explosion (BlastFx.bang): a jagged
+// starburst of light and hot rays, no circles. Everything about a blast
+// grows with its damage: power = sqrt(damage / 100), kept within power
+// (a War Machine bomb, 55, is smaller; an SMRS rocket, 130, bigger).
+export const BANG = {
+  power: [0.75, 1.5],
+  outer: 0.75,          // starburst size, times the blast radius
+  inner: 0.38,          // its inner points, times its size (lower = spikier)
+  points: [9, 13],
+  rays: 9,
+  ms: 170,
+  colors: [0xffd166, 0xfff3c4],
 };
 
 // Blasts reach round corners and through thin walls, weaker: damage and push

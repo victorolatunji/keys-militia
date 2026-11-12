@@ -410,7 +410,9 @@ export default class Player extends Phaser.GameObjects.Rectangle {
 
     // Riot Shield: held on the side you face.
     if (this.shield) {
-      this.shield.sprite.setPosition(this.x + this.facing * this.shield.config.offsetX, this.y);
+      const c = this.shield.config;
+      this.shield.sprite.setPosition(this.x + this.facing * c.offsetX, this.y + (this.shield.sprite.isArt ? c.art.y : 0));
+      if (this.shield.sprite.isArt) this.shield.sprite.setFlipX(this.facing < 0).setAlpha(this.rig?.root.alpha ?? 1);
     }
 
     // Drawn from its body parts (art pass): the rig does the rest.
@@ -450,10 +452,19 @@ export default class Player extends Phaser.GameObjects.Rectangle {
   // hp: what's left of it (a shield you dropped keeps its wear).
   equipShield(config, hp = config.hp) {
     this.dropShield();
-    const sprite = this.scene.add
-      .rectangle(this.x, this.y, config.width, config.height, config.color)
-      .setStrokeStyle(2, config.rimColor)
-      .setDepth(5);
+    // The held shield art in front of you (placeholder: a slab).
+    const art = 'spr-util-riotShield-held';
+    let sprite;
+    if (this.scene.textures.exists(art)) {
+      sprite = this.scene.add.image(this.x, this.y, art).setDepth(13); // in front of you
+      sprite.setScale(config.art.height / sprite.height);
+      sprite.isArt = true;
+    } else {
+      sprite = this.scene.add
+        .rectangle(this.x, this.y, config.width, config.height, config.color)
+        .setStrokeStyle(2, config.rimColor)
+        .setDepth(5);
+    }
     this.shield = { config, hp, sprite };
     this.absorb(0); // rim colour for its wear
   }
@@ -468,7 +479,12 @@ export default class Player extends Phaser.GameObjects.Rectangle {
     const s = this.shield;
     s.hp -= amount;
     const worn = 1 - Math.max(0, s.hp) / s.config.hp;
-    s.sprite.setStrokeStyle(2, worn > 0.6 ? s.config.damagedColor : s.config.rimColor);
+    if (s.sprite.isArt) {
+      if (worn > 0.6) s.sprite.setTint(s.config.damagedColor); // badly worn: reddened
+      else s.sprite.clearTint();
+    } else {
+      s.sprite.setStrokeStyle(2, worn > 0.6 ? s.config.damagedColor : s.config.rimColor);
+    }
     if (s.hp <= 0) {
       this.dropShield();
       this.emit('shieldBroke');
