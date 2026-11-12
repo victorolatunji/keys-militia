@@ -321,7 +321,7 @@ export default class StatusSystem {
   // turned so its tongues point up, rising and fading. (No art: a dot.)
   flame(target, color) {
     const cfg = STATUS.burning;
-    const key = projKey(cfg.flameArt);
+    const key = cfg.flameArt && projKey(cfg.flameArt);
     if (this.scene.textures.exists(key)) {
       const d = drawn(target);
       const f = this.scene.add
@@ -342,15 +342,13 @@ export default class StatusSystem {
       });
       return;
     }
-    const f = this.scene.add
-      .circle(
-        target.x + Phaser.Math.Between(-target.width / 2, target.width / 2),
-        target.y + Phaser.Math.Between(-target.height / 3, target.height / 3),
-        Phaser.Math.Between(3, 6),
-        color,
-        0.9
-      )
-      .setDepth(44);
+    // The drawn flames (as before the art): small red and orange tongues
+    // rising off the body and fading (pointed, not dots).
+    const x = target.x + Phaser.Math.Between(-target.width / 2, target.width / 2);
+    const y = target.y + Phaser.Math.Between(-target.height / 3, target.height / 3);
+    const w = Phaser.Math.Between(3, 6);
+    const f = this.scene.add.triangle(x, y, 0, w * 2.6, w, 0, w * 2, w * 2.6, color, 0.9).setDepth(44);
+    if (FIRE_LOOK.glow) f.setBlendMode(Phaser.BlendModes.ADD);
     this.scene.tweens.add({
       targets: f,
       y: f.y - Phaser.Math.Between(14, 28),

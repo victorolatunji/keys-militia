@@ -18,6 +18,38 @@ Every bug found in playtests or testing, with what caused it and how it was fixe
 
 ## Log
 
+### B-028: Coming back from another tab skipped things
+- **Found:** 2026-11-12 · 0.32 · playtest
+- **Where:** every mode, the countdown and the match clock
+- **What happened:** after switching browser tabs and coming back, the countdown could end at once (straight into the slow drop-in) and timers in the match jumped ahead.
+- **Cause:** the browser stops the game in a hidden tab, and when you're back the game clock jumps ahead by the time you were away; the countdown and match timers read that clock.
+- **Fix:** leaving the tab mid-match opens the pause box (Training just waits); the countdown counts the real time between frames (`IntroScene.countdown`); the match and drop timers are pushed back by the paused time as with Esc (`GameScene`). The drop-in only runs at FIGHT.
+- **Status:** fixed in 0.33
+
+### B-027: The ending's slow motion looked glitchy
+- **Found:** 2026-11-12 · 0.32 · playtest (Duo with a Mutant)
+- **Where:** the ending beat, every mode
+- **What happened:** in the slow motion before the results, bodies moved slowly but legs, flames, blood and effects ran at full speed.
+- **Cause:** only the physics was slowed; every animation still got the real frame time.
+- **Fix:** during the ending, the frame time handed to everything is slowed too, and tweens run slowed (`GameScene.update`, `endSequence`); reset when a new match starts.
+- **Status:** fixed in 0.33
+
+### B-026: Walker partners jumped and flew at the same time
+- **Found:** 2026-11-12 · 0.32 · playtest (Duo with a Mutant)
+- **Where:** Duo, Mutant / Zombie / Skeleton partners
+- **What happened:** the partner looked like it was jumping and flying at once, lagged behind and kept hopping.
+- **Cause:** partners got a jetpack but kept the walker's slow speeds (Mutant 35%), so it fell behind and teleported along your path; it only "thrusted" when rising, so level flight used the falling pose. Over a drop it hovered forever when you stood on ground.
+- **Fix:** partners use your speeds whoever they are; flying uses the flying pose unless it's dropping fast; over a drop it comes to you (`PartnerSystem`).
+- **Status:** fixed in 0.33
+
+### B-025: START / Enter on the intro (and READY) sometimes didn't answer
+- **Found:** 2026-11-12 · 0.32 · playtest (npm run dev)
+- **Where:** mode intro, lobby
+- **What happened:** from the second match on, Enter / START on the mode intro did nothing.
+- **Cause:** Phaser reuses the same scene object each time; the intro's "already started" flag from the last match was never reset (the lobby's open Info / Arsenal flags likewise).
+- **Fix:** reset at the top of `create()` in `IntroScene` and `LobbyScene`.
+- **Status:** fixed in 0.33
+
 ### B-024: Frozen characters behind the countdown, no boot flames on machines
 - **Found:** 2026-11-12 · 0.31.2 · playtest
 - **Where:** match start; Android, Robot and Scrap Bot flying

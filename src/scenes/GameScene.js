@@ -89,6 +89,8 @@ export default class GameScene extends Phaser.Scene {
     // Training's camp is only for Training.
     if (this.map.trainingOnly && !this.mode.training) this.map = MAPS[MAP_SELECT.default];
     this.matchOver = false;
+    this.ending = false;
+    this.pausedAt = null;
     this.partnerKey = data.partnerKey !== undefined ? data.partnerKey : (this.partnerKey ?? null);
     // Who you play (the lobby's pick, a sprite folder): you're tagged ROOKIE whoever it is.
     this.characterKey = data.characterKey ?? this.characterKey ?? 'player';
@@ -101,6 +103,7 @@ export default class GameScene extends Phaser.Scene {
   }
 
   create() {
+    this.tweens.timeScale = 1; // (a previous match may have ended in slow motion)
     this.cameras.main.setBackgroundColor(this.map.background);
 
     const { width, height, spawn, dummySpawns, botSpawns } = this.buildTilemap();
@@ -269,6 +272,32 @@ export default class GameScene extends Phaser.Scene {
       this.scene.launch('Intro', { kind: 'pause', modeKey: this.mode.key });
       this.scene.pause();
     });
+    // Switching to another browser tab mid-match: the match pauses (the
+    // Esc box, so you choose when it goes on). The browser stops the game
+    // while you're away and its clock jumps ahead when you're back, which
+    // used to skip timers and end moves early (B-028). Training just waits.
+    const onHidden = () => {
+      if (!this.scene.isActive() || this.matchOver || !this.started) return; // already paused (intro, Esc) or over
+      if (this.training) {
+        this.hiddenPause = true;
+        this.scene.pause();
+        return;
+      }
+      this.scene.launch('Intro', { kind: 'pause', modeKey: this.mode.key });
+      this.scene.pause();
+    };
+    const onVisible = () => {
+      if (!this.hiddenPause) return;
+      this.hiddenPause = false;
+      this.scene.resume();
+    };
+    this.hiddenPause = false;
+    this.game.events.on('hidden', onHidden);
+    this.game.events.on('visible', onVisible);
+    this.events.once('shutdown', () => {
+      this.game.events.off('hidden', onHidden);
+      this.game.events.off('visible', onVisible);
+    });
   }
 
   // The match begins (after the countdown): the starting enemies drop in
@@ -316,14 +345,16 @@ export default class GameScene extends Phaser.Scene {
     this.ending = true;
     this.message?.setVisible(false);
     this.physics.world.timeScale = ENDING.slowMo; // >1 = slower
+    this.tweens.timeScale = 1 / ENDING.slowMo; // (blood, sparks, flashes too)
     const banner = this.add
       .text(640, 250, title, { fontFamily: 'monospace', fontSize: '72px', fontStyle: 'bold', color, stroke: '#131112', strokeThickness: 10 })
       .setOrigin(0.5).setScrollFactor(0).setDepth(140).setScale(0.6).setAlpha(0);
-    this.tweens.add({ targets: banner, scale: 1, alpha: 1, duration: 320, ease: 'Back.easeOut' });
+    this.tweens.add({ targets: banner, scale: 1, alpha: 1, duration: 320 / ENDING.slowMo, ease: 'Back.easeOut' }); // (tweens are slowed: this one pops at full speed)
     this.cameras.main.flash(180, 255, 255, 255, false);
     this.time.delayedCall(ENDING.ms, () => {
       this.ending = false;
       this.physics.world.timeScale = 1;
+      this.tweens.timeScale = 1;
       this.physics.world.pause();
       this.tweens.add({ targets: banner, alpha: 0, duration: 200, onComplete: () => banner.destroy() });
       then();
@@ -645,7 +676,11 @@ export default class GameScene extends Phaser.Scene {
     });
   }
 
-  update(time, delta) {
+  update(time, realDelta) {
+    // The ending beat's slow motion: physics, tweens and every animation
+    // (rigs, effects, flames) run slowed together, so nothing moves at full
+    // speed on a slowed body (B-027).
+    const delta = this.ending ? realDelta / ENDING.slowMo : realDelta;
     this.match?.update();
     this.training?.update(delta);
     if (this.matchOver && !this.ending) return; // the result is up: everything stops (during the ending beat it plays on, slowed)

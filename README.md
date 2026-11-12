@@ -1,10 +1,10 @@
 # Keys Militia
 *A VAO game. Living plan book: update it whenever the plan changes.*
 
-**Version:** 0.32
+**Version:** 0.33
 **Owner:** Victor Olatunji / VAO
 **Budget:** $0, free tools and free assets only
-**Status:** Phase 9 (Menus) in progress: main menu, mode picker, lobby, mode intro and countdown done; the Earth Respond #0 comic next.
+**Status:** Phase 9 (Menus) nearly done: main menu, mode picker, lobby, Arsenal, mode intro and countdown, comic. Left: Settings (later). Phase 9.5 (art) mostly done.
 **Live build:** https://victorolatunji.github.io/keys-militia/
 
 ---
@@ -395,7 +395,7 @@ Stats live in `src/data/weapons.js` (guns, specials, throwables), `src/data/item
 
 **Map look (0.32, `src/systems/TerrainArt.js`, `src/data/terrainLook.js`):** the ground is drawn the readable 2D way, closer to Mini Militia: the square tiles become soft organic shapes (a small mask of the tiles is blurred and cut again, so every corner rounds), one ground colour per map with stones and patches in it, a rim of small stones with ink outlines along every edge, the map's own surface on the tops (grass, dry grass, snow caps, sand, volcanic crust with embers, moss, rubble, moon dust) and the caves as dark, rounded back walls, which is how you read where you can pass through. **It's only a picture over the tiles:** the tiles stay underneath (hidden) for collisions, so spawn points, hazards, bots and drops behave exactly as before (checked: the three spawns on all 10 maps land the same, soak test clean). Tiles that change in a match (thin ice, crumbling rock, planks, gates) stay as tiles. Made once when a map loads (well under a second), in 1024 px chunks, skipping empty ones.
 
-**Title screen** (`src/scenes/BootScene.js`, `TITLE` in `src/data/menu.js`, 0.31, art in 0.32): three ChatGPT scenes (the in-game fight, the cast assembled, the cast on the glacier) swap with a cross-fade every 1.3s while the game loads (the bar takes at least 4.2s, so 2 to 4 swaps), then every 4s until you press Enter. The logo is the ChatGPT logo. Menu colours follow the ChatGPT style sheet (`src/data/theme.js`: bunker ink, gunmetal, dusk slate, ash, bone, olive, ember, rust); the fonts it recommends (Black Ops One, IBM Plex Mono) wait for your go-ahead to add.
+**Title screen** (`src/scenes/BootScene.js`, `TITLE` in `src/data/menu.js`, 0.31, art in 0.32): two ChatGPT scenes (the in-game fight and the cast assembled on the glacier; the first assembly scene was dropped in 0.33) swap with a cross-fade every 1.3s while the game loads (the bar takes at least 4.2s, so 2 to 4 swaps), then every 4s until you press Enter. The logo is the ChatGPT logo. Menu colours follow the ChatGPT style sheet (`src/data/theme.js`: bunker ink, gunmetal, dusk slate, ash, bone, olive, ember, rust); the fonts it recommends (Black Ops One, IBM Plex Mono) wait for your go-ahead to add.
 
 **Title screen, first version** (0.31): the first thing you see is an action scene (jetpacks, an airdrop, a fight) under the KEYS MILITIA logo, with a progress bar while the game really loads. Then PRESS ENTER (or a click) opens the main menu, which has its own, different backdrop. Both pictures are in-game shots for now (`public/assets/menu/title.jpg`, `menu-bg.jpg`), replaced by the ChatGPT scenes `title-scene.jpg` and `menu-backdrop.jpg`. A testing address skips the title.
 
@@ -409,7 +409,11 @@ Stats live in `src/data/weapons.js` (guns, specials, throwables), `src/data/item
 
 **Before every match** (`src/scenes/IntroScene.js`): the mode's intro pop-up (goal, the keys that matter there, START; "don't show this again" with D), then an 11 ... 0 countdown in a small ring timer (tech teal, amber for the last 3; `INTRO.ring`), then FIGHT. The match is paused until then, and its clock and the airdrop timers don't run while paused. Esc in a match: leave for the main menu, or keep playing.
 
-**The ending beat** (0.31.1, `GameScene.endSequence`): every mode and Training end the same way: a big banner (VICTORY, DEFEAT, DRAW, GAME OVER, or WELL DONE, ROOKIE), the world in slow motion for 2.4s while nobody can be hurt or score, then the result screen.
+**The ending beat** (0.31.1, `GameScene.endSequence`): every mode and Training end the same way: a big banner (VICTORY, DEFEAT, DRAW, GAME OVER, or WELL DONE, ROOKIE), the world in slow motion for 2.4s while nobody can be hurt or score, then the result screen. Since 0.33 everything slows together (physics, animations, effects, tweens), not just the bodies.
+
+**Pausing and other tabs** (0.33): the slow drop-in happens once, at FIGHT. Esc pauses (MAIN MENU / KEEP PLAYING) and the match goes on exactly where it was. Switching to another browser tab mid-match opens the same pause box (Training just waits), and the countdown counts real frames, so coming back never skips it or jumps the match clock.
+
+**HUD head** (0.33): your character's head sits in a small frame left of the HP and FUEL bars.
 
 **A match starts fresh** (0.31, 0.31.3): during the intro and the countdown you and your partner aren't on the map yet; at FIGHT you both come down slowly on your jetpacks (`DROP_IN`), side by side. the field is empty during the intro and the countdown. After FIGHT, the starting enemies drop in one by one (the first 1.2s after FIGHT, then one every 0.9s). **Military and other jetpack enemies drop in from the sky like you**, over the top level, in a third of the map away from you (enclosed maps like Catacombs use their spawn points). Walkers still come along your floor.
 
@@ -682,7 +686,7 @@ keys-militia/
 - [ ] Status effect strengths and durations, armor shares and flashbang strength (starting values in `status.js`, `items.js`, `weapons.js`)
 - [ ] Effects and sound tuning: gore amounts, blast looks, hit-stop length (70ms), shake, volumes, reverb and echo (starting values in `effects.js`, `sounds.js`)
 - [ ] Ammo per weapon (starting rule: shots = 600 / damage), burst sizes and bullet speeds, launcher blast and self-damage (starting 0.5)
-- [ ] Enemy tuning per character: HP, speed, aim, typing speed, damage share (starting values in `enemies.js`). Difficulty (Phase 9) will scale damage, aim and attack turns
+- [ ] Enemy tuning per character: HP, speed, aim, typing speed, damage share (starting values in `enemies.js`). No difficulty setting (decided 0.33): each mode has its own difficulty already
 - [ ] Bot routes on the new maps: bots now try another way when they can't get closer; real routing through tunnels and shafts if they still get stuck
 - [ ] Mouse movement details
 - [ ] Slow-fall speed while typing (starting value 60 px/s in `player.js`)
@@ -694,6 +698,7 @@ keys-militia/
 ## 18. Changelog
 
 Bugs found and how they were fixed are logged in [BUGS.md](BUGS.md) (newest first). Every new bug gets an entry there.
+- **0.33:** Bug pass. START / Enter on a mode intro works every time (it stopped answering after the first match: B-025). A walker Duo partner (Mutant, Zombie, Skeleton) moves like any partner: your speeds, the flying pose when it flies, no hopping, and it comes to you instead of hovering over a drop (B-026). The ending's slow motion slows everything together (B-027). Switching browser tabs pauses the match and no longer skips the countdown or jumps the clock; the drop-in only happens at FIGHT (B-028). Your character's head on the HUD. Burning characters get the small drawn flames again (no flame art on the body); the EMP's lightning stays. The title screen swaps two scenes (the fight and the glacier assembly). No difficulty setting: each mode has its own.
 - **0.32:** Map look: organic ground instead of squares, stone rims along every edge, grass / snow / sand / crust on the tops, rounded dark cave walls, one colour per map (only a picture over the unchanged tiles: spawns, collisions and hazards as before). The ChatGPT art goes in: three title scenes swapping while the game loads, the logo, the menu backdrop, the lobby armoury and the 16 front-view lobby poses, the mode banners, and the Earth Respond #0 comic with its own viewer (COMIC on the menu). Lobby ARSENAL (A): every weapon and throwable racked by family with its details. Menu colours from the ChatGPT style sheet. Map previews retaken with the new look.
 - **0.31.3:** No more frozen characters behind the countdown: you and your partner stay out of sight during the intro and the countdown, then at FIGHT you come down slowly on your jetpacks, side by side on the same ground (your partner follows your path from where you land). Machines without a jetpack (Android, Robot, Scrap Bot) show a real thruster flame under each boot, pointing down and bright, whenever they fly. Fix B-024.
 - **0.31.2:** Training is always Victor, the hero (it was using your last lobby pick, so an Alien could be the Rookie). Fix B-023.

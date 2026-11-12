@@ -17,7 +17,10 @@
 export const STATUS = {
   burning: {
     noLabel: true,      // no "burning" text: the flames on the body say it
-    flameArt: 'flame-puff', flameSize: [18, 28], flameEveryMs: 50, flameAlpha: 0.9, // flames licking up the body (projectiles art), a little see-through
+    // Burning characters get the small drawn flames again (0.33: the
+    // flame-puff art on the body is gone). Set flameArt: 'flame-puff' to
+    // bring the art back. The EMP's lightning on the body (shocked) stays art.
+    flameArt: null, flameSize: [18, 28], flameEveryMs: 70, flameAlpha: 0.9,
     durationMs: 5000,   // a new hit restarts the timer
     dps: 6,             // damage per second while burning
     tickMs: 500,        // damage lands in small ticks

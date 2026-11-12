@@ -39,7 +39,10 @@ export default class PartnerSystem {
     const rifles = Object.keys(WEAPONS).filter((k) => WEAPONS[k].category === 'assault' && SPRITES.weapons[k]);
     this.rifle = Phaser.Utils.Array.GetRandom(rifles.length ? rifles : ['ak47']);
     const loadout = { ...base.loadout, guns: [this.rifle, null] };
-    this.config = { ...base, name: base.name, loadout, movement: 'jetpack', rush: null, hp: Math.round(base.hp * PARTNER.hpScale), smart: false, dropsGear: false };
+    // It moves like you whoever it is: a slow walker (Mutant, Zombie) gets
+    // your speeds and a jetpack too, so it keeps up instead of lagging,
+    // hopping and teleporting along your path (B-026).
+    this.config = { ...base, name: base.name, loadout, movement: 'jetpack', rush: null, speedScale: 1, airScale: 1, jetScale: 1, jetpack: true, hp: Math.round(base.hp * PARTNER.hpScale), smart: false, dropsGear: false };
     const p = scene.player;
     // (its BotBrain never runs: PartnerSystem moves it along your path)
     const bot = new Bot(scene, p.x - 60, p.y - 20, this.config, scene.groundLayer, () => null, 'partner');
@@ -219,7 +222,9 @@ export default class PartnerSystem {
       const d = Math.max(1, Math.hypot(dx, dy));
       body.setAllowGravity(false);
       body.setVelocity(ease(body.velocity.x, (dx / d) * speed), ease(body.velocity.y, (dy / d) * speed));
-      bot.thrusting = dy < -4; // your partner always has its jetpack (or boots) on
+      // Your partner always has its jetpack on: it thrusts (flying pose)
+      // unless it's dropping fast, so it never flies in a falling pose.
+      bot.thrusting = dy < (d * 0.7);
     }
     this.checkStuck(now, target);
   }
@@ -262,8 +267,18 @@ export default class PartnerSystem {
     const overVoid = this.scene.map.void && groundBelow(this.scene.groundLayer, bot.x, bot.body.bottom + 1) === null;
     if (!bot.onGround && (!p.alive || !p.onGround || overVoid)) {
       body.setAllowGravity(false);
-      body.setVelocity(body.velocity.x * 0.85, body.velocity.y * 0.85);
-      bot.thrusting = bot.movement === 'jetpack';
+      if (overVoid && p.alive && p.onGround) {
+        // Hovering over a drop while you stand on ground: come over to you
+        // (behind you) instead of hanging in the air forever.
+        const tx = p.x - (p.facing ?? 1) * PARTNER.behindPx;
+        const ty = p.y - 30;
+        const ddx = tx - bot.x;
+        const ddy = ty - bot.y;
+        const dd = Math.max(1, Math.hypot(ddx, ddy));
+        const v = Math.min(bot.stats.airSpeed, dd * 3);
+        body.setVelocity((ddx / dd) * v, (ddy / dd) * v);
+      } else body.setVelocity(body.velocity.x * 0.85, body.velocity.y * 0.85);
+      bot.thrusting = true;
       return;
     }
     body.setAllowGravity(true);

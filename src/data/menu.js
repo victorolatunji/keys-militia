@@ -25,7 +25,7 @@ export const TITLE = {
   // The title scenes (ChatGPT art): the in-game fight and the cast
   // assembled. They swap with a cross-fade every switchMs while the game
   // loads (2 to 4 times), then keep swapping slowly until you press Enter.
-  scenes: ['assets/menu/title/action.jpg', 'assets/menu/title/assembly.jpg', 'assets/menu/title/assembly-glacier.jpg'],
+  scenes: ['assets/menu/title/action.jpg', 'assets/menu/title/assembly-glacier.jpg'],
   switchMs: 1300, slowSwitchMs: 4000, fadeMs: 500,
   logo: 'assets/menu/logo.png',
   darken: 0.18,

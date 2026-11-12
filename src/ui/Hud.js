@@ -4,6 +4,7 @@ import { WEAPON_CATEGORIES } from '../data/weapons.js';
 import { iconKey } from './Icons.js';
 import { gunKey, meleeKey, throwKey } from '../entities/CharacterRig.js';
 import { ITEMS } from '../data/items.js';
+import { headIcon } from './ItemArt.js';
 
 const BAR_WIDTH = 200;
 const BAR_HEIGHT = 12;
@@ -17,10 +18,13 @@ const PLATE = 0x0b0d12;
 const EDGE = 0x35363d;
 const GOLD = 0xffd166;
 // The weapon panel, top right: one row per slot with the gun's own art.
+// Your head, left of the bars (as tall as the plate).
+const HEAD = { size: 50, gap: 4 };
 const PANEL = { right: 1264, top: 12, width: 292, row: 34, art: { w: 74, h: 24 } };
 
 // On-screen UI pinned to the camera (scroll factor 0).
-//   Top left: HP, FUEL and (with a vest) ARMOR bars on a dark plate.
+//   Top left: your character's head, then HP, FUEL and (with a vest) ARMOR
+//   bars on a dark plate.
 //   Top right: your guns (slot 1, slot 2, melee) drawn from their own art
 //   with ammo, a line about the one in hand, your two throwables and the
 //   Riot Shield when you carry one.
@@ -29,11 +33,17 @@ export default class Hud {
   constructor(scene) {
     this.scene = scene;
     const fix = (o) => o.setScrollFactor(0).setDepth(100);
-    this.vitalsPlate = fix(scene.add.rectangle(8, 8, 300, 50, PLATE, 0.72).setOrigin(0).setStrokeStyle(2, EDGE));
-    this.hpBar = this.makeBar(scene, 16, 16, 'HP', HP_COLOR);
-    this.fuelBar = this.makeBar(scene, 16, 36, 'FUEL', FUEL_COLOR);
+    // Your character's head in a small frame (the lobby's pick), then the bars.
+    const H = HEAD.size;
+    this.headFrame = fix(scene.add.rectangle(8, 8, H, H, PLATE, 0.72).setOrigin(0).setStrokeStyle(2, EDGE));
+    this.head = headIcon(scene, scene.player?.rig?.folder ?? scene.characterKey, 8 + H / 2, 8 + H / 2, H - 10);
+    if (this.head) fix(this.head).setDepth(101);
+    const bx = 8 + H + HEAD.gap; // the bars' plate starts here
+    this.vitalsPlate = fix(scene.add.rectangle(bx, 8, 300, 50, PLATE, 0.72).setOrigin(0).setStrokeStyle(2, EDGE));
+    this.hpBar = this.makeBar(scene, bx + 8, 16, 'HP', HP_COLOR);
+    this.fuelBar = this.makeBar(scene, bx + 8, 36, 'FUEL', FUEL_COLOR);
     // Armor Vest points, below (only while you wear one).
-    this.armorBar = this.makeBar(scene, 16, 56, 'ARMOR', ITEMS.armorVest.barColor);
+    this.armorBar = this.makeBar(scene, bx + 8, 56, 'ARMOR', ITEMS.armorVest.barColor);
     this.armorBar.parts.forEach((o) => o.setVisible(false));
 
     // Weapon panel

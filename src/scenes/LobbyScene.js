@@ -91,6 +91,8 @@ export default class LobbyScene extends Phaser.Scene {
   }
 
   create(data) {
+    this.info = null; // reused scene object: nothing left open from last time (B-025)
+    this.arsenal = null;
     this.mode = MODES[data.modeKey] ?? MODES.free;
     const saved = storage.get();
     this.duo = Boolean(saved.duo);

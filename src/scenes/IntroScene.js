@@ -30,6 +30,10 @@ export default class IntroScene extends Phaser.Scene {
   }
 
   create(data) {
+    // The same scene object is reused for every match: reset what a
+    // previous run left behind (B-025: Enter/START did nothing the 2nd time).
+    this.started = false;
+    this.ticker = null;
     this.kind = data.kind ?? 'start';
     this.mode = MODES[data.modeKey] ?? MODES.free;
     this.map = MAPS[data.mapKey];
@@ -126,39 +130,42 @@ export default class IntroScene extends Phaser.Scene {
     const num = this.add.text(cx, cy, '', { fontFamily: FONT, fontSize: `${C.numberSize}px`, fontStyle: 'bold', color: C.numberColor, stroke: '#000000', strokeThickness: 5 }).setOrigin(0.5);
     const label = this.add.text(cx, cy + r + 24, 'GET READY', { fontFamily: FONT, fontSize: '14px', fontStyle: 'bold', color: C.labelColor, stroke: '#000000', strokeThickness: 4 }).setOrigin(0.5);
     const total = INTRO.countdownFrom * INTRO.stepMs;
-    const t0 = this.time.now;
+    // Counted frame by frame (real time between frames, at most 250 ms
+    // each), not from the clock: the clock jumps ahead after you've been
+    // in another browser tab, and the countdown used to end at once (B-028).
+    let elapsed = 0;
     let shown = null;
-    this.ticker = this.time.addEvent({
-      delay: 16,
-      loop: true,
-      callback: () => {
-        const left = Math.max(0, total - (this.time.now - t0));
-        const n = Math.ceil(left / INTRO.stepMs);
-        if (n !== shown) {
-          shown = n;
-          num.setText(String(n)).setScale(1.25);
-          this.tweens.add({ targets: num, scale: 1, duration: 220, ease: 'Back.easeOut' });
-          num.setColor(n <= 3 ? C.lastColor : C.numberColor);
-        }
-        // The ring empties as the seconds run out.
+    const tick = () => {
+      elapsed += Math.min(this.game.loop.rawDelta, 250);
+      const left = Math.max(0, total - elapsed);
+      const n = Math.ceil(left / INTRO.stepMs);
+      if (n !== shown) {
+        shown = n;
+        num.setText(String(n)).setScale(1.25);
+        this.tweens.add({ targets: num, scale: 1, duration: 220, ease: 'Back.easeOut' });
+        num.setColor(n <= 3 ? C.lastColor : C.numberColor);
+      }
+      // The ring empties as the seconds run out.
+      ring.clear();
+      ring.fillStyle(0x0d1114, 0.6).fillCircle(cx, cy, r);
+      ring.lineStyle(C.width, C.track, 0.95).strokeCircle(cx, cy, r);
+      ring.lineStyle(C.width, n <= 3 ? C.lastArc : C.arc, 1);
+      ring.beginPath();
+      ring.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + (left / total) * Math.PI * 2, false);
+      ring.strokePath();
+      if (left <= 0) {
+        this.events.off('update', tick);
         ring.clear();
-        ring.fillStyle(0x0d1114, 0.6).fillCircle(cx, cy, r);
-        ring.lineStyle(C.width, C.track, 0.95).strokeCircle(cx, cy, r);
-        ring.lineStyle(C.width, n <= 3 ? C.lastArc : C.arc, 1);
-        ring.beginPath();
-        ring.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + (left / total) * Math.PI * 2, false);
-        ring.strokePath();
-        if (left <= 0) {
-          this.ticker.remove();
-          ring.clear();
-          num.setText('FIGHT!').setColor(C.lastColor).setScale(1);
-          label.setVisible(false);
-          this.shade.setVisible(false);
-          this.resume();
-          this.tweens.add({ targets: num, alpha: 0, scale: 1.4, duration: 600, delay: 300, onComplete: () => this.scene.stop() });
-        }
-      },
-    });
+        num.setText('FIGHT!').setColor(C.lastColor).setScale(1);
+        label.setVisible(false);
+        this.shade.setVisible(false);
+        this.resume();
+        this.tweens.add({ targets: num, alpha: 0, scale: 1.4, duration: 600, delay: 300, onComplete: () => this.scene.stop() });
+      }
+    };
+    this.ticker = tick;
+    this.events.on('update', tick);
+    this.events.once('shutdown', () => this.events.off('update', tick));
   }
 
   resume() {
