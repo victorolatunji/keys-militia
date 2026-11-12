@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { MODES } from '../data/modes.js';
 import { MAPS } from '../data/maps.js';
 import { MODE_INTRO, INTRO } from '../data/menu.js';
+import { makeButton, buttonRow } from '../ui/Button.js';
 
 // Drawn over the (paused) match:
 //   kind 'start': the mode's intro pop-up (its goal and the keys that
@@ -33,12 +34,14 @@ export default class IntroScene extends Phaser.Scene {
     this.parts = [];
     const k = this.input.keyboard;
     if (this.kind === 'pause') {
-      this.panel(['LEAVE THE MATCH?'], ['Enter: main menu', 'Esc: keep playing']);
-      k.once('keydown-ENTER', () => this.toMenu());
-      k.once('keydown-ESC', () => this.resume());
+      this.panel(['LEAVE THE MATCH?'], []);
+      this.parts.push(...buttonRow(this, W / 2, H / 2 + 40, [
+        ['MAIN MENU', () => this.toMenu(), 'ENTER', 'Enter'],
+        ['KEEP PLAYING', () => this.resume(), 'ESC', 'Esc'],
+      ], { size: 18 }));
       return;
     }
-    if (hidden(this.mode.key)) {
+    if (data.countdownOnly || hidden(this.mode.key)) {
       this.countdown();
       return;
     }
@@ -70,11 +73,9 @@ export default class IntroScene extends Phaser.Scene {
     this.hideBox = add(this.add.text(W / 2, H / 2 + 120, '', { fontFamily: FONT, fontSize: '15px', color: '#9aa3b5' }).setOrigin(0.5).setInteractive({ useHandCursor: true }));
     this.hideBox.on('pointerdown', () => this.toggleHide());
     this.drawHide();
-    const go = add(this.add.text(W / 2, H / 2 + 164, '  START (Enter)  ', { fontFamily: FONT, fontSize: '22px', fontStyle: 'bold', color: '#05070d', backgroundColor: '#ffd166', padding: { x: 10, y: 6 } }).setOrigin(0.5).setInteractive({ useHandCursor: true }));
-    go.on('pointerdown', () => this.start());
+    add(makeButton(this, W / 2, H / 2 + 164, 'START', () => this.start(), { key: 'ENTER', keyLabel: 'Enter', size: 22, color: '#ffd166' }));
     const k = this.input.keyboard;
     k.on('keydown-D', () => this.toggleHide());
-    k.once('keydown-ENTER', () => this.start());
     k.once('keydown-SPACE', () => this.start());
   }
 
@@ -106,10 +107,11 @@ export default class IntroScene extends Phaser.Scene {
     const { width: W, height: H } = this.scale;
     const cx = W / 2;
     const cy = H / 2;
-    const r = 70;
+    const r = INTRO.ring.radius;
     const ring = this.add.graphics();
-    const num = this.add.text(cx, cy, '', { fontFamily: FONT, fontSize: '64px', fontStyle: 'bold', color: '#ffffff', stroke: '#000000', strokeThickness: 6 }).setOrigin(0.5);
-    const label = this.add.text(cx, cy + r + 34, 'GET READY', { fontFamily: FONT, fontSize: '18px', fontStyle: 'bold', color: GOLD, stroke: '#000000', strokeThickness: 4 }).setOrigin(0.5);
+    const C = INTRO.ring;
+    const num = this.add.text(cx, cy, '', { fontFamily: FONT, fontSize: `${C.numberSize}px`, fontStyle: 'bold', color: C.numberColor, stroke: '#000000', strokeThickness: 5 }).setOrigin(0.5);
+    const label = this.add.text(cx, cy + r + 24, 'GET READY', { fontFamily: FONT, fontSize: '14px', fontStyle: 'bold', color: C.labelColor, stroke: '#000000', strokeThickness: 4 }).setOrigin(0.5);
     const total = INTRO.countdownFrom * INTRO.stepMs;
     const t0 = this.time.now;
     let shown = null;
@@ -123,19 +125,20 @@ export default class IntroScene extends Phaser.Scene {
           shown = n;
           num.setText(String(n)).setScale(1.25);
           this.tweens.add({ targets: num, scale: 1, duration: 220, ease: 'Back.easeOut' });
-          num.setColor(n <= 3 ? '#ff4d6d' : '#ffffff');
+          num.setColor(n <= 3 ? C.lastColor : C.numberColor);
         }
         // The ring empties as the seconds run out.
         ring.clear();
-        ring.lineStyle(10, 0x2a3345, 0.9).strokeCircle(cx, cy, r);
-        ring.lineStyle(10, n <= 3 ? 0xff4d6d : 0xffd166, 1);
+        ring.fillStyle(0x0b0d12, 0.6).fillCircle(cx, cy, r);
+        ring.lineStyle(C.width, C.track, 0.95).strokeCircle(cx, cy, r);
+        ring.lineStyle(C.width, n <= 3 ? C.lastArc : C.arc, 1);
         ring.beginPath();
         ring.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + (left / total) * Math.PI * 2, false);
         ring.strokePath();
         if (left <= 0) {
           this.ticker.remove();
           ring.clear();
-          num.setText('FIGHT!').setColor(GOLD).setScale(1);
+          num.setText('FIGHT!').setColor(C.lastColor).setScale(1);
           label.setVisible(false);
           this.shade.setVisible(false);
           this.resume();

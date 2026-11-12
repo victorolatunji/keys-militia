@@ -1,4 +1,6 @@
 import Phaser from 'phaser';
+import { buttonRow } from '../ui/Button.js';
+import { headIcon } from '../ui/ItemArt.js';
 import { BOTS } from '../data/enemies.js';
 import { pickForMap, GROUND_BOUND } from './EnemySpawner.js';
 import { SCORING, clock } from '../data/scoring.js';
@@ -172,8 +174,6 @@ export default class MatchSystem {
     scene.message?.setVisible(false);
     this.drawHud();
     this.showResults(result);
-    scene.input.keyboard.once('keydown-R', () => scene.scene.restart({ mapKey: scene.map.key, modeKey: this.mode.key }));
-    scene.input.keyboard.once('keydown-M', () => scene.toMenu());
   }
 
   // The end-of-match screen: result, scoreboard, your typing, awards and
@@ -219,8 +219,10 @@ export default class MatchSystem {
     for (const r of shown) {
       const name = r.team === 'enemy' ? `${r.name} ×${r.count}` : r.name;
       const rowColor = { you: '#ffd166', ally: '#06d6a0', enemy: '#ff8fa3' }[r.team];
+      const icon = headIcon(scene, r.folder, left - 18, y + 10, 26);
+      if (icon) objects.push(icon.setScrollFactor(0).setDepth(depth + 1));
       text(left, y, line([name, r.score, r.kills, r.deaths, r.assists, r.kd.toFixed(2), r.bestStreak, Math.round(r.damageDealt), clock(r.longestLifeMs)]), font(17, rowColor));
-      y += 24;
+      y += 28;
     }
 
     // Your typing
@@ -239,7 +241,9 @@ export default class MatchSystem {
       const who = a.winner.name;
       const c = { you: '#ffd166', ally: '#06d6a0', enemy: '#ff8fa3' }[a.winner.team];
       text(colA, ay, a.name.padEnd(17), font(16, '#c9d1e0'));
-      text(colA + 175, ay, `${who}  (${a.text})`, font(16, c));
+      const icon = headIcon(scene, a.winner.folder, colA + 186, ay + 9, 22);
+      if (icon) objects.push(icon.setScrollFactor(0).setDepth(depth + 1));
+      text(colA + (icon ? 202 : 175), ay, `${who}  (${a.text})`, font(16, c));
       ay += 24;
     }
     if (!awards.length) text(colA, ay, 'none this time', font(16, '#7d879c'));
@@ -255,7 +259,12 @@ export default class MatchSystem {
     if (rank === 0 && list.length > 1) text(colB, by + 4, 'NEW BEST!', font(18, '#06d6a0', { fontStyle: 'bold' }));
     else if (rank === -1) text(colB, by + 4, `This match: ${you.score} pts (not in your top ${list.length})`, font(15, '#7d879c'));
 
-    text(640, 668, 'R: play again    F8: mode    F6: map    ` (left of 1): partner', font(16, '#7d879c'), 0.5);
+    // What next: click, or press the key.
+    objects.push(...buttonRow(scene, 640, 672, [
+      ['PLAY AGAIN', () => scene.scene.restart({ mapKey: scene.map.key, modeKey: this.mode.key, replay: true }), 'R'],
+      ['LOBBY', () => scene.toLobby(), 'L'],
+      ['MAIN MENU', () => scene.toMenu(), 'M'],
+    ], { fixed: true, depth: depth + 2, size: 17 }));
     this.endObjects = objects;
   }
 

@@ -1,4 +1,4 @@
-import { gunKey, meleeKey, throwKey } from '../entities/CharacterRig.js';
+import { gunKey, meleeKey, throwKey, partKey } from '../entities/CharacterRig.js';
 import { WEAPONS, THROWABLES } from '../data/weapons.js';
 import { ITEMS } from '../data/items.js';
 import { DEATH_DROPS } from '../data/airdrops.js';
@@ -51,4 +51,15 @@ export function itemSize(item) {
   }
   const len = WEAPON_LENGTH[w.category] ?? 0.5;
   return A.gun.min + ((len - 0.3) / (0.66 - 0.3)) * (A.gun.max - A.gun.min);
+}
+
+// A character's head as a small picture (end screens, lists): the head part
+// of its sprite folder (the drone has no head: its body), fitted into size px.
+export function headIcon(scene, folder, x, y, size) {
+  if (!folder) return null;
+  const key = [partKey(folder, 'head'), partKey(folder, 'body')].find((k) => scene.textures.exists(k));
+  if (!key) return null;
+  const img = scene.add.image(x, y, key);
+  img.setScale(size / Math.max(img.width, img.height));
+  return img;
 }

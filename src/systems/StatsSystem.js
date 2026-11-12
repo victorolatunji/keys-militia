@@ -39,8 +39,12 @@ export default class StatsSystem {
     if (!who) return null;
     if (who === this.scene.player) return this.you;
     if (!who.config || who.slot === 'coach') return null; // practice dummies, Training's coaches
-    if (who.isPartner || who.slot === 'partner') return this.row('ally', who.castName ?? who.config.name, 'ally');
-    return this.row(`enemy:${who.config.name}`, who.config.name, 'enemy');
+    const row = who.isPartner || who.slot === 'partner'
+      ? this.row('ally', who.castName ?? who.config.name, 'ally')
+      : this.row(`enemy:${who.config.name}`, who.config.name, 'enemy');
+    row.folder ??= who.rig?.folder ?? null; // for the head icon on the end screen
+    if (row.team === 'ally' && who.castName) row.name = who.castName; // its cast name may come after its first report
+    return row;
   }
 
   get ally() {
@@ -155,6 +159,12 @@ export default class StatsSystem {
     const partner = this.scene.partner?.bot;
     if (partner?.alive && this.ally) this.endLife(this.ally, partner.bornAt, now);
 
+    this.you.folder = this.scene.player?.rig?.folder ?? null;
+    const mate = this.scene.partner?.bot;
+    if (this.ally && mate) {
+      this.ally.name = mate.castName ?? this.ally.name;
+      this.ally.folder ??= mate.rig?.folder ?? null;
+    }
     const rows = [...this.rows.values()].map((r) => {
       const t = r.typing;
       return {

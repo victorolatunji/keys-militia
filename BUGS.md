@@ -18,6 +18,14 @@ Every bug found in playtests or testing, with what caused it and how it was fixe
 
 ## Log
 
+### B-019: Your partner showed as its type on the end screen
+- **Found:** 2026-11-12 · 0.29.2 (in testing)
+- **Where:** end screen scoreboard, Duo
+- **What happened:** the partner's row read "Soldier" instead of "Kolawole" when the partner hadn't hurt or been hurt by anyone yet.
+- **Cause:** the scoreboard row took its name the first time the partner was counted, which came before its cast name was set.
+- **Fix:** the row picks up the partner's cast name (and its head icon) when it's used and again when the scoreboard is built. (`StatsSystem.rowOf` / `summary`)
+- **Status:** fixed in 0.30
+
 ### B-018: The match clock ran on during the intro
 - **Found:** 2026-11-12 · 0.29 (in testing)
 - **Where:** the new mode intro and Esc pause

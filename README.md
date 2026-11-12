@@ -1,7 +1,7 @@
 # Keys Militia
 *A VAO game. Living plan book: update it whenever the plan changes.*
 
-**Version:** 0.29.1
+**Version:** 0.30
 **Owner:** Victor Olatunji / VAO
 **Budget:** $0, free tools and free assets only
 **Status:** Phase 9 (Menus) in progress: main menu, mode picker, lobby, mode intro and countdown done; the Earth Respond #0 comic next.
@@ -395,9 +395,11 @@ Stats live in `src/data/weapons.js` (guns, specials, throwables), `src/data/item
 
 **Main menu** (`src/scenes/MenuScene.js`, `src/data/menu.js`): PLAY, TRAINING, STORY, ONLINE (greyed out, COMING SOON) and CONTROLS over a darkened, drifting in-game shot. Arrows or the mouse to choose, Enter or a click to pick, Esc back. Training and Story are their own modes, not part of Play. The first time you press Play (and you haven't trained), a pop-up offers Training first. Controls lists the keys and can turn the mode intros back on.
 
-**Play** = pick a mode (Free play, You vs Military, Zombies, You vs Enemies), then the **lobby** (`src/scenes/LobbyScene.js`): an armoury (gun racks, crates) with the cast as cards drawn from their rigs. Solo or Duo (D): Duo adds a PARTNER slot (only characters that can fight beside you). Each card's (i) button (or I) shows the character's name and story. Pick a map with < > (Q/E): only maps that suit the mode. READY (R). Your picks are remembered.
+**Play** = pick a mode (Free play, You vs Military, Zombies, You vs Enemies), then the **lobby** (`src/scenes/LobbyScene.js`): an armoury (gun racks, crates) with **one character at a time on a lit stage**. Browse with the clickable ◀ ▶ (or ←/→), or click a head in the row below to jump; PICK (Enter) puts them in the lit slot. Until the front-view lobby art comes (`LOBBY.portraits`, made in the ChatGPT art project), the stage shows the character's rig, each holding its gun its own way (`LOBBY.poses`). Solo or Duo (D): Duo adds a PARTNER slot (Tab switches; only characters that can fight beside you). The (i) button (or I) shows the character's name and story. The map picker (◀ ▶ or Q/E) shows **a picture of the map** (`public/assets/menu/maps/`), only maps that suit the mode. READY (R). Your picks are remembered.
 
-**Before every match** (`src/scenes/IntroScene.js`): the mode's intro pop-up (goal, the keys that matter there, START; "don't show this again" with D), then an 11 ... 0 countdown in a ring timer, then FIGHT. The match is paused until then, and its clock and the airdrop timers don't run while paused. Esc in a match: leave for the main menu, or keep playing. End screen and graduation: M for the main menu.
+**Before every match** (`src/scenes/IntroScene.js`): the mode's intro pop-up (goal, the keys that matter there, START; "don't show this again" with D), then an 11 ... 0 countdown in a small ring timer (tech teal, amber for the last 3; `INTRO.ring`), then FIGHT. The match is paused until then, and its clock and the airdrop timers don't run while paused. Esc in a match: leave for the main menu, or keep playing.
+
+**Every box can be clicked, and every button shows its key** (`src/ui/Button.js`): the end screen has [R] PLAY AGAIN (just the countdown, no intro pop-up), [L] LOBBY and [M] MAIN MENU, and each scoreboard and award row starts with that character's head. Training's graduation: [R] TRAIN AGAIN, [P] PLAY A MODE, [M] MAIN MENU. The pause box: [Enter] MAIN MENU, [Esc] KEEP PLAYING. The mode intro: [Enter] START.
 
 **The cast** (`src/data/cast.js`): every character has a name and a short backstory, shown in the lobby's (i) info. In a match you're always tagged ROOKIE, whoever you pick; your partner's tag and the end screen show just its cast name. Enemies keep their type name. Story: the Signal, sent by the alien fleet called **the Hush**, woke the dead and turned the machines; **Black Static** is the rogue militia that follows it; **Earth Respond** is every militia that still fights back. Every gun fires on a typed lock-code since the Signal broke voice and auto-aim, which is why you type to shoot.
 
@@ -655,6 +657,7 @@ keys-militia/
 - [ ] Spoken lines for the Training coaches (sound pass)
 - [ ] Final hazard and advantage behavior per map (Forest and Hell starting values in `hazards.js`)
 - [ ] Map art: code-drawn placeholders for now (rounded edges, rocks, decor); final tiles in the art pass (9.5)
+- [ ] Map and menu art made in a ChatGPT Project (the script: "Keys Militia: ChatGPT Art Project Script" doc; reference pack in `assets-src/chatgpt-pack/`). Colours come from the cast's palette, one muted signature colour per map, scenes darker than the characters. Desert is the pilot map; then `tools/pack-art.py`, parallax layers, textured ground, scrolling liquids, props. Today's drawn art stays as the fallback
 - [ ] Match length and kill targets (starting values in section 10; measure the real kill pace)
 - [ ] Exact weapon stats (damage, word length, range falloff)
 - [ ] Blast knockback strength and stagger time (starting values 520 px/s, 220 lift, 350ms)
@@ -674,6 +677,8 @@ keys-militia/
 ## 18. Changelog
 
 Bugs found and how they were fixed are logged in [BUGS.md](BUGS.md) (newest first). Every new bug gets an entry there.
+- **0.30:** Lobby rebuilt as a stage: one character at a time with clickable ◀ ▶ and a row of heads, each in its own pose; a picture of every map on the map picker. Every box is clickable with its key shown (end screen, graduation, pause, intro). End screen: [R] PLAY AGAIN (keeps your picks, straight to the countdown), [L] LOBBY, [M] MAIN MENU, and character heads beside every name. A smaller countdown ring in the cast's teal and amber. The art script adds back walls, pebble edge rims, spice-up ideas per map, front-view lobby poses, and the other game's maps as a reference only (kept out of git). Fix B-019.
+- **0.29.2:** Art plan: a ChatGPT Project script for the menu, map, liquid and fire art, matched to the cast's colours, and a reference pack (cast line-up, palette, a sheet of every map as it looks now) in `assets-src/chatgpt-pack/`.
 - **0.29.1:** Monastery's seer is now Nbozi. The partner's tag and the end screen show just its name (no ALLY). F6 / F8 / ` and the debug readout only work in testing (`?dev=1` or a testing address). Kixon (Drone) is male.
 - **0.29:** Phase 9 begins: main menu (Play, Training, Story, Online coming soon, Controls), mode picker, the lobby (armoury, Solo/Duo, character cards with (i) info, maps that suit the mode), the mode intro pop-up with "don't show again", an 11 ... 0 ring countdown before every match, Esc to leave a match, M to the menu from the end screen. Every character has a name and backstory (the cast); you're always ROOKIE in a match; your partner uses its cast name. Training's sergeant is Sgt. Itunu.
 - **0.28.1:** Items you can read at a glance. On the ground, guns are sized by their real length but all easy to see (a pistol is never bigger than a rifle), melee likewise, and grenades and gear are small; grenades in the hand and in the air are smaller too. Item names show only when you're right by one. Crates are a bit bigger and show no gun icon. The pickup panel shows pictures: the item on top, and on each line the gun you'd swap out or the gun in the crate. Molotov fuel runs over the ground like a liquid: laid in short pieces that follow slopes, steps and stairs, stopping at gaps and walls. Jet Boost burns a long blue flame (white-hot at the nozzle). A Health Pack gives a green glow with little crosses floating up; a Riot Shield or Armor Vest that breaks flies apart in pieces.

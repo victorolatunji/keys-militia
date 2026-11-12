@@ -7,23 +7,27 @@ import { LOBBY } from '../data/menu.js';
 import { SPRITES } from '../data/spriteManifest.js';
 import { gunKey } from '../entities/CharacterRig.js';
 import { makeRig } from '../entities/rigFactory.js';
+import { makeButton } from '../ui/Button.js';
+import { headIcon } from '../ui/ItemArt.js';
 
 // The lobby (Phase 9), after you pick a mode: an armoury (gun racks and
-// crates behind), the cast as cards on the left, your picks on the right.
-//   Solo / Duo (D): Duo adds a second slot, your partner.
-//   Cards: arrows or the mouse to move, Enter or a click to pick for the
-//   slot that's lit (YOU, then PARTNER). (i) or I: the character's name
-//   and story. Only characters that can fight beside you go in PARTNER.
-//   Map: < > (or Q / E): only the maps that suit the mode.
+// crates behind), one character at a time on the stage (left), your picks
+// and the map on the right.
+//   Stage: < > (or Left / Right) to scroll through the cast, a row of heads
+//   to jump; PICK (Enter) puts the shown character in the lit slot (YOU,
+//   then PARTNER). (i) or I: its name and story. Only characters that can
+//   fight beside you show up while you pick a PARTNER.
+//   Solo / Duo (D): Duo adds a second slot, your partner. Tab: switch slot.
+//   Map: < > (or Q / E) with a picture of it; only the maps that suit the mode.
 //   READY (R, or click): the mode intro, the countdown, the match.
 //   Esc: back to the mode picker.
 const FONT = 'monospace';
 const GOLD = '#ffd166';
-const CARD_W = 140;
-const CARD_H = 128;
-const GRID_X = 40;
-const GRID_Y = 118;
-const GAP = 10;
+const LEFT = 40;           // title and help line
+const STAGE_X = 340;       // the stage's middle
+const STAGE_FLOOR = 505;   // where the character stands
+const HEADS_Y = 660;       // the row of heads
+const X0 = 650;            // the right panel
 
 const storage = {
   get() {
@@ -45,7 +49,7 @@ const storage = {
 // Stands in for a character so its rig can be drawn on a card (still,
 // facing right, holding its gun, jetpack on).
 class Mannequin {
-  constructor(cast, x, bottom, scale) {
+  constructor(cast, x, bottom, scale, aim = 8) {
     const size = (cast.bot && BOTS[cast.bot]?.size) ?? { width: 32, height: 48 };
     this.width = size.width * scale;
     this.height = size.height * scale;
@@ -56,7 +60,7 @@ class Mannequin {
     this.facing = 1;
     this.onGround = true;
     this.isPartner = true; // shows the jetpack
-    this.restAim = 8;
+    this.restAim = aim;
     this.weapon = cast.weapon ?? null;
   }
 
@@ -78,13 +82,19 @@ export default class LobbyScene extends Phaser.Scene {
     super('Lobby');
   }
 
+  preload() {
+    for (const k of LOBBY.portraits) if (!this.textures.exists(`lobby-${k}`)) this.load.image(`lobby-${k}`, `assets/lobby/${k}.png`);
+    for (const k of Object.keys(MAPS)) if (!MAPS[k].trainingOnly && k !== 'test' && !this.textures.exists(`map-prev-${k}`)) this.load.image(`map-prev-${k}`, LOBBY.mapPreview(k));
+    this.load.on('loaderror', () => {}); // a missing picture: the lobby just goes without it
+  }
+
   create(data) {
     this.mode = MODES[data.modeKey] ?? MODES.free;
     const saved = storage.get();
     this.duo = Boolean(saved.duo);
     this.you = CAST.find((c) => c.key === saved.you) ?? CAST[0];
     this.partner = CAST.find((c) => c.key === saved.partner && c.partner) ?? CAST.find((c) => c.partner);
-    this.maps = (this.mode.maps ?? MAP_SELECT.order).filter((k) => MAPS[k] && !MAPS[k].trainingOnly);
+    this.maps = (this.mode.maps ?? MAP_SELECT.order).filter((k) => MAPS[k] && !MAPS[k].trainingOnly && k !== 'test'); // the test map is for testing addresses only
     const savedMap = saved.maps?.[this.mode.key];
     this.mapIndex = Math.max(0, this.maps.indexOf(savedMap));
     this.slot = 'you';
@@ -92,16 +102,12 @@ export default class LobbyScene extends Phaser.Scene {
     this.rigs = [];
 
     this.drawArmoury();
-    this.add.text(GRID_X, 34, `LOBBY · ${this.mode.name.toUpperCase()}`, { fontFamily: FONT, fontSize: '28px', fontStyle: 'bold', color: GOLD, stroke: '#000000', strokeThickness: 5 });
-    this.add.text(GRID_X, 72, 'Arrows: move · Enter: pick · I: info · D: solo/duo · Q/E: map · R: ready · Esc: back', { fontFamily: FONT, fontSize: '13px', color: '#c9d1e0', stroke: '#000000', strokeThickness: 3 });
-    this.drawCards();
+    this.add.text(LEFT, 30, `LOBBY · ${this.mode.name.toUpperCase()}`, { fontFamily: FONT, fontSize: '28px', fontStyle: 'bold', color: GOLD, stroke: '#000000', strokeThickness: 5 });
+    this.add.text(LEFT, 64, '< > or ←/→: browse · Enter: pick · I: info · D: solo/duo · Tab: slot · Q/E: map · R: ready · Esc: back', { fontFamily: FONT, fontSize: '12px', color: '#c9d1e0', stroke: '#000000', strokeThickness: 3 });
+    this.drawStage();
     this.drawSide();
 
     const k = this.input.keyboard;
-    k.on('keydown-LEFT', () => this.moveCursor(-1, 0));
-    k.on('keydown-RIGHT', () => this.moveCursor(1, 0));
-    k.on('keydown-UP', () => this.moveCursor(0, -1));
-    k.on('keydown-DOWN', () => this.moveCursor(0, 1));
     k.on('keydown-ENTER', () => (this.info ? this.closeInfo() : this.pick(CAST[this.cursor])));
     k.on('keydown-I', () => (this.info ? this.closeInfo() : this.openInfo(CAST[this.cursor])));
     k.on('keydown-D', () => this.toggleDuo());
@@ -110,9 +116,6 @@ export default class LobbyScene extends Phaser.Scene {
       if (this.duo) this.setSlot(this.slot === 'you' ? 'partner' : 'you');
     });
     k.addCapture('TAB');
-    k.on('keydown-Q', () => this.changeMap(-1));
-    k.on('keydown-E', () => this.changeMap(1));
-    k.on('keydown-R', () => this.ready());
     k.on('keydown-ESC', () => (this.info ? this.closeInfo() : this.scene.start('Menu', { page: 'modes' })));
     this.refresh();
   }
@@ -126,6 +129,12 @@ export default class LobbyScene extends Phaser.Scene {
   // A dark armoury wall: planks, two racks of rifles and pistols, crates.
   drawArmoury() {
     const { width: W, height: H } = this.scale;
+    if (this.textures.exists('lobby-armoury')) {
+      const bg = this.add.image(W / 2, H / 2, 'lobby-armoury');
+      bg.setScale(Math.max(W / bg.width, H / bg.height));
+      this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.25);
+      return;
+    }
     this.add.rectangle(W / 2, H / 2, W, H, 0x1c1a17);
     const g = this.add.graphics();
     for (let y = 0; y < H; y += 36) {
@@ -149,44 +158,90 @@ export default class LobbyScene extends Phaser.Scene {
         c.setScale(s / c.width);
       }
     }
-    this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.25); // dim it so the cards stand out
+    this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.25); // dim it so the stage stands out
   }
 
-  // ---- Cards ----
+  // ---- The stage (left): one character at a time ----
 
-  cardPos(i) {
-    const col = i % LOBBY.cols;
-    const row = Math.floor(i / LOBBY.cols);
-    return { x: GRID_X + col * (CARD_W + GAP), y: GRID_Y + row * (CARD_H + GAP) };
-  }
-
-  drawCards() {
-    this.cards = CAST.map((c, i) => {
-      const { x, y } = this.cardPos(i);
-      const bg = this.add.rectangle(x, y, CARD_W, CARD_H, 0x0b0d12, 0.82).setOrigin(0).setStrokeStyle(2, 0x2a3345).setDepth(5);
-      bg.setInteractive({ useHandCursor: true });
-      bg.on('pointerover', () => {
-        this.cursor = i;
-        this.refresh();
-      });
-      bg.on('pointerdown', () => this.pick(c));
-      const rig = this.preview(c, x + CARD_W / 2, y + CARD_H - 30, 0.95);
-      const name = this.add.text(x + CARD_W / 2, y + CARD_H - 16, c.name, { fontFamily: FONT, fontSize: '14px', fontStyle: 'bold', color: '#ffffff' }).setOrigin(0.5).setDepth(20);
-      const info = this.add.text(x + CARD_W - 8, y + 8, 'i', { fontFamily: 'serif', fontSize: '15px', fontStyle: 'bold italic', color: '#05070d', backgroundColor: '#c9d1e0', padding: { x: 7, y: 1 } }).setOrigin(1, 0).setDepth(21);
-      info.setInteractive({ useHandCursor: true });
-      info.on('pointerdown', (p, lx, ly, e) => {
-        e?.stopPropagation?.();
-        this.openInfo(c);
-      });
-      const tag = this.add.text(x + 8, y + 8, '', { fontFamily: FONT, fontSize: '11px', fontStyle: 'bold', color: '#05070d', padding: { x: 4, y: 1 } }).setDepth(21);
-      return { c, bg, rig, name, info, tag };
+  drawStage() {
+    // A spotlight and a floor to stand on
+    this.add.rectangle(STAGE_X, 389, 600, 610, 0x0b0d12, 0.55).setStrokeStyle(2, 0x2a3345);
+    const g = this.add.graphics();
+    g.fillStyle(0xe9dbc0, 0.07).fillTriangle(STAGE_X - 40, 84, STAGE_X + 40, 84, STAGE_X + 170, STAGE_FLOOR);
+    g.fillTriangle(STAGE_X - 40, 84, STAGE_X - 170, STAGE_FLOOR, STAGE_X + 170, STAGE_FLOOR);
+    g.fillStyle(0x000000, 0.45).fillEllipse(STAGE_X, STAGE_FLOOR + 4, 230, 26);
+    this.stageArt = null; // the rig or the picture on the stage
+    this.stageKey = null;
+    // < >
+    makeButton(this, 70, 300, '◀', () => this.browse(-1), { key: 'LEFT', keyLabel: '', size: 26, once: false });
+    makeButton(this, 610, 300, '▶', () => this.browse(1), { key: 'RIGHT', keyLabel: '', size: 26, once: false });
+    // Name, type, (i), what it is for you
+    this.stageName = this.add.text(STAGE_X, 528, '', { fontFamily: FONT, fontSize: '26px', fontStyle: 'bold', color: '#ffffff', stroke: '#000000', strokeThickness: 5 }).setOrigin(0.5, 0);
+    this.stageType = this.add.text(STAGE_X, 562, '', { fontFamily: FONT, fontSize: '14px', color: '#9aa3b5' }).setOrigin(0.5, 0);
+    this.stageTag = this.add.text(STAGE_X, 102, '', { fontFamily: FONT, fontSize: '13px', fontStyle: 'bold', color: '#05070d', padding: { x: 6, y: 2 } }).setOrigin(0.5, 0);
+    this.infoBtn = makeButton(this, 0, 544, 'i', () => this.openInfo(CAST[this.cursor]), { keyLabel: '', size: 15, once: false });
+    this.pickBtn = makeButton(this, STAGE_X, 608, 'PICK', () => this.pick(CAST[this.cursor]), { keyLabel: 'Enter', size: 17, once: false });
+    // The row of heads: where you are in the cast, click one to jump
+    const step = 36;
+    const x0 = STAGE_X - ((CAST.length - 1) * step) / 2;
+    this.heads = CAST.map((c, i) => {
+      const x = x0 + i * step;
+      const box = this.add.rectangle(x, HEADS_Y, 32, 32, 0x141821, 0.95).setStrokeStyle(2, 0x2a3345).setInteractive({ useHandCursor: true });
+      box.on('pointerdown', () => this.jump(i));
+      const icon = headIcon(this, c.key, x, HEADS_Y, 24);
+      return { c, box, icon };
     });
   }
 
+  // Which characters you can browse right now (a partner must be able to fight beside you).
+  browsable() {
+    return CAST.filter((c) => this.slot !== 'partner' || c.partner);
+  }
+
+  browse(dir) {
+    if (this.info) return;
+    const list = this.browsable();
+    const i = list.indexOf(CAST[this.cursor]);
+    const next = list[Phaser.Math.Wrap((i < 0 ? 0 : i) + dir, 0, list.length)];
+    this.cursor = CAST.indexOf(next);
+    this.refresh();
+  }
+
+  jump(i) {
+    if (this.info || !this.browsable().includes(CAST[i])) return;
+    this.cursor = i;
+    this.refresh();
+  }
+
+  // The shown character: its front-view picture if it has one, else its rig.
+  showOnStage(c) {
+    if (this.stageKey === c.key) return;
+    this.stageKey = c.key;
+    if (this.stageArt) {
+      this.rigs = this.rigs.filter((r) => r !== this.stageArt);
+      this.stageArt.destroy();
+      this.stageArt = null;
+    }
+    const pic = `lobby-${c.key}`;
+    if (this.textures.exists(pic)) {
+      const img = this.add.image(STAGE_X, STAGE_FLOOR, pic).setOrigin(0.5, 1).setDepth(10);
+      img.setScale(Math.min(330 / img.width, 400 / img.height));
+      this.stageArt = img;
+    } else {
+      this.stageArt = this.preview(c, STAGE_X - 20, STAGE_FLOOR, LOBBY.stageScale, LOBBY.poses[c.key] ?? 8);
+    }
+    // A little entrance
+    const o = this.stageArt?.root ?? this.stageArt;
+    if (o) {
+      o.setAlpha(0);
+      this.tweens.add({ targets: o, alpha: 1, duration: 180 });
+    }
+  }
+
   // A character drawn from its rig, standing with its gun.
-  preview(c, x, bottom, scale) {
+  preview(c, x, bottom, scale, aim) {
     if (!SPRITES.characters[c.key]) return null;
-    const owner = new Mannequin(c, x, bottom, scale);
+    const owner = new Mannequin(c, x, bottom, scale, aim);
     const rig = makeRig(this, owner, c.key);
     rig.root.setDepth(10);
     rig.update(16);
@@ -194,55 +249,37 @@ export default class LobbyScene extends Phaser.Scene {
     return rig;
   }
 
-  // ---- Your picks (right side) ----
+  // ---- Your picks and the map (right side) ----
 
   drawSide() {
-    const x0 = 650;
-    this.add.rectangle(x0, 110, 590, 560, 0x0b0d12, 0.82).setOrigin(0).setStrokeStyle(2, 0x2a3345);
+    this.add.rectangle(X0, 84, 590, 610, 0x0b0d12, 0.82).setOrigin(0).setStrokeStyle(2, 0x2a3345);
     // Solo / Duo
-    this.soloBtn = this.button(x0 + 30, 130, 'SOLO', () => this.toggleDuo(false));
-    this.duoBtn = this.button(x0 + 150, 130, 'DUO', () => this.toggleDuo(true));
-    // Slots
+    this.soloBtn = makeButton(this, X0 + 80, 118, 'SOLO', () => this.toggleDuo(false), { size: 17, once: false });
+    this.duoBtn = makeButton(this, X0 + 200, 118, 'DUO', () => this.toggleDuo(true), { keyLabel: 'D', size: 17, once: false });
+    // Slots: who's picked (click one to pick for it)
     this.slotViews = {};
-    for (const [slot, x] of [['you', x0 + 30], ['partner', x0 + 305]]) {
-      const box = this.add.rectangle(x, 190, 255, 250, 0x141821, 1).setOrigin(0).setStrokeStyle(2, 0x2a3345).setInteractive({ useHandCursor: true });
+    for (const [slot, x] of [['you', X0 + 30], ['partner', X0 + 305]]) {
+      const box = this.add.rectangle(x, 146, 255, 150, 0x141821, 1).setOrigin(0).setStrokeStyle(2, 0x2a3345).setInteractive({ useHandCursor: true });
       box.on('pointerdown', () => this.setSlot(slot));
-      const label = this.add.text(x + 12, 200, slot === 'you' ? 'YOU' : 'PARTNER', { fontFamily: FONT, fontSize: '14px', fontStyle: 'bold', color: '#9aa3b5' });
-      const name = this.add.text(x + 128, 400, '', { fontFamily: FONT, fontSize: '17px', fontStyle: 'bold', color: '#ffffff', align: 'center' }).setOrigin(0.5, 0);
-      const sub = this.add.text(x + 128, 422, '', { fontFamily: FONT, fontSize: '12px', color: '#9aa3b5' }).setOrigin(0.5, 0);
+      const label = this.add.text(x + 10, 154, slot === 'you' ? 'YOU' : 'PARTNER', { fontFamily: FONT, fontSize: '13px', fontStyle: 'bold', color: '#9aa3b5' });
+      const name = this.add.text(x + 128, 256, '', { fontFamily: FONT, fontSize: '15px', fontStyle: 'bold', color: '#ffffff', align: 'center' }).setOrigin(0.5, 0);
+      const sub = this.add.text(x + 128, 275, '', { fontFamily: FONT, fontSize: '11px', color: '#9aa3b5' }).setOrigin(0.5, 0);
       this.slotViews[slot] = { box, label, name, sub, x, rig: null, key: null };
     }
-    // Map
-    this.add.text(x0 + 30, 470, 'MAP', { fontFamily: FONT, fontSize: '14px', fontStyle: 'bold', color: '#9aa3b5' });
-    this.button(x0 + 30, 500, '<', () => this.changeMap(-1));
-    this.mapText = this.add.text(x0 + 295, 516, '', { fontFamily: FONT, fontSize: '22px', fontStyle: 'bold', color: '#ffffff' }).setOrigin(0.5);
-    this.button(x0 + 520, 500, '>', () => this.changeMap(1));
-    this.mapNote = this.add.text(x0 + 295, 546, '', { fontFamily: FONT, fontSize: '12px', color: '#9aa3b5' }).setOrigin(0.5);
+    // Map: < name > and its picture
+    this.add.text(X0 + 30, 310, 'MAP', { fontFamily: FONT, fontSize: '13px', fontStyle: 'bold', color: '#9aa3b5' });
+    makeButton(this, X0 + 60, 345, '◀', () => this.changeMap(-1), { key: 'Q', keyLabel: 'Q', size: 16, once: false });
+    this.mapText = this.add.text(X0 + 295, 345, '', { fontFamily: FONT, fontSize: '22px', fontStyle: 'bold', color: '#ffffff' }).setOrigin(0.5);
+    makeButton(this, X0 + 530, 345, '▶', () => this.changeMap(1), { key: 'E', keyLabel: 'E', size: 16, once: false });
+    this.add.rectangle(X0 + 295, 474, 384, 220, 0x05070d, 1).setStrokeStyle(2, 0x2a3345);
+    this.mapPic = this.add.image(X0 + 295, 474, '__DEFAULT').setVisible(false);
+    this.mapNone = this.add.text(X0 + 295, 474, 'no picture yet', { fontFamily: FONT, fontSize: '13px', color: '#5c6478' }).setOrigin(0.5);
+    this.mapNote = this.add.text(X0 + 295, 596, '', { fontFamily: FONT, fontSize: '12px', color: '#9aa3b5' }).setOrigin(0.5);
     // Ready
-    this.readyBtn = this.button(x0 + 205, 590, '  READY  ', () => this.ready(), 30);
-  }
-
-  button(x, y, label, action, size = 20) {
-    const t = this.add.text(x, y, label, { fontFamily: FONT, fontSize: `${size}px`, fontStyle: 'bold', color: '#ffffff', backgroundColor: '#2a3345', padding: { x: 12, y: 6 } });
-    t.setInteractive({ useHandCursor: true }).on('pointerdown', action);
-    return t;
+    makeButton(this, X0 + 295, 645, 'READY', () => this.ready(), { key: 'R', size: 26, color: '#ffd166', once: false });
   }
 
   // ---- Actions ----
-
-  moveCursor(dx, dy) {
-    if (this.info) return;
-    const cols = LOBBY.cols;
-    let i = this.cursor;
-    if (dx) i = Phaser.Math.Wrap(i + dx, 0, CAST.length);
-    if (dy) {
-      i += dy * cols;
-      if (i < 0) i += Math.ceil(CAST.length / cols) * cols;
-      if (i >= CAST.length) i %= cols;
-    }
-    this.cursor = Math.min(i, CAST.length - 1);
-    this.refresh();
-  }
 
   // Pick a character for the lit slot (a partner must be one that can fight beside you).
   pick(c) {
@@ -254,7 +291,7 @@ export default class LobbyScene extends Phaser.Scene {
       this.you = c;
       if (this.duo) this.slot = 'partner'; // next: your partner
     }
-    this.cursor = CAST.indexOf(c);
+    if (this.slot === 'partner' && !CAST[this.cursor].partner) this.cursor = CAST.indexOf(this.partner);
     this.save();
     this.refresh();
   }
@@ -262,12 +299,14 @@ export default class LobbyScene extends Phaser.Scene {
   setSlot(slot) {
     if (slot === 'partner' && !this.duo) return;
     this.slot = slot;
+    this.cursor = CAST.indexOf(slot === 'you' ? this.you : this.partner);
     this.refresh();
   }
 
   toggleDuo(on = !this.duo) {
+    if (this.info) return;
     this.duo = on;
-    if (!on) this.slot = 'you';
+    if (!on) this.setSlot('you');
     this.save();
     this.refresh();
   }
@@ -313,60 +352,81 @@ export default class LobbyScene extends Phaser.Scene {
     };
     add(this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.6).setInteractive().on('pointerdown', () => this.closeInfo()));
     add(this.add.rectangle(W / 2, H / 2, 640, 300, 0x0b0d12, 0.98).setStrokeStyle(2, 0xffd166));
-    add(this.add.text(W / 2 - 290, H / 2 - 124, fullName(c), { fontFamily: FONT, fontSize: '28px', fontStyle: 'bold', color: GOLD }));
-    add(this.add.text(W / 2 - 290, H / 2 - 84, `${c.type}${c.partner ? '' : ' · can\'t be your partner'}`, { fontFamily: FONT, fontSize: '15px', color: '#9aa3b5' }));
+    const icon = headIcon(this, c.key, W / 2 - 270, H / 2 - 106, 44);
+    if (icon) add(icon);
+    add(this.add.text(W / 2 - 236, H / 2 - 124, fullName(c), { fontFamily: FONT, fontSize: '28px', fontStyle: 'bold', color: GOLD }));
+    add(this.add.text(W / 2 - 236, H / 2 - 86, `${c.type}${c.partner ? '' : ' · can\'t be your partner'}`, { fontFamily: FONT, fontSize: '15px', color: '#9aa3b5' }));
     add(this.add.text(W / 2 - 290, H / 2 - 48, c.story, { fontFamily: FONT, fontSize: '18px', color: '#e9ecef', wordWrap: { width: 580 }, lineSpacing: 6 }));
-    add(this.add.text(W / 2, H / 2 + 120, 'Esc / I / click: close', { fontFamily: FONT, fontSize: '13px', color: '#7d879c' }).setOrigin(0.5));
+    add(makeButton(this, W / 2, H / 2 + 118, 'CLOSE', () => this.closeInfo(), { keyLabel: 'Esc', size: 15 }));
     this.info = parts;
   }
 
   closeInfo() {
     if (!this.info) return;
-    this.info.forEach((o) => o.destroy());
+    const parts = this.info;
     this.info = null;
+    parts.forEach((o) => o.destroy());
   }
 
   // ---- Showing the state ----
 
   refresh() {
-    // Cards: the cursor, who's picked, who can't be a partner right now.
-    this.cards.forEach((card, i) => {
-      const c = card.c;
+    const c = CAST[this.cursor];
+    this.showOnStage(c);
+    this.stageName.setText(fullName(c));
+    this.stageType.setText(c.type);
+    this.infoBtn.x = STAGE_X + this.stageName.width / 2 + 24;
+    const isYou = c === this.you;
+    const isPartner = this.duo && c === this.partner;
+    this.stageTag.setText(isYou ? 'YOU' : isPartner ? 'PARTNER' : '').setBackgroundColor(isYou ? '#ffd166' : '#06d6a0').setVisible(isYou || isPartner);
+    const already = this.slot === 'you' ? isYou : isPartner;
+    this.pickBtn.list[1].setText(already ? (this.slot === 'you' ? 'YOUR PICK' : 'YOUR PARTNER') : `[Enter] PICK FOR ${this.slot === 'you' ? 'YOU' : 'PARTNER'}`);
+    this.pickBtn.list[0].setSize(this.pickBtn.list[1].width + 28, this.pickBtn.list[0].height);
+    this.pickBtn.setSize(this.pickBtn.list[1].width + 28, this.pickBtn.list[0].height);
+    this.pickBtn.setAlpha(already ? 0.6 : 1);
+    // Heads: where you are; grey for ones that can't be picked for this slot
+    this.heads.forEach((h, i) => {
       const lit = i === this.cursor;
-      const blocked = this.slot === 'partner' && !c.partner;
-      card.bg.setStrokeStyle(lit ? 3 : 2, lit ? 0xffd166 : 0x2a3345).setFillStyle(0x0b0d12, blocked ? 0.45 : 0.82);
-      card.rig?.root.setAlpha(blocked ? 0.35 : 1);
-      card.name.setAlpha(blocked ? 0.45 : 1);
-      const isYou = c === this.you;
-      const isPartner = this.duo && c === this.partner;
-      card.tag.setText(isYou ? 'YOU' : isPartner ? 'PARTNER' : '').setBackgroundColor(isYou ? '#ffd166' : '#06d6a0').setVisible(isYou || isPartner);
+      const blocked = this.slot === 'partner' && !h.c.partner;
+      h.box.setStrokeStyle(lit ? 3 : 2, lit ? 0xffd166 : h.c === this.you ? 0x9c7a2e : this.duo && h.c === this.partner ? 0x06d6a0 : 0x2a3345);
+      h.box.setAlpha(blocked ? 0.35 : 1);
+      h.icon?.setAlpha(blocked ? 0.25 : 1);
     });
     // Solo / Duo
-    this.soloBtn.setBackgroundColor(this.duo ? '#2a3345' : '#b5862b');
-    this.duoBtn.setBackgroundColor(this.duo ? '#b5862b' : '#2a3345');
+    this.soloBtn.list[0].setFillStyle(this.duo ? 0x141821 : 0x6b5320, 0.95);
+    this.duoBtn.list[0].setFillStyle(this.duo ? 0x6b5320 : 0x141821, 0.95);
     // Slots
     for (const slot of ['you', 'partner']) {
       const v = this.slotViews[slot];
       const on = slot === 'you' || this.duo;
-      const c = slot === 'you' ? this.you : this.partner;
+      const who = slot === 'you' ? this.you : this.partner;
       v.box.setStrokeStyle(this.slot === slot && on ? 3 : 2, this.slot === slot && on ? 0xffd166 : 0x2a3345).setAlpha(on ? 1 : 0.35);
       v.label.setAlpha(on ? 1 : 0.35);
-      v.name.setText(on && c ? fullName(c) : slot === 'partner' ? 'Solo: no partner' : '').setAlpha(on ? 1 : 0.5);
-      v.sub.setText(on && c ? c.type : '');
-      const want = on && c ? c.key : null;
+      v.name.setText(on && who ? fullName(who) : slot === 'partner' ? 'Solo: no partner' : '').setAlpha(on ? 1 : 0.5);
+      v.sub.setText(on && who ? who.type : '');
+      const want = on && who ? who.key : null;
       if (v.key !== want) {
         if (v.rig) {
           this.rigs = this.rigs.filter((r) => r !== v.rig);
           v.rig.destroy();
         }
-        v.rig = want ? this.preview(c, v.x + 128, 380, 2.1) : null;
+        v.rig = want ? this.preview(who, v.x + 120, 250, 1.55) : null;
         v.rig?.root.setDepth(30);
         v.key = want;
       }
     }
     // Map
-    const map = MAPS[this.maps[this.mapIndex]];
+    const key = this.maps[this.mapIndex];
+    const map = MAPS[key];
     this.mapText.setText(map?.name ?? '-');
     this.mapNote.setText(`${this.mapIndex + 1} of ${this.maps.length} maps for ${this.mode.name}`);
+    const pic = `map-prev-${key}`;
+    const has = this.textures.exists(pic);
+    this.mapPic.setVisible(has);
+    this.mapNone.setVisible(!has);
+    if (has) {
+      this.mapPic.setTexture(pic);
+      this.mapPic.setScale(Math.min(380 / this.mapPic.width, 216 / this.mapPic.height));
+    }
   }
 }

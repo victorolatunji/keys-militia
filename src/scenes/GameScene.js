@@ -82,6 +82,7 @@ export default class GameScene extends Phaser.Scene {
     // Who you play (the lobby's pick, a sprite folder): you're tagged ROOKIE whoever it is.
     this.characterKey = data.characterKey ?? this.characterKey ?? 'player';
     this.skipIntro = Boolean(data.skipIntro);
+    this.replay = Boolean(data.replay); // PLAY AGAIN: just the countdown, no intro pop-up
     this.deaths = 0;
     this.suicides = 0;
     this.kills = 0;
@@ -225,7 +226,7 @@ export default class GameScene extends Phaser.Scene {
     if (!this.mode.training && !this.skipIntro) {
       // (after one frame, so everyone is drawn from their sprites, not boxes)
       this.events.once('postupdate', () => {
-        this.scene.launch('Intro', { kind: 'start', modeKey: this.mode.key, mapKey: this.map.key });
+        this.scene.launch('Intro', { kind: 'start', modeKey: this.mode.key, mapKey: this.map.key, countdownOnly: this.replay });
         this.scene.pause();
       });
     }
@@ -248,6 +249,12 @@ export default class GameScene extends Phaser.Scene {
   toMenu() {
     this.scene.stop('Intro');
     this.scene.start('Menu');
+  }
+
+  // Back to this mode's lobby (change character, partner or map).
+  toLobby() {
+    this.scene.stop('Intro');
+    this.scene.start(this.training ? 'Menu' : 'Lobby', { modeKey: this.mode.key });
   }
 
   // Hit-stop: everything with physics freezes for a moment when you land a

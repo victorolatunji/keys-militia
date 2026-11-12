@@ -37,9 +37,25 @@ export const INTRO = {
   countdownFrom: 11,         // the ring counts 11 ... 0, then the match starts
   stepMs: 1000,
   hideKey: 'keys-militia.intro.hide.', // + mode key: "don't show again" (Controls turns them back on)
+  // The ring timer: small, in the cast's colours (tech teal, amber for the last 3).
+  ring: {
+    radius: 44, width: 6, numberSize: 40,
+    track: 0x35363d, arc: 0x93bcb2, lastArc: 0xe29c53,
+    numberColor: '#e9dbc0', lastColor: '#e29c53', labelColor: '#93bcb2',
+  },
 };
 
 export const LOBBY = {
   storageKey: 'keys-militia.lobby', // your last picks (characters, solo/duo, map per mode)
-  cols: 4,                          // character cards per row
+  // The stage: one big character at a time, < > (or Left / Right) to scroll.
+  stageScale: 4.2,                  // how big a character's in-game rig is drawn there
+  // Front-view lobby art (made in the ChatGPT art project, Chat "Lobby poses"):
+  // cast keys that have public/assets/lobby/<key>.png. Until a key is listed,
+  // its in-game rig stands on the stage instead.
+  portraits: [],
+  // Rig poses on the stage until the front-view art comes: how each one holds
+  // its gun (degrees: up is negative), by cast key.
+  poses: { player: 0, commando: 30, android: -25, soldier: 12, mercenary: -12, trooper: 40, infected: 20, robot: 0, alien: -30, cyborg: 25, mutant: 0 },
+  // A picture of each map on the map picker (public/assets/menu/maps/<key>.jpg).
+  mapPreview: (key) => `assets/menu/maps/${key}.jpg`,
 };

@@ -4,3 +4,7 @@ dist/
 *.log
 
 Claude outputs/
+
+# Reference shots from another game (ChatGPT art reference only): never pushed
+assets-src/chatgpt-pack/15-style-ref-other-game.jpg
+assets-src/chatgpt-pack/keys-militia-chatgpt-pack.zip

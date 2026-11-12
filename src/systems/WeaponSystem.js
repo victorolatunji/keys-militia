@@ -116,6 +116,7 @@ export default class WeaponSystem {
     // The wheel switches throwables.
     const input = scene.input;
     const onDown = (ptr) => {
+      if (scene.matchOver) return; // the end screen: clicks are for its buttons
       if (ptr.leftButtonDown()) this.startAim({ repeat: false }, true);
     };
     const onUp = (ptr) => {

@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { buttonRow } from '../ui/Button.js';
 import Bot from '../entities/Bot.js';
 import Dummy from '../entities/Dummy.js';
 import SpeechBubble from '../ui/SpeechBubble.js';
@@ -391,12 +392,14 @@ export default class TrainingSystem {
       'You\'re ready. Next: You vs Military, Zombies or You vs Enemies.',
     ];
     add(scene.add.text(640, 340, lines.join('\n'), { fontFamily: 'monospace', fontSize: '18px', color: '#ffffff', align: 'center', lineSpacing: 6 }).setOrigin(0.5));
-    add(scene.add.text(640, 520, 'M: main menu    R: train again', { fontFamily: 'monospace', fontSize: '16px', color: '#7d879c' }).setOrigin(0.5));
+    buttonRow(scene, 640, 520, [
+      ['TRAIN AGAIN', () => scene.scene.restart({ mapKey: 'camp', modeKey: 'training', replay: true }), 'R'],
+      ['PLAY A MODE', () => { scene.scene.stop('Intro'); scene.scene.start('Menu', { page: 'modes' }); }, 'P'],
+      ['MAIN MENU', () => scene.toMenu(), 'M'],
+    ], { fixed: true, depth: depth + 2, size: 17 });
     this.title.setVisible(false);
     this.help.setVisible(false);
     this.hint.setVisible(false);
     for (const c of Object.values(this.coaches)) c.bubble.hide();
-    scene.input.keyboard.once('keydown-R', () => scene.scene.restart({ mapKey: 'camp', modeKey: 'training' }));
-    scene.input.keyboard.once('keydown-M', () => scene.toMenu());
   }
 }
