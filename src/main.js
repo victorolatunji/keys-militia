@@ -1,6 +1,9 @@
 import Phaser from 'phaser';
 import BootScene from './scenes/BootScene.js';
 import GameScene from './scenes/GameScene.js';
+import MenuScene from './scenes/MenuScene.js';
+import LobbyScene from './scenes/LobbyScene.js';
+import IntroScene from './scenes/IntroScene.js';
 
 const config = {
   type: Phaser.AUTO,          // WebGL if available, else Canvas
@@ -19,7 +22,7 @@ const config = {
       debug: false,
     },
   },
-  scene: [BootScene, GameScene], // first in the list starts first
+  scene: [BootScene, MenuScene, LobbyScene, GameScene, IntroScene], // first in the list starts first
 };
 
 export default new Phaser.Game(config);

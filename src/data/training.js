@@ -22,7 +22,7 @@
 //   gate     open the next gate when done (lessons sharing a station don't)
 export const TRAINING = {
   coaches: {
-    sarge: { bot: 'commando', title: 'Sergeant' },  // moving and fighting
+    sarge: { bot: 'commando', title: 'Sgt. Itunu' }, // moving and fighting (names: src/data/cast.js)
     tech: { bot: 'android', title: 'Android R' },   // typing and gear
   },
   targetHp: 20,           // one finished word takes a target down

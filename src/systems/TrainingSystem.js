@@ -137,7 +137,7 @@ export default class TrainingSystem {
 
   // Esc: leave Training for Free play.
   leave() {
-    this.scene.scene.restart({ modeKey: 'free', mapKey: 'forest' });
+    this.scene.toMenu(); // Esc: back to the main menu
   }
 
   // Which gate a lesson opens: the first one still closed.
@@ -391,11 +391,12 @@ export default class TrainingSystem {
       'You\'re ready. Next: You vs Military, Zombies or You vs Enemies.',
     ];
     add(scene.add.text(640, 340, lines.join('\n'), { fontFamily: 'monospace', fontSize: '18px', color: '#ffffff', align: 'center', lineSpacing: 6 }).setOrigin(0.5));
-    add(scene.add.text(640, 520, 'F8: pick a mode    R: train again    Esc: free play', { fontFamily: 'monospace', fontSize: '16px', color: '#7d879c' }).setOrigin(0.5));
+    add(scene.add.text(640, 520, 'M: main menu    R: train again', { fontFamily: 'monospace', fontSize: '16px', color: '#7d879c' }).setOrigin(0.5));
     this.title.setVisible(false);
     this.help.setVisible(false);
     this.hint.setVisible(false);
     for (const c of Object.values(this.coaches)) c.bubble.hide();
     scene.input.keyboard.once('keydown-R', () => scene.scene.restart({ mapKey: 'camp', modeKey: 'training' }));
+    scene.input.keyboard.once('keydown-M', () => scene.toMenu());
   }
 }

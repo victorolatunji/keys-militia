@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { SPRITES } from '../data/spriteManifest.js';
 import Player from '../entities/Player.js';
 import Dummy from '../entities/Dummy.js';
 import EffectsSystem from '../systems/EffectsSystem.js';
@@ -27,6 +28,13 @@ import StatsSystem from '../systems/StatsSystem.js';
 import TrainingSystem from '../systems/TrainingSystem.js';
 import PartnerSystem from '../systems/PartnerSystem.js';
 import { PARTNER } from '../data/partner.js';
+
+// Testing mode: ?dev=1, or an address that opens a match straight away
+// (?mode=, ?map=, ?partner=, ?character=).
+const devMode = () => {
+  const q = new URLSearchParams(window.location.search);
+  return ['dev', 'mode', 'map', 'partner', 'character'].some((k) => q.has(k));
+};
 
 const BOT_DROP_Y = 40;     // bots drop in from no higher than this...
 const BOT_DROP_PX = 600;   // ...and at most this far above their spawn point
@@ -71,6 +79,9 @@ export default class GameScene extends Phaser.Scene {
     if (this.map.trainingOnly && !this.mode.training) this.map = MAPS[MAP_SELECT.default];
     this.matchOver = false;
     this.partnerKey = data.partnerKey !== undefined ? data.partnerKey : (this.partnerKey ?? null);
+    // Who you play (the lobby's pick, a sprite folder): you're tagged ROOKIE whoever it is.
+    this.characterKey = data.characterKey ?? this.characterKey ?? 'player';
+    this.skipIntro = Boolean(data.skipIntro);
     this.deaths = 0;
     this.suicides = 0;
     this.kills = 0;
@@ -86,11 +97,15 @@ export default class GameScene extends Phaser.Scene {
     // out of water and lava), and the sky, hills and decor behind it all.
     this.hazards = new HazardSystem(this, this.tilemap, this.map, this.groundLayer);
     this.backdrop = new BackdropSystem(this, this.map, this.tilemap, this.groundLayer, { width, height });
-    this.input.keyboard.on(`keydown-${MAP_SELECT.key}`, () => this.nextMap());
-    this.input.keyboard.on(`keydown-${MODE_SELECT.key}`, () => this.nextMode());
-    this.input.keyboard.addCapture(MODE_SELECT.key); // keep the browser from using the key
-    this.input.keyboard.on(`keydown-${PARTNER.select.key}`, () => this.nextPartner());
-    this.input.keyboard.addCapture(PARTNER.select.key);
+    // Testing shortcuts (F6 map, F8 mode, ` partner, the readout): the menus
+    // do this now, so they're only on with ?dev=1 (or a testing address).
+    if (devMode()) {
+      this.input.keyboard.on(`keydown-${MAP_SELECT.key}`, () => this.nextMap());
+      this.input.keyboard.on(`keydown-${MODE_SELECT.key}`, () => this.nextMode());
+      this.input.keyboard.addCapture(MODE_SELECT.key); // keep the browser from using the key
+      this.input.keyboard.on(`keydown-${PARTNER.select.key}`, () => this.nextPartner());
+      this.input.keyboard.addCapture(PARTNER.select.key);
+    }
 
     // World bounds: walls left, right and top. No floor: below is the void
     // (maps with no void, like Catacombs and Graveyard, get a floor too).
@@ -102,7 +117,7 @@ export default class GameScene extends Phaser.Scene {
     this.playerSpawns = this.mode.training ? [spawn] : this.threeSpawns(width);
     const start = Phaser.Utils.Array.GetRandom(this.playerSpawns);
     this.player = new Player(this, start.x, start.y);
-    this.player.setRig('player'); // drawn from its body parts (art pass)
+    this.player.setRig(SPRITES.characters[this.characterKey] ? this.characterKey : 'player'); // drawn from its body parts (the lobby's pick)
     this.player.showTag(PLAYER.callsign); // ROOKIE: which one is you
     this.physics.add.collider(this.player, this.groundLayer);
     this.player.on('died', (cause) => this.handlePlayerDeath(cause));
@@ -199,10 +214,40 @@ export default class GameScene extends Phaser.Scene {
     this.debugText = this.add
       .text(16, 92, '', { fontFamily: 'monospace', fontSize: '14px', color: '#aaaacc' })
       .setScrollFactor(0)
-      .setDepth(100);
+      .setDepth(100)
+      .setVisible(devMode());
 
     // Training: the lessons on the camp map (after the HUD and debug text).
     this.training = this.mode.training ? new TrainingSystem(this) : null;
+
+    // Before the match: the mode's intro and the 11 ... 0 countdown (paused
+    // until then). Esc in a match: leave for the menu, or keep playing.
+    if (!this.mode.training && !this.skipIntro) {
+      // (after one frame, so everyone is drawn from their sprites, not boxes)
+      this.events.once('postupdate', () => {
+        this.scene.launch('Intro', { kind: 'start', modeKey: this.mode.key, mapKey: this.map.key });
+        this.scene.pause();
+      });
+    }
+    // The game clock runs on while the scene is paused (intro, Esc): push the
+    // match's and the airdrops' deadlines back by the time it was paused.
+    this.events.on('pause', () => (this.pausedAt = this.game.loop.time));
+    this.events.on('resume', () => {
+      const d = this.game.loop.time - (this.pausedAt ?? this.game.loop.time);
+      this.match?.shiftTime(d);
+      this.airdrops?.shiftTime(d);
+    });
+    this.input.keyboard.on('keydown-ESC', () => {
+      if (this.training || this.matchOver) return;
+      this.scene.launch('Intro', { kind: 'pause', modeKey: this.mode.key });
+      this.scene.pause();
+    });
+  }
+
+  // Back to the main menu.
+  toMenu() {
+    this.scene.stop('Intro');
+    this.scene.start('Menu');
   }
 
   // Hit-stop: everything with physics freezes for a moment when you land a

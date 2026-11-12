@@ -18,6 +18,14 @@ Every bug found in playtests or testing, with what caused it and how it was fixe
 
 ## Log
 
+### B-018: The match clock ran on during the intro
+- **Found:** 2026-11-12 · 0.29 (in testing)
+- **Where:** the new mode intro and Esc pause
+- **What happened:** after the 11-second countdown, You vs Military showed 9:50 instead of 10:00, and the first crate dropped the moment the fight began.
+- **Cause:** a paused scene's clock keeps reading the game's time, so every deadline set before the pause (match end, stages, waves, airdrops) passed while you were reading the intro.
+- **Fix:** when the scene resumes, the match's and the airdrops' deadlines move back by the time it was paused (`MatchSystem.shiftTime`, `AirdropSystem.shiftTime`, GameScene pause/resume).
+- **Status:** fixed in 0.29
+
 ### B-017: Ground-bound enemies vibrated on open maps
 - **Found:** 2026-11-11 · 0.26.1 · playtest
 - **Where:** Space, Sky Islands, Forest, Hell, Glacier (any open-air map)

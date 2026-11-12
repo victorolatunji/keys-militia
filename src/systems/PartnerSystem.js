@@ -3,6 +3,7 @@ import Bot from '../entities/Bot.js';
 import EnemyBullet from '../entities/EnemyBullet.js';
 import { BOTS } from '../data/enemies.js';
 import { PARTNER } from '../data/partner.js';
+import { castOfBot } from '../data/cast.js';
 import { hasLineOfSight } from './LineOfSight.js';
 import { muzzleOf, muzzleFlash } from './ShotFx.js';
 import { groundBelow } from './Terrain.js';
@@ -35,6 +36,8 @@ export default class PartnerSystem {
     // (its BotBrain never runs: PartnerSystem moves it along your path)
     const bot = new Bot(scene, p.x - 60, p.y - 20, this.config, scene.groundLayer, () => null, 'partner');
     bot.isPartner = true;
+    bot.castName = castOfBot(key)?.name ?? base.name; // its name from the cast (cast.js)
+    this.castName = bot.castName;
     bot.team = 'players';
     bot.setStrokeStyle(2, PARTNER.color);
     bot.hpFill.setFillStyle(PARTNER.color);
@@ -45,7 +48,7 @@ export default class PartnerSystem {
     });
     this.bot = bot;
     this.tag = scene.add
-      .text(0, 0, `ALLY · ${PARTNER.callsigns[base.name] ?? base.name}`, { fontFamily: 'monospace', fontSize: '12px', color: '#06d6a0', backgroundColor: '#000000aa', padding: { x: 4, y: 1 } })
+      .text(0, 0, bot.castName, { fontFamily: 'monospace', fontSize: '12px', color: '#06d6a0', backgroundColor: '#000000aa', padding: { x: 4, y: 1 } })
       .setOrigin(0.5)
       .setDepth(44);
   }

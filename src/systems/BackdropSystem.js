@@ -110,7 +110,7 @@ export default class BackdropSystem {
       else if (o.name === 'airshipwreck') this.drawAirshipWreck(o.x, o.y);
       else if (o.name === 'shipwreck') this.drawShipWreck(o.x, o.y);
       else if (o.name === 'smoke') this.smokeFrom(o.x, o.y);
-      else if (o.name === 'oracle') this.drawOracle(o.x, o.y);
+      else if (o.name === 'nbozi' || o.name === 'oracle') this.drawNbozi(o.x, o.y);
       else if (o.name === 'brazier') this.drawBrazier(o.x, o.y);
       else if (o.name === 'gong') this.drawGong(o.x, o.y);
       else if (o.name === 'stupa') this.drawStupa(o.x, o.y);
@@ -765,9 +765,9 @@ export default class BackdropSystem {
     g.lineBetween(x - 26, y - 26, x + 26, y - 26);
   }
 
-  // The Oracle on her dais: a stone seat, a hooded figure, a glowing orb
+  // Nbozi, the monastery's seer, on her dais: a stone seat, a hooded figure, a glowing orb
   // floating over her hands, a soft halo pulsing.
-  drawOracle(x, y) {
+  drawNbozi(x, y) {
     const g = this.back;
     g.fillStyle(0x6f655b, 1).fillRect(x - 40, y - 12, 80, 12).fillRect(x - 30, y - 18, 60, 6);
     g.fillStyle(0x4a1942, 1).fillTriangle(x - 18, y - 18, x + 18, y - 18, x, y - 62); // robe

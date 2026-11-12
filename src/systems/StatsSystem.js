@@ -1,5 +1,4 @@
 import { SCORING, AWARDS, LEADERBOARD } from '../data/scoring.js';
-import { PARTNER } from '../data/partner.js';
 
 // Keeps everyone's numbers for one match: you, your Duo partner, and the
 // enemies (one row per enemy type). Other systems report what happens:
@@ -40,7 +39,7 @@ export default class StatsSystem {
     if (!who) return null;
     if (who === this.scene.player) return this.you;
     if (!who.config || who.slot === 'coach') return null; // practice dummies, Training's coaches
-    if (who.isPartner || who.slot === 'partner') return this.row('ally', `Ally · ${PARTNER.callsigns[who.config.name] ?? who.config.name}`, 'ally');
+    if (who.isPartner || who.slot === 'partner') return this.row('ally', who.castName ?? who.config.name, 'ally');
     return this.row(`enemy:${who.config.name}`, who.config.name, 'enemy');
   }
 

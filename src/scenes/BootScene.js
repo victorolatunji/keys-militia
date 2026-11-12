@@ -83,6 +83,13 @@ export default class BootScene extends Phaser.Scene {
 
   create() {
     createIconTextures(this); // item icons for crates, drops, the pickup panel and the HUD
-    this.scene.start('Game', { mapKey: startingMap(), modeKey: startingMode(), partnerKey: startingPartner() });
+    // Straight into a match when the address says which (?mode=, ?map=,
+    // ?partner=, ?character=: testing); otherwise the main menu.
+    const q = new URLSearchParams(window.location.search);
+    if (['mode', 'map', 'partner', 'character'].some((k) => q.has(k))) {
+      this.scene.start('Game', { mapKey: startingMap(), modeKey: startingMode(), partnerKey: startingPartner(), characterKey: q.get('character') ?? 'player', skipIntro: q.get('intro') !== '1' });
+    } else {
+      this.scene.start('Menu');
+    }
   }
 }

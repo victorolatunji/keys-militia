@@ -31,8 +31,17 @@ export default class MatchSystem {
     this.breakUntil = now + 3000; // a moment before the first wave
     this.nextSpawnAt = 0;
     this.makeHud();
+    // (the mode's name and goal: the intro pop-up says them, so the banner only shows without it)
     const lifeLine = !this.waves ? '' : mode.respawns ? `Survive the waves · ${mode.respawns} respawns` : 'Survive the waves · no respawns';
-    this.banner(mode.name, this.waves ? lifeLine : `First to ${mode.killTarget} kills · ${Math.round(mode.timeMs / 60000)} minutes`);
+    if (scene.skipIntro) this.banner(mode.name, this.waves ? lifeLine : `First to ${mode.killTarget} kills · ${Math.round(mode.timeMs / 60000)} minutes`);
+  }
+
+  // The scene was paused for ms (the intro, Esc): every deadline moves back.
+  shiftTime(ms) {
+    this.startAt += ms;
+    this.endsAt += ms;
+    if (this.breakUntil) this.breakUntil += ms;
+    if (this.nextSpawnAt) this.nextSpawnAt += ms;
   }
 
   get stage() {
@@ -164,6 +173,7 @@ export default class MatchSystem {
     this.drawHud();
     this.showResults(result);
     scene.input.keyboard.once('keydown-R', () => scene.scene.restart({ mapKey: scene.map.key, modeKey: this.mode.key }));
+    scene.input.keyboard.once('keydown-M', () => scene.toMenu());
   }
 
   // The end-of-match screen: result, scoreboard, your typing, awards and
@@ -194,7 +204,7 @@ export default class MatchSystem {
     const color = { win: '#06d6a0', lose: '#ff4d6d', draw: '#ffd166', over: '#ff4d6d' }[result];
     text(640, 26, title, font(46, color, { fontStyle: 'bold' }), 0.5);
     const score = this.waves ? `Waves survived ${waves}` : `You ${scene.kills}  :  ${this.enemyKills} Military`;
-    const team = scene.partner ? `Duo with ${scene.partner.config.name}` : 'Solo';
+    const team = scene.partner ? `Duo with ${scene.partner.castName ?? scene.partner.config.name}` : 'Solo';
     text(640, 82, `${this.mode.name} · ${scene.map.name} · ${team} · ${clock(timeMs)}   ·   ${score}`, font(17, '#c9d1e0'), 0.5);
 
     // Scoreboard

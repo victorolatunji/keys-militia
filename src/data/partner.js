@@ -12,9 +12,8 @@ export const PARTNER = {
     order: ['soldier', 'mercenary', 'commando', 'armouredTrooper', 'zombie', 'skeleton', 'infectedSoldier',
       'android', 'robot', 'alien', 'cyborg', 'mutant'],
   },
-  // Its name on your side (its tag and the end screen), where it differs
-  // from the enemy one: your Soldier is an Elite.
-  callsigns: { Soldier: 'Elite' },
+  // Its name on your side (its ALLY tag and the end screen) comes from the
+  // cast (src/data/cast.js): your Soldier is Kolawole.
   hpScale: 3,               // much tougher than the enemy version
   regenPerSec: 6,           // heals itself
 

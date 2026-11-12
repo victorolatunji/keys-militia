@@ -66,6 +66,12 @@ export default class AirdropSystem {
     return Math.max(0, this.nextDropAt - this.scene.time.now);
   }
 
+  // The scene was paused for ms: the next drops come that much later too.
+  shiftTime(ms) {
+    this.nextDropAt += ms;
+    for (const lane of this.lanes) lane.nextAt += ms;
+  }
+
   update(delta) {
     const now = this.scene.time.now;
 

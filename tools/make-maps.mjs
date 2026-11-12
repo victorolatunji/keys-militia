@@ -1026,7 +1026,7 @@ function monastery() {
   // walls two tiles thick with a tall doorway at each end, a solid stepped
   // roof on top (it blocks you; walk and stand on it). One narrow shaft
   // through each roof is the shortcut between the hall and the roof.
-  //   west: the scripture hall; middle: the Oracle's temple; east: the gong hall
+  //   west: the scripture hall; middle: Nbozi's temple; east: the gong hall
   for (const [x0, x1] of [[9, 29], [44, 66], [81, 101]]) {
     slab(m, x0, x1, L1, 3);
     fill(m, x0, L1 + 3, x0 + 1, L2 - 1, 'rock');
@@ -1044,7 +1044,7 @@ function monastery() {
     decor.push(rect('roofhatch', px(sx), px(L1 - 1), px(4), px(1)));
     decor.push(rect('cave', px(x0 + 2), px(L1 + 3), px(x1 - x0 - 3), px(L2 - L1 - 3)));
   }
-  // The Oracle's pagoda: an upper tier on red posts over the middle temple,
+  // Nbozi's pagoda: an upper tier on red posts over the middle temple,
   // a floor and its own solid stepped roof (a covered lookout, open sides).
   const P = L1 - 9;                           // its floor
   slab(m, 49, 61, P, 1, 'hidden');
@@ -1078,10 +1078,10 @@ function monastery() {
   for (const [x, w, row] of [[38, 4, L2], [76, 4, L2], [14, 5, L3], [92, 5, L3], [6, 3, L2], [102, 2, L2]]) {
     decor.push(rect('bamboo', px(x), px(row) - 88, px(w), 88));
   }
-  // The temples' insides: scripture shelves... the Oracle on her dais with
+  // The temples' insides: scripture shelves... Nbozi on her dais with
   // braziers either side... the great gong.
   decor.push(point('scrolls', px(14) + 16, px(L2)), point('scrolls', px(22) + 16, px(L2)));
-  decor.push(point('oracle', px(55) + 16, px(L2)));
+  decor.push(point('nbozi', px(55) + 16, px(L2)));
   decor.push(point('brazier', px(50) + 16, px(L2)), point('brazier', px(60) + 16, px(L2)));
   decor.push(point('gong', px(91) + 16, px(L2)));
   decor.push(point('brazier', px(85) + 16, px(L2)), point('brazier', px(97) + 16, px(L2)));
