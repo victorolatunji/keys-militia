@@ -18,6 +18,14 @@ Every bug found in playtests or testing, with what caused it and how it was fixe
 
 ## Log
 
+### B-029: The Drone and the Zombie K9 could be picked as your character
+- **Found:** 2026-11-12 · 0.33 · playtest
+- **Where:** lobby
+- **What happened:** you could play as the Drone or the K9, which aren't meant to be playable.
+- **Cause:** the lobby only checked who can be a partner, not who can be you.
+- **Fix:** `playable: false` on both in `cast.js` and `canPick()` used by the lobby (greyed heads, skipped when browsing, old saves fall back to Victor); the match falls back to Victor too.
+- **Status:** fixed in 0.33
+
 ### B-028: Coming back from another tab skipped things
 - **Found:** 2026-11-12 · 0.32 · playtest
 - **Where:** every mode, the countdown and the match clock

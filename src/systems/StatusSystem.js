@@ -167,8 +167,8 @@ export default class StatusSystem {
   // Shocked: lightning (the arc art) crackling over the body.
   spark(target) {
     const cfg = STATUS.shocked;
-    const key = fxKey(Phaser.Utils.Array.GetRandom(cfg.arcArt));
-    if (this.scene.textures.exists(key)) {
+    const key = cfg.arcArt && fxKey(Phaser.Utils.Array.GetRandom(cfg.arcArt));
+    if (key && this.scene.textures.exists(key)) {
       const d = drawn(target);
       const img = this.scene.add
         .image(target.x + Phaser.Math.Between(-d.w / 3, d.w / 3), Phaser.Math.Between(d.top + d.h * 0.15, d.bottom - d.h * 0.15), key)
@@ -180,14 +180,24 @@ export default class StatusSystem {
       this.scene.time.delayedCall(90, () => img.destroy());
       return;
     }
-    const x = target.x + Phaser.Math.Between(-target.width / 2, target.width / 2);
-    const y = target.y + Phaser.Math.Between(-target.height / 2, target.height / 2);
-    const sp = this.scene.add
-      .line(0, 0, x, y, x + Phaser.Math.Between(-8, 8), y + Phaser.Math.Between(-8, 8), STATUS.shocked.fxColor)
-      .setOrigin(0, 0)
-      .setLineWidth(2)
-      .setDepth(44);
-    this.scene.time.delayedCall(80, () => sp.destroy());
+    // A tiny jagged spark drawn on the body, gone in a blink.
+    const S = cfg.spark;
+    const d = drawn(target);
+    let x = target.x + Phaser.Math.Between(-d.w / 3, d.w / 3);
+    let y = Phaser.Math.Between(d.top + d.h * 0.15, d.bottom - d.h * 0.15);
+    const g = this.scene.add.graphics().setDepth(44).setBlendMode(Phaser.BlendModes.ADD);
+    g.lineStyle(S.width, Phaser.Utils.Array.GetRandom(S.colors), 1);
+    g.beginPath();
+    g.moveTo(x, y);
+    const a = Math.random() * Math.PI * 2;
+    for (let k = 0; k < S.bends; k++) {
+      const len = Phaser.Math.Between(...S.len) / S.bends * 2;
+      x += Math.cos(a) * len + Phaser.Math.Between(-4, 4);
+      y += Math.sin(a) * len + Phaser.Math.Between(-4, 4);
+      g.lineTo(x, y);
+    }
+    g.strokePath();
+    this.scene.time.delayedCall(S.ms, () => g.destroy());
   }
 
   // Gassed: little green puffs coughed out of the face.

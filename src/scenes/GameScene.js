@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { CAST } from '../data/cast.js';
 import Unstuck from '../systems/Unstuck.js';
 import TerrainArt from '../systems/TerrainArt.js';
 import { TRAINING } from '../data/training.js';
@@ -95,6 +96,7 @@ export default class GameScene extends Phaser.Scene {
     // Who you play (the lobby's pick, a sprite folder): you're tagged ROOKIE whoever it is.
     this.characterKey = data.characterKey ?? this.characterKey ?? 'player';
     if (this.mode.training) this.characterKey = TRAINING.character; // Training is always Victor, the hero
+    if (CAST.find((c) => c.key === this.characterKey)?.playable === false) this.characterKey = 'player'; // the Drone and the K9 aren't playable
     this.skipIntro = Boolean(data.skipIntro);
     this.replay = Boolean(data.replay); // PLAY AGAIN: just the countdown, no intro pop-up
     this.deaths = 0;

@@ -2,7 +2,8 @@ import { gravityK } from './Gravity.js';
 import Phaser from 'phaser';
 import Cloud from '../entities/Cloud.js';
 import { groundBelow } from './Terrain.js';
-import { BLAST_FX, BANG, CLOUD_VISION, JUICE } from '../data/effects.js';
+import { BLAST_FX, BANG, EMP_ART, CLOUD_VISION, JUICE } from '../data/effects.js';
+import { fxKey } from './ShotFx.js';
 import { RIG } from '../data/rigs.js';
 
 const DEPTH = 44;
@@ -311,17 +312,42 @@ export default class BlastFx {
         g.strokePath();
       }
     };
+    // The arc art crackling out from the heart (EMP_ART), re-placed with the bolts.
+    const arcs = [];
+    const placeArcs = () => {
+      for (const a of arcs) a.destroy();
+      arcs.length = 0;
+      for (let i = 0; i < EMP_ART.count; i++) {
+        const key = fxKey(Phaser.Utils.Array.GetRandom(EMP_ART.arcs));
+        if (!this.scene.textures.exists(key)) return;
+        const ang = Math.random() * Math.PI * 2;
+        const size = radius * Phaser.Math.FloatBetween(...EMP_ART.size);
+        const img = this.scene.add
+          .image(x + Math.cos(ang) * size * 0.5, y + Math.sin(ang) * size * 0.5, key)
+          .setRotation(ang)
+          .setFlipY(Math.random() < 0.5)
+          .setAlpha(EMP_ART.alpha)
+          .setBlendMode(Phaser.BlendModes.ADD)
+          .setDepth(DEPTH + 3);
+        img.setScale(size / img.width);
+        arcs.push(img);
+      }
+    };
     // Re-draw the bolts a few times so they flicker and crawl.
     draw();
+    placeArcs();
     let n = 0;
     const timer = this.scene.time.addEvent({
       delay: 60,
       repeat: 5,
       callback: () => {
         n += 1;
-        if (n < 5) draw();
-        else {
+        if (n < 5) {
+          draw();
+          placeArcs();
+        } else {
           g.destroy();
+          for (const a of arcs) a.destroy();
           timer.remove();
         }
       },

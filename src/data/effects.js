@@ -189,6 +189,11 @@ export const BANG = {
   colors: [0xffd166, 0xfff3c4],
 };
 
+// The EMP blast: the lightning arc art (public/assets/sprites/effects)
+// crackling out from the heart on top of the drawn bolts, re-placed each
+// flicker. (On characters, shocked shows drawn sparks, not the art.)
+export const EMP_ART = { arcs: ['arc-1', 'arc-2'], count: 5, size: [0.35, 0.6], alpha: 0.95 }; // size: times the blast radius
+
 // Blasts reach round corners and through thin walls, weaker: damage and push
 // behind a wall are this share (a weapon's blast can set its own wallFactor).
 export const BLAST_THROUGH_WALL = 0.55;

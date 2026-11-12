@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { CAST, fullName } from '../data/cast.js';
+import { CAST, fullName, canPick } from '../data/cast.js';
 import { BOTS } from '../data/enemies.js';
 import { MODES } from '../data/modes.js';
 import { MAPS, MAP_SELECT } from '../data/maps.js';
@@ -96,7 +96,7 @@ export default class LobbyScene extends Phaser.Scene {
     this.mode = MODES[data.modeKey] ?? MODES.free;
     const saved = storage.get();
     this.duo = Boolean(saved.duo);
-    this.you = CAST.find((c) => c.key === saved.you) ?? CAST[0];
+    this.you = CAST.find((c) => c.key === saved.you && canPick(c, 'you')) ?? CAST[0];
     this.partner = CAST.find((c) => c.key === saved.partner && c.partner) ?? CAST.find((c) => c.partner);
     this.maps = (this.mode.maps ?? MAP_SELECT.order).filter((k) => MAPS[k] && !MAPS[k].trainingOnly && k !== 'test'); // the test map is for testing addresses only
     const savedMap = saved.maps?.[this.mode.key];
@@ -212,9 +212,10 @@ export default class LobbyScene extends Phaser.Scene {
     });
   }
 
-  // Which characters you can browse right now (a partner must be able to fight beside you).
+  // Which characters you can browse right now (a partner must be able to
+  // fight beside you; the Drone and the K9 can't be you either).
   browsable() {
-    return CAST.filter((c) => this.slot !== 'partner' || c.partner);
+    return CAST.filter((c) => canPick(c, this.slot));
   }
 
   browse(dir) {
@@ -303,14 +304,14 @@ export default class LobbyScene extends Phaser.Scene {
   // Pick a character for the lit slot (a partner must be one that can fight beside you).
   pick(c) {
     if (this.info || this.arsenal) return;
+    if (!canPick(c, this.slot)) return;
     if (this.slot === 'partner') {
-      if (!c.partner) return;
       this.partner = c;
     } else {
       this.you = c;
       if (this.duo) this.slot = 'partner'; // next: your partner
     }
-    if (this.slot === 'partner' && !CAST[this.cursor].partner) this.cursor = CAST.indexOf(this.partner);
+    if (!canPick(CAST[this.cursor], this.slot)) this.cursor = CAST.indexOf(this.slot === 'partner' ? this.partner : this.you);
     this.save();
     this.refresh();
   }
@@ -439,7 +440,7 @@ export default class LobbyScene extends Phaser.Scene {
     const icon = headIcon(this, c.key, W / 2 - 270, H / 2 - 106, 44);
     if (icon) add(icon);
     add(this.add.text(W / 2 - 236, H / 2 - 124, fullName(c), { fontFamily: FONT, fontSize: '28px', fontStyle: 'bold', color: GOLD }));
-    add(this.add.text(W / 2 - 236, H / 2 - 86, `${c.type}${c.partner ? '' : ' · can\'t be your partner'}`, { fontFamily: FONT, fontSize: '15px', color: '#a49d95' }));
+    add(this.add.text(W / 2 - 236, H / 2 - 86, `${c.type}${c.playable === false ? ' · not playable (enemy only)' : c.partner ? '' : ' · can\'t be your partner'}`, { fontFamily: FONT, fontSize: '15px', color: '#a49d95' }));
     add(this.add.text(W / 2 - 290, H / 2 - 48, c.story, { fontFamily: FONT, fontSize: '18px', color: '#dcd1bf', wordWrap: { width: 580 }, lineSpacing: 6 }));
     add(makeButton(this, W / 2, H / 2 + 118, 'CLOSE', () => this.closeInfo(), { keyLabel: 'Esc', size: 15 }));
     this.info = parts;
@@ -471,7 +472,7 @@ export default class LobbyScene extends Phaser.Scene {
     // Heads: where you are; grey for ones that can't be picked for this slot
     this.heads.forEach((h, i) => {
       const lit = i === this.cursor;
-      const blocked = this.slot === 'partner' && !h.c.partner;
+      const blocked = !canPick(h.c, this.slot);
       h.box.setStrokeStyle(lit ? 3 : 2, lit ? 0xd2a35f : h.c === this.you ? 0x9c7a2e : this.duo && h.c === this.partner ? 0x06d6a0 : 0x30353b);
       h.box.setAlpha(blocked ? 0.35 : 1);
       h.icon?.setAlpha(blocked ? 0.25 : 1);

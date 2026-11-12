@@ -9,6 +9,9 @@
 //
 // key: the sprite folder (also the lobby order). bot: its BOTS key (null for
 // the hero). partner: can fight beside you as your Duo partner.
+// playable: false: can't be picked as YOUR character either (the Drone and
+// the Zombie K9 aren't people: they're in the cast and the lobby to read
+// about, and they fight as enemies).
 export const CAST = [
   { key: 'player', bot: null, type: 'Hero', name: 'Victor', callsign: 'Rookie', weapon: 'm4', partner: false,
     story: 'A 19-year-old courier who fought his way out of Lakeport with a borrowed rifle and a cracked keyboard. Fast fingers, no training, zero quit.' },
@@ -36,11 +39,11 @@ export const CAST = [
     story: 'Half his nervous system is hardware, and the Signal can\'t touch the half that\'s left. The ex-security engineer who cracked the first Signal-proof firing code.' },
   { key: 'mutant', bot: 'mutant', type: 'Mutant', name: 'Obonachocho', partner: true,
     story: 'A gentle farmhand the Wastelands\' fallout grew to twice his size. Hates loud noises, and makes a lot of them.' },
-  { key: 'drone', bot: 'drone', type: 'Drone', name: 'Kixon', weapon: 'mac10', partner: false,
+  { key: 'drone', bot: 'drone', type: 'Drone', name: 'Kixon', weapon: 'mac10', partner: false, playable: false,
     story: 'Black Static\'s lead hunter drone, until Android R reprogrammed him. He still marks his prey with a red light before he strikes.' },
   { key: 'scrapbot', bot: 'scrapBot', type: 'Scrap Bot', name: 'Junker', partner: false,
     story: 'Black Static welds these walking bombs together from wrecks. This one forgot how to explode and decided it likes people.' },
-  { key: 'k9', bot: 'zombieK9', type: 'Zombie K9', name: 'Rex', partner: false,
+  { key: 'k9', bot: 'zombieK9', type: 'Zombie K9', name: 'Rex', partner: false, playable: false,
     story: 'An army dog turned on Day 0. Packs of them hunt the tunnels; this one follows Victor home every night anyway.' },
 ];
 
@@ -48,3 +51,6 @@ export const castOf = (key) => CAST.find((c) => c.key === key);
 export const castOfBot = (botKey) => CAST.find((c) => c.bot === botKey);
 // Its display name: Name "Callsign" (or just the name).
 export const fullName = (c) => (c.callsign ? `${c.name} "${c.callsign}"` : c.name);
+
+// Can this character be picked for this lobby slot ('you' or 'partner')?
+export const canPick = (c, slot) => (slot === 'partner' ? Boolean(c.partner) : c.playable !== false);

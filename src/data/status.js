@@ -17,10 +17,7 @@
 export const STATUS = {
   burning: {
     noLabel: true,      // no "burning" text: the flames on the body say it
-    // Burning characters get the small drawn flames again (0.33: the
-    // flame-puff art on the body is gone). Set flameArt: 'flame-puff' to
-    // bring the art back. The EMP's lightning on the body (shocked) stays art.
-    flameArt: null, flameSize: [18, 28], flameEveryMs: 70, flameAlpha: 0.9,
+    flameArt: 'flame-puff', flameSize: [18, 28], flameEveryMs: 50, flameAlpha: 0.9, // flames licking up the body (projectiles art), a little see-through
     durationMs: 5000,   // a new hit restarts the timer
     dps: 6,             // damage per second while burning
     tickMs: 500,        // damage lands in small ticks
@@ -71,7 +68,10 @@ export const STATUS = {
     attackScale: 1.3,
     textColor: '#4cc9f0',
     fxColor: 0x4cc9f0,  // sparks
-    arcArt: ['arc-1', 'arc-2'], arcSize: [34, 54], // lightning crackling over the body (effects art)
+    // On a character: small drawn sparks (no art since 0.33); the EMP blast
+    // itself uses the lightning arc art (EMP_ART in effects.js).
+    arcArt: null, arcSize: [34, 54],
+    spark: { len: [6, 12], bends: 3, width: 2, colors: [0x4cc9f0, 0xbde0fe, 0xffffff], ms: 90 },
   },
   frozen: {
     durationMs: 4000,
