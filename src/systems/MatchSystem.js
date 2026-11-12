@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { BOTS } from '../data/enemies.js';
+import { pickForMap, GROUND_BOUND } from './EnemySpawner.js';
 import { SCORING, clock } from '../data/scoring.js';
 
 const HUD_DEPTH = 105;
@@ -142,7 +143,9 @@ export default class MatchSystem {
 
   spawnWaveEnemy() {
     const scene = this.scene;
-    const key = Phaser.Utils.Array.GetRandom(this.waveConfig.types);
+    // The wave's types that fit this map, the map's own families more often.
+    const shooterOut = scene.bots.some((b) => b.alive && !GROUND_BOUND(b.config));
+    const key = pickForMap(this.waveConfig.types, scene.map, !shooterOut);
     const config = this.tune(BOTS[key]);
     // Reuse a fallen one (cheaper than a new body), else a new enemy.
     const free = scene.bots.find((b) => !b.alive && b.slot === config.role);

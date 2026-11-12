@@ -18,6 +18,14 @@ Every bug found in playtests or testing, with what caused it and how it was fixe
 
 ## Log
 
+### B-017: Ground-bound enemies vibrated on open maps
+- **Found:** 2026-11-11 · 0.26.1 · playtest
+- **Where:** Space, Sky Islands, Forest, Hell, Glacier (any open-air map)
+- **What happened:** zombies, K9s, Scrap Bots and mutants shook in place and moved wrongly.
+- **Cause:** they have no jetpack. On open maps with gaps, low gravity and air to fight in, they can't reach a player who flies, so they keep trying to hop and turn back.
+- **Fix:** ground-bound types (movement `walker` or `leaper`) only spawn on maps marked `groundFighters` (Graveyard, Wastelands, Catacombs), in slots and in waves. There they come more often than the shooters (`walkerBoost`, 5 enemies on those maps), but a jetpack shooter is always out on every map. Each map also weights its families (Space sci-fi, Forest military, Graveyard undead). (`EnemySpawner` `fitsMap` / `pickForMap` / `rollFamily`, `MatchSystem.spawnWaveEnemy`, `maps.js`)
+- **Status:** fixed in 0.26.2
+
 ### B-016: Spawns dropped you onto a lower floor, or into lava
 - **Found:** 2026-11-11 · 0.26 · playtest
 - **Where:** random spawns, every map (seen in Hell and Forest)

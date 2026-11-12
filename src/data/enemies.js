@@ -383,10 +383,9 @@ export const BOTS = {
   },
 };
 
-// Enemy spawning. The map's `enemies` setting lists how many of each slot.
-// Main slots pick from the current family, which changes every familyEveryMs;
-// machine and animal slots pick any type with that role. A dead enemy is
-// replaced by a new random type after its respawnDelay.
+// Enemy spawning: see EnemySpawner.js. The map's `enemies` setting lists how
+// many of each slot and how often each family comes; a dead enemy is replaced
+// by a new type after its respawnDelay. (familyEveryMs: no longer used.)
 export const SPAWNER = {
   familyEveryMs: 120000,
 };

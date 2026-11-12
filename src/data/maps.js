@@ -54,7 +54,7 @@ export const MAPS = {
     // They drop in from the sky above a spawn point far from you.
     enemies: {
       slots: { main: 2, machine: 1, animal: 1 },
-      families: ['military', 'undead', 'scifi'],
+      families: { military: 2, undead: 1, scifi: 1 }, // how often each family comes (weights)
     },
 
     // The void under every map.
@@ -81,7 +81,7 @@ export const MAPS = {
     tilesetFile: 'assets/tilesets/forest-tiles.png',
     enemies: {
       slots: { main: 2, machine: 1, animal: 1 },
-      families: ['military', 'undead', 'scifi'],
+      families: { military: 5, scifi: 1, undead: 1 }, // how often each family comes (weights)
     },
     // Backdrop (BackdropSystem): sky colors top to bottom, the sun, clouds,
     // two rows of hills (far, near) and birds.
@@ -126,7 +126,7 @@ export const MAPS = {
     tilesetFile: 'assets/tilesets/hell-tiles.png',
     enemies: {
       slots: { main: 2, machine: 1, animal: 1 },
-      families: ['undead', 'military', 'scifi'],
+      families: { undead: 3, military: 2, scifi: 2 }, // how often each family comes (weights)
     },
     sky: {
       colors: [0x0b0203, 0x2b0a0a, 0x6a040f, 0x9d0208, 0xdc2f02],
@@ -169,7 +169,7 @@ export const MAPS = {
     tilesetFile: 'assets/tilesets/glacier-tiles.png',
     enemies: {
       slots: { main: 2, machine: 1, animal: 1 },
-      families: ['scifi', 'military', 'undead'],
+      families: { military: 4, scifi: 2, undead: 1 }, // how often each family comes (weights)
     },
     sky: {
       colors: [0x1b263b, 0x415a77, 0x8fa9bf, 0xc5d3df, 0x778da9], // colder, greyer
@@ -218,7 +218,7 @@ export const MAPS = {
     tilesetFile: 'assets/tilesets/desert-tiles.png',
     enemies: {
       slots: { main: 2, machine: 1, animal: 1 },
-      families: ['military', 'scifi', 'undead'],
+      families: { military: 4, scifi: 2, undead: 1 }, // how often each family comes (weights)
     },
     sky: {
       colors: [0x7f5539, 0xb08968, 0xddb892, 0xe6ccb2, 0x9c6644], // dusty haze
@@ -264,8 +264,10 @@ export const MAPS = {
     tilesetKey: 'tiles-catacombs',
     tilesetFile: 'assets/tilesets/catacombs-tiles.png',
     enemies: {
-      slots: { main: 2, machine: 1, animal: 1 },
-      families: ['undead', 'military', 'scifi'],
+      slots: { main: 3, machine: 1, animal: 1 }, // one more: one jetpack shooter is always among the mains,
+      families: { undead: 3, military: 2, scifi: 1 }, // how often each family comes (weights)
+      groundFighters: true, // walkers and leapers (zombies, skeletons, mutants, K9s, Scrap Bots) fight here...
+      walkerBoost: 4,       // ...and come more often than the jetpack shooters (who still come plenty)
     },
     sky: { colors: [0x000000, 0x000000], horizonY: 400, dust: true }, // just black, with dust drifting
     water: { color: 0x2a4d4f, deepColor: 0x0b1d1e, surfaceColor: 0x84a59d, alpha: 0.7 },
@@ -290,8 +292,10 @@ export const MAPS = {
     tilesetKey: 'tiles-graveyard',
     tilesetFile: 'assets/tilesets/graveyard-tiles.png',
     enemies: {
-      slots: { main: 2, machine: 1, animal: 1 },
-      families: ['undead', 'scifi', 'military'],
+      slots: { main: 3, machine: 1, animal: 1 }, // one more: one jetpack shooter is always among the mains,
+      families: { undead: 3, military: 2, scifi: 1 }, // how often each family comes (weights)
+      groundFighters: true, // walkers and leapers (zombies, skeletons, mutants, K9s, Scrap Bots) fight here...
+      walkerBoost: 4,       // ...and come more often than the jetpack shooters (who still come plenty)
     },
     sky: {
       colors: [0x03071e, 0x0b132b, 0x1c2541, 0x3a506b, 0x1c2541],
@@ -326,7 +330,7 @@ export const MAPS = {
     tilesetFile: 'assets/tilesets/monastery-tiles.png',
     enemies: {
       slots: { main: 2, machine: 1, animal: 1 },
-      families: ['military', 'scifi', 'undead'],
+      families: { military: 4, undead: 1, scifi: 1 }, // how often each family comes (weights)
     },
     sky: {
       colors: [0x355070, 0x6d597a, 0xb56576, 0xeaac8b, 0xffe5d9],
@@ -366,8 +370,10 @@ export const MAPS = {
     tilesetKey: 'tiles-wastelands',
     tilesetFile: 'assets/tilesets/wastelands-tiles.png',
     enemies: {
-      slots: { main: 2, machine: 1, animal: 1 },
-      families: ['military', 'undead', 'scifi'],
+      slots: { main: 3, machine: 1, animal: 1 }, // one more: one jetpack shooter is always among the mains,
+      families: { scifi: 3, undead: 2, military: 2 }, // how often each family comes (weights)
+      groundFighters: true, // walkers and leapers (zombies, skeletons, mutants, K9s, Scrap Bots) fight here...
+      walkerBoost: 4,       // ...and come more often than the jetpack shooters (who still come plenty)
     },
     sky: {
       colors: [0x3d405b, 0x6b705c, 0xa5a58d, 0xb7b7a4, 0x6b705c],
@@ -400,7 +406,7 @@ export const MAPS = {
     tilesetFile: 'assets/tilesets/skyislands-tiles.png',
     enemies: {
       slots: { main: 2, machine: 1, animal: 1 },
-      families: ['military', 'scifi', 'undead'],
+      families: { military: 3, scifi: 3, undead: 1 }, // how often each family comes (weights)
     },
     sky: {
       colors: [0x1d2d44, 0x3e5c76, 0x748cab, 0xa9b4c2, 0xd9dde3], // a stormy sky
@@ -469,7 +475,7 @@ export const MAPS = {
     tilesetFile: 'assets/tilesets/space-tiles.png',
     enemies: {
       slots: { main: 2, machine: 1, animal: 1 },
-      families: ['scifi', 'military'],
+      families: { scifi: 6, military: 1 }, // how often each family comes (weights)
     },
     sky: {
       colors: [0x03001c, 0x0b0530, 0x1b1045, 0x0b0530, 0x03001c],

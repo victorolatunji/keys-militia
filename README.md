@@ -1,7 +1,7 @@
 # Keys Militia
 *A VAO game. Living plan book: update it whenever the plan changes.*
 
-**Version:** 0.26.1
+**Version:** 0.26.2
 **Owner:** Victor Olatunji / VAO
 **Budget:** $0, free tools and free assets only
 **Status:** Phase 8 (Offline modes) done; Phase 9 (Menus and guest) next.
@@ -251,7 +251,7 @@ Stats live in `src/data/weapons.js` (guns, specials, throwables), `src/data/item
 - **Hit flinch:** every hit you land throws that enemy's aim off and delays its next shot. Typing is also your defense.
 - **Health regen** (section 4) and soft bot damage. With four enemies out, you take about 3–4 damage per second when fully exposed.
 
-**Spawning:** up to 4 enemies at once: **2 main characters** (humanoids), **1 machine** and **1 animal** (`enemies` in `maps.js`). The main pair comes from one family that rotates every 2 minutes (Military → Undead → Sci-fi); machines and animals are picked at random. A dead enemy is replaced 3s later by a new random type for its slot. A bot that falls into the void after you did half its HP in the last 10s counts as your kill; one that blows itself up doesn't. Dying to an enemy shows "Killed by a …".
+**Spawning:** 4 enemies at once on open maps, 5 on the ground maps (slots in each map's `enemies` in `maps.js`). Every type is picked by **the map's family weights** (`enemies.families`): Forest, Glacier, Desert and Monastery lean Military; Space and Sky Islands lean Sci-fi; Graveyard and Catacombs lean Undead (zombies, skeletons, infected); Wastelands Sci-fi and Undead (mutants). Waves in You vs Enemies lean the same way. **Jetpack shooters are never scarce:** a main slot always brings one when no other main enemy out there has a jetpack (waves too). **Ground-bound rule (0.26.2):** characters with no jetpack that walk or leap (Zombie, Skeleton, Mutant, Zombie K9, Scrap Bot) only fight on the enclosed ground maps marked `groundFighters` (Graveyard, Wastelands, Catacombs), where `walkerBoost` makes them come more often than the shooters (about 3 walkers to 2 shooters). Open-air and low-gravity maps never get them; a slot with nothing that fits (animals there) becomes another main slot, so those maps aren't short of enemies. A dead enemy is replaced 3s later by a new random type for its slot. A bot that falls into the void after you did half its HP in the last 10s counts as your kill; one that blows itself up doesn't. Dying to an enemy shows "Killed by a …".
 
 **Tuning** lives in `src/data/enemies.js`: `BOTS` per character, `BOT_AI` for everyone (reaction, turns, flinch, reload, grenades and which throwables are allowed, loot, drones), `BOT_RANGES` per weapon family, `BOT_BULLETS`, `NATURAL_WEAPONS`, `SPAWNER`.
 
@@ -651,6 +651,7 @@ keys-militia/
 ## 18. Changelog
 
 Bugs found and how they were fixed are logged in [BUGS.md](BUGS.md) (newest first). Every new bug gets an entry there.
+- **0.26.2:** Enemies fit the map. Walkers and leapers (Zombie, Skeleton, Mutant, Zombie K9, Scrap Bot) only come on Graveyard, Wastelands and Catacombs, where they outnumber the shooters (5 enemies there); each map's own families come more often (Space sci-fi, Forest military, Graveyard undead); there's always at least one jetpack shooter out on every map.
 - **0.26.1:** Spawn fix: you always drop in from the air onto the top level (left, middle or right third), never onto a lower floor, into lava or water, onto thin ice or next to a geyser. Checked on every map.
 - **0.26:** Art pass, step 3. Shots leave the gun's muzzle (the packer finds each barrel's end) with a flash sized by gun family (small for pistols and SMGs, big for shotguns, LMGs, snipers and launchers, a blue glow for the laser). Rockets, grenade shells, saw blades, nails, the laser beam and flame puffs use their sprites; thrown things fly with their own art, tumbling. Melee strikes swing the arm (wind-up, slash). Drone and Zombie K9 rigs (the K9 a bit smaller now); zombies, skeletons, mutants and K9s charge, strike and fall back. A ROOKIE tag over your head (`callsign` in `player.js`). Your partner moves more smoothly (no stop-go stutter, eased speed, no pose flicker on bumps); your Soldier partner is called Elite. Training's coaches stay with you and fly with you; the Tech is now Android R. You spawn at random on the left, middle or right of the map. Airdrops never stack, never bury an item and never land where they'd tip into the void.
 - **0.25:** Phase 8 done: Training. Its own map (Militia Camp: tents, a flagpole, a watchtower, a firing range, a sandbag wall, a helipad, a live-fire yard, gates between stations that sink into the ground as you go). Two coaches, the Sergeant (Commando) and the Tech (Android), teach 8 fixed lessons in speech bubbles: move, fly, type to shoot, typos and moving, switching to melee, throwing over a wall, taking a gun from an airdrop, and a live fight against two easy Soldiers. Enter skips a lesson, Esc leaves; a graduation screen sums it up. F8 now goes Free play → Training → the match modes.
