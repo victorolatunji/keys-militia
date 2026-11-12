@@ -362,7 +362,7 @@ export default class HazardSystem {
     // An igloo's warmth thaws you out.
     if (cover?.igloo && c.statuses?.frozen) this.scene.weapons?.status.clear(c, 'frozen');
     const hidden = (c.submerged || c.inBush) && now >= (c.lastAttackAt ?? -1e9) + HIDING.revealMs;
-    if (hidden !== c.hidden && c === this.scene.player) this.note(c, hidden ? 'hidden' : 'spotted');
+    if (hidden !== c.hidden && c === this.scene.player && !c.waiting) this.note(c, hidden ? 'hidden' : 'spotted');
     c.hidden = hidden;
     this.setHiddenLook(c, hidden);
   }

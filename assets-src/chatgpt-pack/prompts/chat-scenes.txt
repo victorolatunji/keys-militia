@@ -1,0 +1,48 @@
+CHAT: SCENES AND MENUS (Keys Militia)
+Follow this project's instructions and match 16-style-locked.png (same artist, rough hand-made finish, never glossy). The game draws every word and button on top of these, so keep each image's CALM ZONES quiet and a little darker. No text anywhere except image 8 (the logo).
+
+Make the images below ONE PER REPLY, in this order. Under each image write its file name. Then wait for me to say "next" or ask for a change.
+
+1. title-scene.jpg  (the first thing players see while the game loads)
+   Landscape 1536x1024, opaque. A side-view sky battle over the Sky Islands at dusk: Victor (the hero from 01-cast-style.png) flying with his jetpack, firing; Kolawole beside him; three Black Static soldiers on jetpacks shooting back from the right; an airdrop crate on an orange-and-white parachute drifting down between them; a grenade blast and tracer fire; floating islands with grass tops below; smoke trails; the Signal's thin teal beam far on the horizon.
+   CALM ZONES: the top 28% (the KEYS MILITIA logo goes there) and the bottom 22% (the loading bar and PRESS ENTER). Put the action in the middle band.
+
+2. menu-backdrop.jpg  (the main menu, behind PLAY / TRAINING / COMIC / STORY MODE / ONLINE / CONTROLS)
+   Landscape 1536x1024, opaque. A different moment: an Earth Respond outpost on a ridge at night after a battle. Soldiers resting by a campfire on the left, jetpacks hanging on a rack, a radio mast with a red light, searchlights sweeping the clouds, sandbags and a parked supply truck on the right, and the war glowing on the far horizon (flashes, smoke, the Signal's beam).
+   CALM ZONE: the centre third, top to bottom (the menu list goes there): only sky, haze and the distant skyline. The top 25% calm too (logo).
+
+3. lobby-armoury.jpg  (behind the character picker)
+   Landscape 1536x1024, opaque. Straight-on inside a militia armoury bunker: corrugated steel and concrete walls, warm caged lamps, gun racks with rifles, shotguns, a sniper rifle and an RPG (generic, no brands), ammo crates, sandbags, a workbench, a hanging jetpack, scorch and bullet holes.
+   CALM ZONES: the left half has a spotlit platform area where a character stands; keep the wall behind it plain and dark. The right half is covered by a dark panel, so keep it evenly detailed with no bright spots.
+
+4. comic-backdrop.jpg  (behind the comic pages)
+   Landscape 1536x1024, opaque. A militia war-room table from straight above: a battered gunmetal table, a big paper map with no readable names, red string between pins, dog tags, a cracked radio, spent shell casings, a keyboard with worn keys, amber desk-lamp light from the top left, dark edges.
+   CALM ZONE: the centre 80% (comic pages cover it). Props only along the edges.
+
+5. mode-banners.png  (one banner per mode, for the mode intro pop-up)
+   Landscape 1536x1024, transparent background (PNG alpha). Five separate wide banners stacked top to bottom with gaps, each about 5:1, each a small scene:
+   (1) Free play: Victor testing a weapon at a firing range.
+   (2) You vs Military: a jetpack dogfight against Black Static soldiers.
+   (3) Zombies: a horde of zombies and skeletons climbing out of graves at night.
+   (4) You vs Enemies: a mix of robots, drones, aliens and zombies charging.
+   (5) Training: Sgt. Itunu and Android R coaching at the Militia Camp.
+   Keep each banner's left 40% darker and calmer (the mode's name goes there).
+
+6. ui-kit.png  (pop-up frame, buttons, card frame, countdown ring: I cut them apart)
+   Landscape 1536x1024, transparent background (PNG alpha). Separate pieces with clear gaps:
+   - a rectangular pop-up panel: dark navy steel (#0B0D12) with a riveted gunmetal border, a thin #FFD166 inner trim, hazard-stripe corner caps; all the detail in the corners, plain even edges between them, a flat dark middle;
+   - three matching button plates, each about 3:1: idle (gunmetal), hover (gold glowing edge), off (dull grey with faint hazard stripes); plain centres;
+   - a character-card frame like a dog tag, with a darker strip along the bottom and a fully transparent middle;
+   - a round tactical-watch bezel with 12 notches and a fully transparent middle.
+
+7. ui-style-sheet.png  (colours and fonts for the menus, so the text matches your scenes)
+   Landscape 1536x1024, opaque dark background. A design sheet with:
+   - 8 colour swatches taken from images 1 to 4 above (the colours you used most for light, shadow and accents);
+   - sample headings and buttons in 3 FREE Google Fonts that fit a military game (for example Black Ops One, Russo One, Teko, Saira Stencil One, Oswald), each with its font name written under it;
+   - your recommendation of one heading font and one body font, and which swatch colours to use for headings, normal text, dim text, highlight and danger.
+   (This sheet is the one place where words are allowed.)
+
+8. logo.png  (optional)
+   Wide, transparent background (PNG alpha). The words "KEYS MILITIA" in a heavy chunky stencil military style, #FFD166 gold with a thick ink outline and a slight worn metal bevel, a few bullet-hole chips. A subtle keyboard key and crossed-rifle silhouette behind it in dark gunmetal. Spelled exactly K-E-Y-S M-I-L-I-T-I-A. Nothing else.
+
+Reply "got it" with the number of images you'll make, then start with image 1.

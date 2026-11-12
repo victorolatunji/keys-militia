@@ -1,0 +1,35 @@
+MAP: GRAVEYARD · file prefix: graveyard
+Look at 09-map-graveyard.jpg (what this map has now: keep its layout and idea) and 16-style-locked.png (the style: same artist, same rough hand-made finish, never glossy or "AI-perfect"). Use 15-style-ref-other-game.jpg only for readability (pebble-rimmed edges, grass on tops, dark back walls), never copy it.
+
+Setting: a shelled military cemetery at night under a full moon, where the dead rise. Signature colour: moonlit teal.
+War details: rows of soldier crosses with helmets on them, a shelled chapel and bell tower, a trench line, fog.
+Spice it up (add freely where it fits): open graves with shovels, pools of fog, crows, a broken hearse, wilted flowers, a lantern on a post, a dug-in machine gun behind tombstones.
+
+Make the images below ONE PER REPLY, in this order. Under each image write its file name. Then wait: I'll say "next" or ask for a change. Every image: no text, no letters, no logos, no watermark; darker and duller than the characters; light from the top left.
+
+1. A · graveyard-sky.jpg
+   SKY BACKDROP. Landscape 1536x1024, opaque. A dark gunmetal night, a big pale moon, thin clouds, a teal glow on the horizon. Only sky and the farthest horizon, war details far away. Lower third fades into haze. No ground in front, no characters.
+2. B · graveyard-far.png
+   FAR LAYER. Landscape 1536x1024, transparent background (real PNG alpha). A dead forest and a broken church silhouette in fog, as a band of silhouettes in the lower 60%, solid at the bottom edge. Hazy, pale, low contrast, no outlines. Left and right edges must line up so it repeats sideways.
+3. C · graveyard-near.png
+   NEAR LAYER. Landscape 1536x1024, transparent background. An iron cemetery fence, crooked trees, mausoleums, the bell tower, as a band in the lower 50%, solid at the bottom edge. Darker and sharper than the far layer, thin ink outlines. Left and right edges line up. No characters.
+4. D · graveyard-top.png
+   GROUND TOP texture. Square 1024x1024, straight-on, tiles left to right, opaque. The top 18% is the surface: dead-grass lip over grave soil, with a lit, slightly bumpy edge; below it the ground's soil. Bold chunky shapes that still read when shrunk to 32 px.
+5. E · graveyard-fill.png
+   GROUND FILL texture. Square 1024x1024, straight-on, seamless on all four sides, opaque. Dark soil with old bones and stones. Bold shapes, darker than the top, nothing that looks like a hole.
+6. F · graveyard-rock.png
+   ROCK texture. Square 1024x1024, straight-on, seamless on all four sides, opaque. Mossy tombstone-grey stone blocks. Large readable stones with ink-dark cracks and some battle damage.
+7. G · graveyard-under.png
+   UNDERSIDE texture (bottom of floating ground). Square 1024x1024, tiles left to right. The soil ending at the BOTTOM in a ragged lip: soil ending in roots and hanging soil; transparent below the lip.
+8. H · graveyard-backwall.png
+   BACK WALL texture (behind tunnels and caves you move through). Square 1024x1024, seamless on all four sides, opaque. Dark earth with old coffin ends showing. About half as bright as the ground, soft detail, so the ground in front always reads.
+9. K · graveyard-edge.png
+   EDGE RIM. Landscape 1536x1024, transparent background. A horizontal strip about 120 px tall across the middle: mossy grey pebbles of mixed sizes with dead grass, hand-placed with small gaps, ink outlines. Tiles left to right. Nothing else.
+10. X · graveyard-extra.png
+   EXTRA texture. Square 1024x1024, straight-on, seamless on all four sides, opaque: cracked mausoleum marble.
+11. P · graveyard-props.png
+   PROPS SHEET. Landscape 1536x1024, transparent background. These 8 objects, side view, each fully separate with empty space around it, all at the same scale (a man would be about 1/4 of the image height), ink outlines: 3 different gravestones, helmet on a cross, coffin, dead tree, graveyard lantern, stone angel statue (no face detail). No ground under them.
+12. P2 · graveyard-props2.png
+   SPICE PROPS SHEET. Same rules as P, with 4 to 6 objects from the spice list above.
+
+Reply "got it" with the number of images you'll make, then start with image 1.

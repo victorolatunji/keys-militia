@@ -1110,10 +1110,8 @@ export default class WeaponSystem {
 
   // Flashbang on you, done like real flash blindness:
   //   1. a white glare around the bang (bright in the middle, fading out)
-  //   2. an afterimage: the picture you saw at the bang stays burned in,
-  //      ghosting over the live view and fading slowly
-  //   3. blurry, over-bright vision that clears last
-  //   4. a small camera jolt
+  //   2. blurry, over-bright vision that clears last
+  //   3. a small camera jolt
   // intensity 0..1: up close and looking at it = 1, looking away = weak.
   flashBlind(ms, intensity = 1, bang = this.player) {
     const scene = this.scene;
@@ -1137,47 +1135,24 @@ export default class WeaponSystem {
         .setAlpha(FLASH_GLOW.alpha * intensity)
         .setBlendMode(Phaser.BlendModes.ADD);
       fx.objects.push(glow);
-      fx.tweens.push(
-        scene.tweens.add({
-          targets: glow,
-          alpha: 0,
-          scale: glow.scale * 1.3,
-          delay: ms * 0.08,
-          duration: ms * 0.7,
-          ease: 'Cubic.easeOut',
-          onComplete: () => glow.destroy(),
-        })
-      );
-    };
-
-    // 2. Afterimage: grab the frame as it is (before the white burst covers it).
-    if (renderer.snapshot) {
-      renderer.snapshot((image) => {
-        startWhite();
-        if (this.flashFx !== fx || !(image instanceof HTMLImageElement)) return;
-        const key = `flash-snap-${scene.time.now | 0}`;
-        scene.textures.addImage(key, image);
-        fx.keys = [key];
-        const ghost = scene.add
-          .image(0, 0, key)
-          .setOrigin(0, 0)
-          .setDisplaySize(cam.width, cam.height)
-          .setScrollFactor(0)
-          .setDepth(4999)
-          .setAlpha(FLASH_GLOW.afterimage * intensity)
-          .setTint(0xfff6d5);
-        fx.objects.push(ghost);
+      // (a timed call, not the tween's own delay: see B-012)
+      fx.timer = scene.time.delayedCall(ms * 0.08, () => {
+        if (this.flashFx !== fx || !glow.active) return;
         fx.tweens.push(
           scene.tweens.add({
-            targets: ghost,
+            targets: glow,
             alpha: 0,
-            duration: ms * 0.9,
-            ease: 'Sine.easeIn', // lingers, then goes
-            onComplete: () => ghost.destroy(),
+            scale: glow.scale * 1.3,
+            duration: ms * 0.7,
+            ease: 'Cubic.easeOut',
+            onComplete: () => glow.destroy(),
           })
         );
       });
-    }
+    };
+
+    // 2. (No afterimage: grabbing the frame stalled the game for a moment
+    // and the frozen picture read as a glitch, see B-021.)
 
     // 3. Blur + brightness (WebGL only), clearing last. Starts with the
     // white burst so the afterimage stays a sharp picture.
@@ -1204,7 +1179,7 @@ export default class WeaponSystem {
       );
     };
 
-    if (!renderer.snapshot) startWhite(); // no afterimage possible: straight to the burst
+    startWhite();
   }
 
   // Soft round white glow (made once): solid in the middle, fading to clear.
@@ -1229,6 +1204,7 @@ export default class WeaponSystem {
     const fx = this.flashFx;
     if (!fx) return;
     this.flashFx = null;
+    fx.timer?.remove();
     fx.tweens.forEach((t) => t.remove());
     fx.objects.forEach((o) => o.active && o.destroy());
     const cam = this.scene.cameras.main;

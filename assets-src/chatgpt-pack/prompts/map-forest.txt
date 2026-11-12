@@ -1,0 +1,35 @@
+MAP: FOREST · file prefix: forest
+Look at 04-map-forest.jpg (what this map has now: keep its layout and idea) and 16-style-locked.png (the style: same artist, same rough hand-made finish, never glossy or "AI-perfect"). Use 15-style-ref-other-game.jpg only for readability (pebble-rimmed edges, grass on tops, dark back walls), never copy it.
+
+Setting: a misty mountain pine forest at dusk, now a front line. Signature colour: muted pine green.
+War details: a downed helicopter smoking on a far ridge, tracer fire and flashes over the treeline, burnt stumps, foxholes, water-filled shell craters, sandbag nests.
+Spice it up (add freely where it fits): a campfire with logs and a kettle, a dug trench with duckboards, an army tent, a foxhole with a helmet, a laundry line between trees, an ammo cache under a tarp.
+
+Make the images below ONE PER REPLY, in this order. Under each image write its file name. Then wait: I'll say "next" or ask for a change. Every image: no text, no letters, no logos, no watermark; darker and duller than the characters; light from the top left.
+
+1. A · forest-sky.jpg
+   SKY BACKDROP. Landscape 1536x1024, opaque. Low grey clouds with a rust-amber dusk glow, a pale sun, two black smoke columns, a faint orange glow behind the far ridges. Only sky and the farthest horizon, war details far away. Lower third fades into haze. No ground in front, no characters.
+2. B · forest-far.png
+   FAR LAYER. Landscape 1536x1024, transparent background (real PNG alpha). Layered misty pine ridges, one ridge line burning, as a band of silhouettes in the lower 60%, solid at the bottom edge. Hazy, pale, low contrast, no outlines. Left and right edges must line up so it repeats sideways.
+3. C · forest-near.png
+   NEAR LAYER. Landscape 1536x1024, transparent background. A broken treeline, a ruined wooden watchtower, the tail of the crashed helicopter, as a band in the lower 50%, solid at the bottom edge. Darker and sharper than the far layer, thin ink outlines. Left and right edges line up. No characters.
+4. D · forest-top.png
+   GROUND TOP texture. Square 1024x1024, straight-on, tiles left to right, opaque. The top 18% is the surface: trampled moss and grass lip over dark mud, boot prints, a few spent casings, with a lit, slightly bumpy edge; below it the ground's soil. Bold chunky shapes that still read when shrunk to 32 px.
+5. E · forest-fill.png
+   GROUND FILL texture. Square 1024x1024, straight-on, seamless on all four sides, opaque. Dark loam with roots and embedded stones. Bold shapes, darker than the top, nothing that looks like a hole.
+6. F · forest-rock.png
+   ROCK texture. Square 1024x1024, straight-on, seamless on all four sides, opaque. Mossy grey granite blocks. Large readable stones with ink-dark cracks and some battle damage.
+7. G · forest-under.png
+   UNDERSIDE texture (bottom of floating ground). Square 1024x1024, tiles left to right. The soil ending at the BOTTOM in a ragged lip: loam ending in hanging roots and dangling clumps; transparent below the lip.
+8. H · forest-backwall.png
+   BACK WALL texture (behind tunnels and caves you move through). Square 1024x1024, seamless on all four sides, opaque. Dark earth cave wall with roots and old timber shoring. About half as bright as the ground, soft detail, so the ground in front always reads.
+9. K · forest-edge.png
+   EDGE RIM. Landscape 1536x1024, transparent background. A horizontal strip about 120 px tall across the middle: mossy rounded pebbles of mixed sizes with grass tufts, hand-placed with small gaps, ink outlines. Tiles left to right. Nothing else.
+10. X · forest-extra.png
+   EXTRA texture. Square 1024x1024, straight-on, seamless on all four sides, opaque: weathered, bolted wooden planks (treehouse and bridges).
+11. P · forest-props.png
+   PROPS SHEET. Landscape 1536x1024, transparent background. These 8 objects, side view, each fully separate with empty space around it, all at the same scale (a man would be about 1/4 of the image height), ink outlines: tall pine, broadleaf tree, dense bush (players hide in it), boulder, mushroom cluster, sandbag nest, burnt stump, ammo crate. No ground under them.
+12. P2 · forest-props2.png
+   SPICE PROPS SHEET. Same rules as P, with 4 to 6 objects from the spice list above.
+
+Reply "got it" with the number of images you'll make, then start with image 1.

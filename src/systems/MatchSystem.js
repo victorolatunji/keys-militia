@@ -94,6 +94,7 @@ export default class MatchSystem {
 
   update() {
     if (this.over) return;
+    if (!this.scene.started) return this.drawHud(); // waiting for the countdown
     if (this.waves) this.updateWaves();
     else this.updateTimed();
     this.drawHud();
@@ -169,11 +170,10 @@ export default class MatchSystem {
     const scene = this.scene;
     this.over = true;
     this.result = result;
-    scene.matchOver = true;
-    scene.physics.world.pause();
-    scene.message?.setVisible(false);
     this.drawHud();
-    this.showResults(result);
+    const title = { win: 'VICTORY', lose: 'DEFEAT', draw: 'DRAW', over: 'GAME OVER' }[result];
+    const color = { win: '#06d6a0', lose: '#ff4d6d', draw: '#ffd166', over: '#ff4d6d' }[result];
+    scene.endSequence(title, color, () => this.showResults(result));
   }
 
   // The end-of-match screen: result, scoreboard, your typing, awards and

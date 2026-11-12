@@ -4,8 +4,8 @@
 //   opts: key (Phaser key name, e.g. 'R', 'ENTER', 'ESC'), keyLabel (what the
 //   label shows for the key), size, fixed (stays on screen while the camera
 //   moves), depth, color, width.
-const GOLD = 0xffd166;
-const EDGE = 0x2a3345;
+const GOLD = 0xd2a35f;
+const EDGE = 0x30353b;
 
 export function makeButton(scene, x, y, label, action, opts = {}) {
   const size = opts.size ?? 18;
@@ -14,7 +14,7 @@ export function makeButton(scene, x, y, label, action, opts = {}) {
   const text = scene.add.text(0, 0, str, { fontFamily: 'monospace', fontSize: `${size}px`, fontStyle: 'bold', color: opts.color ?? '#ffffff' }).setOrigin(0.5);
   const w = Math.max(opts.width ?? 0, text.width + 28);
   const h = text.height + 14;
-  const bg = scene.add.rectangle(0, 0, w, h, 0x141821, 0.95).setStrokeStyle(2, EDGE);
+  const bg = scene.add.rectangle(0, 0, w, h, 0x1a1f24, 0.95).setStrokeStyle(2, EDGE);
   const box = scene.add.container(x, y, [bg, text]).setSize(w, h).setDepth(opts.depth ?? 0);
   if (opts.fixed) box.setScrollFactor(0);
   let done = false;
@@ -26,7 +26,7 @@ export function makeButton(scene, x, y, label, action, opts = {}) {
   box.setInteractive({ useHandCursor: true });
   box.on('pointerover', () => {
     bg.setStrokeStyle(2, GOLD);
-    text.setColor('#ffd166');
+    text.setColor('#d2a35f');
   });
   box.on('pointerout', () => {
     bg.setStrokeStyle(2, EDGE);

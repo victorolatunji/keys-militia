@@ -18,6 +18,10 @@ export const RIG_FOLDERS = {
 };
 
 export const RIG = {
+  // Riot Shield in front of the body: how far ahead of your middle (x your
+  // width), how far its bottom sits above your soles (rig units), and the
+  // back arm's angles reaching for its grip.
+  shield: { ahead: 0.55, lift: 3, upper: -62, fore: -18 },
   heightScale: 1.55,     // drawn this many times the hitbox's height (head and hair stick out)
   backTint: 0xb4b4b4,    // back arm and leg: a bit darker, so they read as further away
   flashMs: 80,           // hit flash (white)
@@ -38,7 +42,7 @@ export const RIG = {
   },
   head: { neck: [0.45, 0.96], scale: 1 },   // the bottom of the neck; scale >1 for a bigger, cartoonier head
   jetpack: { strap: [0.78, 0.35], nozzle: [0.3, 0.97] },
-  bootFlame: { at: [0.42, 0.98], scale: 0.55 }, // machines: under each sole (fraction of the shin art)
+  bootFlame: { at: [0.45, 0.94], scale: 2.1 }, // machines: under each sole (fraction of the shin art)
 
   // Poses (degrees)
   stand: { thighF: -3, shinF: 2, thighB: 4, shinB: 2, lean: 0 },

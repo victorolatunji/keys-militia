@@ -1,4 +1,7 @@
 import Phaser from 'phaser';
+import Unstuck from '../systems/Unstuck.js';
+import TerrainArt from '../systems/TerrainArt.js';
+import { TRAINING } from '../data/training.js';
 import { SPRITES } from '../data/spriteManifest.js';
 import Player from '../entities/Player.js';
 import Dummy from '../entities/Dummy.js';
@@ -38,6 +41,14 @@ const devMode = () => {
 
 const BOT_DROP_Y = 40;     // bots drop in from no higher than this...
 const BOT_DROP_PX = 600;   // ...and at most this far above their spawn point
+// Match start: the first enemy drops in this long after FIGHT, then one every everyMs;
+// jetpack enemies start this much higher than your own drop.
+// The ending beat: how long before the results, and how slow the world runs meanwhile.
+const ENDING = { ms: 2400, slowMo: 3 };
+// You and your partner at FIGHT: come down this slowly (px/s), for up to ms,
+// from this much higher than a normal spawn.
+const DROP_IN = { ms: 3500, fallSpeed: 150, extraPx: 160 };
+const START = { firstMs: 1200, everyMs: 900, extraDropPx: 120 };
 const WALKER_MIN_GAP = 220; // walkers drop in at least this far from you
 const WALKER_DROP_PX = 120; // ...from this high above the ground
 
@@ -81,6 +92,7 @@ export default class GameScene extends Phaser.Scene {
     this.partnerKey = data.partnerKey !== undefined ? data.partnerKey : (this.partnerKey ?? null);
     // Who you play (the lobby's pick, a sprite folder): you're tagged ROOKIE whoever it is.
     this.characterKey = data.characterKey ?? this.characterKey ?? 'player';
+    if (this.mode.training) this.characterKey = TRAINING.character; // Training is always Victor, the hero
     this.skipIntro = Boolean(data.skipIntro);
     this.replay = Boolean(data.replay); // PLAY AGAIN: just the countdown, no intro pop-up
     this.deaths = 0;
@@ -96,6 +108,8 @@ export default class GameScene extends Phaser.Scene {
 
     // Water, lava, geysers, vents, bushes (before bots and crates: they keep
     // out of water and lava), and the sky, hills and decor behind it all.
+    // The ground drawn the readable way (organic shapes, stone rims, surfaces); the tiles stay underneath for collisions.
+    this.terrainArt = new TerrainArt(this, this.map, this.tilemap, this.groundLayer);
     this.hazards = new HazardSystem(this, this.tilemap, this.map, this.groundLayer);
     this.backdrop = new BackdropSystem(this, this.map, this.tilemap, this.groundLayer, { width, height });
     // Testing shortcuts (F6 map, F8 mode, ` partner, the readout): the menus
@@ -173,7 +187,10 @@ export default class GameScene extends Phaser.Scene {
     // Everyone's numbers for the end-of-match screen (before anyone spawns).
     this.stats = new StatsSystem(this);
     this.match = ramp || waves ? new MatchSystem(this, this.mode) : null;
-    this.bots = this.spawner.startingSlots().map((slot) => this.spawnBot(slot));
+    // The field starts empty: the enemies only come once the match starts
+    // (after the countdown), dropping in one by one (startMatch).
+    this.bots = [];
+    this.started = false;
     this.botCombat = new BotCombat(
       this, this.groundLayer, this.player, this.bots, this.weapons, this.collisions, height
     );
@@ -196,6 +213,7 @@ export default class GameScene extends Phaser.Scene {
     this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
 
     this.hud = new Hud(this);
+    this.unstuck = new Unstuck(this);
 
     // Center-screen message (death notice for now).
     this.message = this.add
@@ -224,11 +242,19 @@ export default class GameScene extends Phaser.Scene {
     // Before the match: the mode's intro and the 11 ... 0 countdown (paused
     // until then). Esc in a match: leave for the menu, or keep playing.
     if (!this.mode.training && !this.skipIntro) {
+      // You and your partner stay out of sight during the intro and the
+      // countdown, then come down at FIGHT (startMatch).
+      this.player.waiting = true;
+      if (this.partner) this.partner.bot.waiting = true;
       // (after one frame, so everyone is drawn from their sprites, not boxes)
       this.events.once('postupdate', () => {
         this.scene.launch('Intro', { kind: 'start', modeKey: this.mode.key, mapKey: this.map.key, countdownOnly: this.replay });
         this.scene.pause();
+        // (on the first frame after the resume: the paused clock catches up then)
+        this.events.once('resume', () => this.events.once('update', () => this.startMatch()));
       });
+    } else {
+      this.startMatch();
     }
     // The game clock runs on while the scene is paused (intro, Esc): push the
     // match's and the airdrops' deadlines back by the time it was paused.
@@ -242,6 +268,65 @@ export default class GameScene extends Phaser.Scene {
       if (this.training || this.matchOver) return;
       this.scene.launch('Intro', { kind: 'pause', modeKey: this.mode.key });
       this.scene.pause();
+    });
+  }
+
+  // The match begins (after the countdown): the starting enemies drop in
+  // from the sky one after another, away from you.
+  startMatch() {
+    if (this.started) return;
+    this.started = true;
+    // You (and your partner beside you) come down slowly on your jetpacks,
+    // from a little higher than a normal spawn when there's sky for it.
+    const p = this.player;
+    if (!this.mode.training) {
+      const up = this.map.enclosed ? 0 : DROP_IN.extraPx;
+      let y = p.y;
+      for (let k = 0; k < up && y > 40 && !isSolid(this.groundLayer, p.x, y - 40); k += 16) y -= 16;
+      p.body.reset(p.x, y);
+      p.dropIn(DROP_IN.ms, DROP_IN.fallSpeed);
+      const q = this.partner?.bot;
+      if (q) {
+        // Beside you, on the side where it lands on the same ground as you
+        // (not off the end of a ledge you're about to land on).
+        const mine = groundBelow(this.groundLayer, p.x, y);
+        const sides = [-p.facing, p.facing].flatMap((d) => [d * PARTNER.behindPx, d * PARTNER.behindPx * 0.5]);
+        const off = sides.find((dx) => mine !== null && groundBelow(this.groundLayer, p.x + dx, y) === mine) ?? 0;
+        q.body.reset(p.x + off, y - 10);
+        q.dropIn(DROP_IN.ms, DROP_IN.fallSpeed);
+        q.facing = p.facing;
+      }
+    }
+    const slots = this.spawner.startingSlots();
+    slots.forEach((slot, i) => {
+      this.time.delayedCall(START.firstMs + i * START.everyMs, () => {
+        if (this.matchOver) return;
+        this.bots.push(this.spawnBot(slot)); // (the bot reports its own spawn to the stats)
+      });
+    });
+  }
+
+  // The match is decided: a beat before the results. The fight plays on in
+  // slow motion under a big banner (VICTORY, DEFEAT...), nobody can be hurt,
+  // then the world stops and then() shows the result screen. Every mode
+  // and Training end this way.
+  endSequence(title, color, then) {
+    if (this.ending) return;
+    this.matchOver = true; // stats, typing and partners stop counting
+    this.ending = true;
+    this.message?.setVisible(false);
+    this.physics.world.timeScale = ENDING.slowMo; // >1 = slower
+    const banner = this.add
+      .text(640, 250, title, { fontFamily: 'monospace', fontSize: '72px', fontStyle: 'bold', color, stroke: '#131112', strokeThickness: 10 })
+      .setOrigin(0.5).setScrollFactor(0).setDepth(140).setScale(0.6).setAlpha(0);
+    this.tweens.add({ targets: banner, scale: 1, alpha: 1, duration: 320, ease: 'Back.easeOut' });
+    this.cameras.main.flash(180, 255, 255, 255, false);
+    this.time.delayedCall(ENDING.ms, () => {
+      this.ending = false;
+      this.physics.world.timeScale = 1;
+      this.physics.world.pause();
+      this.tweens.add({ targets: banner, alpha: 0, duration: 200, onComplete: () => banner.destroy() });
+      then();
     });
   }
 
@@ -356,6 +441,17 @@ export default class GameScene extends Phaser.Scene {
     if (walks) {
       const point = this.walkerSpawnPoint();
       if (point) return point;
+    }
+
+    // Military (and anything that flies with a jetpack) drop in from the sky
+    // like you: over the top level, in a third of the map away from you.
+    if (!this.map.enclosed && config && (config.family === 'military' || !config.movement || config.movement === 'jetpack')) {
+      const W = this.groundLayer.tilemap.widthInPixels;
+      const thirds = [0, 1, 2].map((i) => ({ lo: (W * i) / 3, hi: (W * (i + 1)) / 3, mid: (W * (i + 0.5)) / 3 }));
+      const away = thirds.filter((t) => Math.abs(t.mid - this.player.x) > W / 4);
+      const t = Phaser.Utils.Array.GetRandom(away.length ? away : thirds);
+      const spot = this.airSpawn(Phaser.Math.Between(t.lo + 64, t.hi - 64), t.lo, t.hi);
+      if (spot) return { x: spot.x, y: Math.max(40, spot.y - START.extraDropPx) };
     }
 
     // One of the three points farthest from you, at random (so they don't
@@ -552,15 +648,15 @@ export default class GameScene extends Phaser.Scene {
   update(time, delta) {
     this.match?.update();
     this.training?.update(delta);
-    if (this.matchOver) return; // the result is up: everything stops
+    if (this.matchOver && !this.ending) return; // the result is up: everything stops (during the ending beat it plays on, slowed)
     this.player.update(delta);
     for (const dummy of this.dummies) dummy.update();
-    this.spawner.update();
+    if (!this.ending) this.spawner.update();
     for (const bot of this.bots) bot.update(delta);
     this.partner?.update(delta);
     this.hazards.update(); // after everyone moved: water slows, lava burns
     this.backdrop.update(delta);
-    this.botCombat.update(delta);
+    if (!this.ending) this.botCombat.update(delta); // nobody gets hurt after the match is decided
     this.typing.update();
     this.weapons.update(delta);
     this.airdrops.update(delta);
@@ -571,6 +667,7 @@ export default class GameScene extends Phaser.Scene {
     this.voidSystem?.update(this.player);
     for (const bot of this.bots) this.voidSystem?.update(bot);
     if (this.partner) this.voidSystem?.update(this.partner.bot);
+    this.unstuck.update(time, [this.player, this.partner?.bot, ...this.bots]); // nobody stays inside the ground (B-020)
     this.hud.update(this.player, this.typing, this.weapons);
 
     const b = this.player.body;

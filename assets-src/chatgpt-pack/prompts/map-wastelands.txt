@@ -1,0 +1,35 @@
+MAP: WASTELANDS · file prefix: wastelands
+Look at 11-map-wastelands.jpg (what this map has now: keep its layout and idea) and 16-style-locked.png (the style: same artist, same rough hand-made finish, never glossy or "AI-perfect"). Use 15-style-ref-other-game.jpg only for readability (pebble-rimmed edges, grass on tops, dark back walls), never copy it.
+
+Setting: a ruined city after the Signal: a collapsed overpass, a street of wrecks, a sewer below. Signature colour: toxic green (muted, sickly).
+War details: burnt buses and cars, barricades, sniper nests in broken windows, a radiation trefoil symbol (symbol only, no words), burning tyres.
+Spice it up (add freely where it fits): burning oil drums, graffiti shapes (no letters), a shopping cart, a sniper nest of mattresses, a blank fallen billboard frame, sewer rats, laundry on a balcony.
+
+Make the images below ONE PER REPLY, in this order. Under each image write its file name. Then wait: I'll say "next" or ask for a change. Every image: no text, no letters, no logos, no watermark; darker and duller than the characters; light from the top left.
+
+1. A · wastelands-sky.jpg
+   SKY BACKDROP. Landscape 1536x1024, opaque. A sick yellow-green haze over gunmetal clouds, a dim sun, smoke columns. Only sky and the farthest horizon, war details far away. Lower third fades into haze. No ground in front, no characters.
+2. B · wastelands-far.png
+   FAR LAYER. Landscape 1536x1024, transparent background (real PNG alpha). A skyline of broken skyscrapers in toxic haze, as a band of silhouettes in the lower 60%, solid at the bottom edge. Hazy, pale, low contrast, no outlines. Left and right edges must line up so it repeats sideways.
+3. C · wastelands-near.png
+   NEAR LAYER. Landscape 1536x1024, transparent background. Collapsed overpass sections, wrecked cars, leaning lamp posts, as a band in the lower 50%, solid at the bottom edge. Darker and sharper than the far layer, thin ink outlines. Left and right edges line up. No characters.
+4. D · wastelands-top.png
+   GROUND TOP texture. Square 1024x1024, straight-on, tiles left to right, opaque. The top 18% is the surface: cracked asphalt lip with road-paint fragments (no letters) over rubble, with a lit, slightly bumpy edge; below it the ground's soil. Bold chunky shapes that still read when shrunk to 32 px.
+5. E · wastelands-fill.png
+   GROUND FILL texture. Square 1024x1024, straight-on, seamless on all four sides, opaque. Layers of concrete, rubble and rebar. Bold shapes, darker than the top, nothing that looks like a hole.
+6. F · wastelands-rock.png
+   ROCK texture. Square 1024x1024, straight-on, seamless on all four sides, opaque. Broken concrete slabs with sticking-out rebar. Large readable stones with ink-dark cracks and some battle damage.
+7. G · wastelands-under.png
+   UNDERSIDE texture (bottom of floating ground). Square 1024x1024, tiles left to right. The soil ending at the BOTTOM in a ragged lip: concrete ending in dangling rebar and pipes; transparent below the lip.
+8. H · wastelands-backwall.png
+   BACK WALL texture (behind tunnels and caves you move through). Square 1024x1024, seamless on all four sides, opaque. Dark sewer brick and concrete wall with pipes. About half as bright as the ground, soft detail, so the ground in front always reads.
+9. K · wastelands-edge.png
+   EDGE RIM. Landscape 1536x1024, transparent background. A horizontal strip about 120 px tall across the middle: rubble chunks of mixed sizes with bits of rebar, hand-placed with small gaps, ink outlines. Tiles left to right. Nothing else.
+10. X · wastelands-extra.png
+   EXTRA texture. Square 1024x1024, straight-on, seamless on all four sides, opaque: rusted corrugated metal sheet.
+11. P · wastelands-props.png
+   PROPS SHEET. Landscape 1536x1024, transparent background. These 8 objects, side view, each fully separate with empty space around it, all at the same scale (a man would be about 1/4 of the image height), ink outlines: wrecked car, burnt bus, concrete barricade, traffic cone, leaking toxic barrel, broken streetlight, rebar pile, burning tyre stack. No ground under them.
+12. P2 · wastelands-props2.png
+   SPICE PROPS SHEET. Same rules as P, with 4 to 6 objects from the spice list above.
+
+Reply "got it" with the number of images you'll make, then start with image 1.

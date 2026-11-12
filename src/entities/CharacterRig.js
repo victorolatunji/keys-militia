@@ -111,13 +111,13 @@ export default class CharacterRig {
     // boots: a flame under each sole.
     this.bootFlames = [];
     if (!this.parts.jetpack && this.parts['jet-flame']) {
+      // (drawn in the world, not inside the leg, so they always point
+      // straight down from the soles however the legs swing)
       for (const [leg, shin] of [[this.frontLeg, 'front-shin'], [this.backLeg, 'back-shin']]) {
         const S = this.parts[shin];
-        const f = this.image('jet-flame', S.w * RIG.bootFlame.at[0] - S.top[0], S.h * RIG.bootFlame.at[1] - S.top[1], [0.5, 0.04]);
-        f.baseTint = 0xffffff;
-        f.setScale(RIG.bootFlame.scale);
-        leg.joint.addAt(f, 0); // behind the boot
-        this.bootFlames.push(f);
+        const img = s.add.image(0, 0, partKey(this.folder, 'jet-flame')).setOrigin(0.5, 0.04).setDepth(RIG.depth - 0.5).setVisible(false);
+        img.setBlendMode(Phaser.BlendModes.ADD); // a bright glow under the sole
+        this.bootFlames.push({ img, leg, at: [S.w * RIG.bootFlame.at[0] - S.top[0], S.h * RIG.bootFlame.at[1] - S.top[1]] });
       }
     }
 
@@ -138,8 +138,17 @@ export default class CharacterRig {
       this.images.push(this.vest);
     }
 
+    // Riot Shield: carried in front of the body by the back arm (the gun hand
+    // stays free and aims over it). Shown while the owner has one.
+    this.shieldImg = null;
+    if (s.textures.exists('spr-util-riotShield-held')) {
+      this.shieldImg = s.add.image(0, 0, 'spr-util-riotShield-held').setOrigin(0.5, 1).setVisible(false);
+      this.shieldImg.baseTint = 0xffffff;
+      this.images.push(this.shieldImg);
+    }
+
     const back = [this.backArm.root, this.backLeg.root];
-    this.root.add([...back, ...(this.pack ? [this.pack] : []), this.torso, ...(this.vest ? [this.vest] : []), this.head, this.frontLeg.root, this.frontArm.root]);
+    this.root.add([...back, ...(this.pack ? [this.pack] : []), this.torso, ...(this.vest ? [this.vest] : []), this.head, this.frontLeg.root, ...(this.shieldImg ? [this.shieldImg] : []), this.frontArm.root]);
 
     // Size: the drawn height (feet to the top of the head) is heightScale x the hitbox.
     const leg = this.parts['front-thigh'];
@@ -161,8 +170,13 @@ export default class CharacterRig {
   update(delta) {
     const o = this.owner;
     const visible = o.alive && o.visible !== false && !o.hidden;
-    this.root.setVisible(o.alive);
-    if (!o.alive) return;
+    this.root.setVisible(o.alive && !o.waiting); // waiting: not in the match yet (before FIGHT)
+    if (!o.alive || o.waiting) {
+      for (const f of this.bootFlames) f.img.setVisible(false);
+      o.isFilled = false; // (no physics box showing either)
+      o.isStroked = false;
+      return;
+    }
     this.root.setAlpha((o.hidden && o === this.scene.player ? 0.45 : 1) * (this.heatShimmer ?? 1)); // you, hiding in a bush or under water: faint; seen through a cloud: shimmering
     // The physics box stays, but you don't see it.
     o.isFilled = false;
@@ -231,27 +245,37 @@ export default class CharacterRig {
       turn(this.frontArm.joint, melee ? -40 : a2);
       this.held.angle = melee ? R.melee.holdDeg : aim - this.frontArm.root.angle - this.frontArm.joint.angle;
     }
-    turn(this.backArm.root, (melee ? 10 : aim - 90 + A.upperB));
-    turn(this.backArm.joint, melee ? -20 : A.foreB);
+    const shield = o.shield && this.shieldImg;
+    if (shield) {
+      // The back arm reaches forward to the shield's grip.
+      turn(this.backArm.root, R.shield.upper);
+      turn(this.backArm.joint, R.shield.fore);
+      const S = R.shield;
+      const h = (o.shield.config.art?.height ?? 62) / this.scale; // rig units
+      this.shieldImg.setVisible(true).setScale(h / this.shieldImg.height);
+      this.shieldImg.setPosition((o.width * S.ahead) / this.scale, this.legLength - S.lift);
+      this.shieldImg.angle = this.torso.angle * 0.5;
+    } else {
+      this.shieldImg?.setVisible(false);
+      turn(this.backArm.root, (melee ? 10 : aim - 90 + A.upperB));
+      turn(this.backArm.joint, melee ? -20 : A.foreB);
+    }
     turn(this.head, Phaser.Math.Clamp(aim * A.headFollow, -14, 14));
 
     // Jet flame: on while thrusting, flickering.
     // Walkers (Zombie, Skeleton, Mutant) only wear their jetpack when
     // they're you or your partner; anything that flies always does.
     if (this.pack) this.pack.setVisible(o === this.scene.player || o.isPartner || o.isCoach || o.movement === 'jetpack');
-    for (const f of this.bootFlames) {
-      f.setVisible(o.thrusting);
-      if (o.thrusting) f.setScale(RIG.bootFlame.scale * Phaser.Math.FloatBetween(0.85, 1.15), RIG.bootFlame.scale * Phaser.Math.FloatBetween(0.75, 1.2));
-    }
+    this.bootThrust = o.thrusting || o.droppingIn;
     if (this.flame) {
-      this.flame.setVisible(o.thrusting && this.pack.visible);
+      this.flame.setVisible((o.thrusting || o.droppingIn) && this.pack.visible);
       // Jet Boost: the flame burns blue and long while it lasts.
       const boost = o.boosted && o.boostConfig;
       if (boost) this.flame.setTintFill(0xcaf0f8, 0xcaf0f8, boost.flameColor, boost.flameColor).setBlendMode(Phaser.BlendModes.ADD); // white-hot at the nozzle, blue below
       else if (this.wasBoosted) this.flame.setTint(this.flame.baseTint).setBlendMode(Phaser.BlendModes.NORMAL);
       this.wasBoosted = boost;
       const long = boost ? RIG.boostFlame : 1;
-      if (o.thrusting) this.flame.setScale(Phaser.Math.FloatBetween(0.85, 1.15), Phaser.Math.FloatBetween(0.75, 1.2) * long);
+      if (o.thrusting || o.droppingIn) this.flame.setScale(Phaser.Math.FloatBetween(0.85, 1.15), Phaser.Math.FloatBetween(0.75, 1.2) * long);
     }
 
     // Place it: feet on the bottom of the physics box, flipped to face the way it faces.
@@ -260,6 +284,16 @@ export default class CharacterRig {
     // Bent legs lift the feet: lower the hips by as much, so they stay on the ground.
     const drop = ground ? this.legDrop() : 0;
     this.root.setPosition(o.x, o.body.bottom - this.legLength * this.scale + (bob + drop) * this.scale);
+    // Boot thrusters (machines with no jetpack): placed at the soles now that the legs are posed.
+    for (const f of this.bootFlames) {
+      const on = this.bootThrust && this.root.visible;
+      f.img.setVisible(on);
+      if (!on) continue;
+      const pt = f.leg.joint.getWorldTransformMatrix().transformPoint(f.at[0], f.at[1], { x: 0, y: 0 });
+      const k = this.scale * RIG.bootFlame.scale;
+      f.img.setPosition(pt.x, pt.y).setAlpha(this.root.alpha);
+      f.img.setScale(k * Phaser.Math.FloatBetween(0.85, 1.15), k * Phaser.Math.FloatBetween(0.8, 1.25));
+    }
     this.updateTint(visible);
   }
 
@@ -395,6 +429,7 @@ export default class CharacterRig {
   }
 
   destroy() {
+    for (const f of this.bootFlames ?? []) f.img.destroy();
     this.root.destroy();
   }
 }

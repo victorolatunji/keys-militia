@@ -1,0 +1,35 @@
+MAP: DESERT · file prefix: desert · PILOT MAP
+Look at 07-map-desert.jpg (what this map has now: keep its layout and idea) and 16-style-locked.png (the style: same artist, same rough hand-made finish, never glossy or "AI-perfect"). Use 15-style-ref-other-game.jpg only for readability (pebble-rimmed edges, grass on tops, dark back walls), never copy it.
+
+Setting: a desert canyon at dusk, where a convoy was ambushed. Signature colour: sand amber.
+War details: a wrecked convoy, burnt tanks, a bombed mud-brick village, oil fires with black smoke columns, a camel caravan fleeing far away.
+Spice it up (add freely where it fits): an abandoned checkpoint with a boom gate, a sandbag machine-gun nest, a wrecked well, a tarp shelter, tank tracks, vultures circling far off.
+
+Make the images below ONE PER REPLY, in this order. Under each image write its file name. Then wait: I'll say "next" or ask for a change. Every image: no text, no letters, no logos, no watermark; darker and duller than the characters; light from the top left.
+
+1. A · desert-sky.jpg
+   SKY BACKDROP. Landscape 1536x1024, opaque. A dusk sky in gunmetal and rust, an amber glow low on the horizon, two black oil smoke columns, a distant explosion flash. Only sky and the farthest horizon, war details far away. Lower third fades into haze. No ground in front, no characters.
+2. B · desert-far.png
+   FAR LAYER. Landscape 1536x1024, transparent background (real PNG alpha). Mesas and dunes, distant oil fires, as a band of silhouettes in the lower 60%, solid at the bottom edge. Hazy, pale, low contrast, no outlines. Left and right edges must line up so it repeats sideways.
+3. C · desert-near.png
+   NEAR LAYER. Landscape 1536x1024, transparent background. Ruined mud-brick walls, a wrecked tank, palm silhouettes, a fallen radio mast, as a band in the lower 50%, solid at the bottom edge. Darker and sharper than the far layer, thin ink outlines. Left and right edges line up. No characters.
+4. D · desert-top.png
+   GROUND TOP texture. Square 1024x1024, straight-on, tiles left to right, opaque. The top 18% is the surface: wind-rippled sand lip over layered sandstone, spent casings, tyre tracks, with a lit, slightly bumpy edge; below it the ground's soil. Bold chunky shapes that still read when shrunk to 32 px.
+5. E · desert-fill.png
+   GROUND FILL texture. Square 1024x1024, straight-on, seamless on all four sides, opaque. Layered sandstone strata in warm earth tones. Bold shapes, darker than the top, nothing that looks like a hole.
+6. F · desert-rock.png
+   ROCK texture. Square 1024x1024, straight-on, seamless on all four sides, opaque. Red canyon stone blocks, chipped, scorched in places. Large readable stones with ink-dark cracks and some battle damage.
+7. G · desert-under.png
+   UNDERSIDE texture (bottom of floating ground). Square 1024x1024, tiles left to right. The soil ending at the BOTTOM in a ragged lip: sandstone ending in crumbling rock and trickling sand; transparent below the lip.
+8. H · desert-backwall.png
+   BACK WALL texture (behind tunnels and caves you move through). Square 1024x1024, seamless on all four sides, opaque. Shadowed sandstone cave wall. About half as bright as the ground, soft detail, so the ground in front always reads.
+9. K · desert-edge.png
+   EDGE RIM. Landscape 1536x1024, transparent background. A horizontal strip about 120 px tall across the middle: rounded sandstone pebbles of mixed sizes with drifting sand, hand-placed with small gaps, ink outlines. Tiles left to right. Nothing else.
+10. X · desert-extra.png
+   EXTRA texture. Square 1024x1024, straight-on, seamless on all four sides, opaque: loose rippled sand.
+11. P · desert-props.png
+   PROPS SHEET. Landscape 1536x1024, transparent background. These 8 objects, side view, each fully separate with empty space around it, all at the same scale (a man would be about 1/4 of the image height), ink outlines: saguaro cactus, palm tree, barbed-wire coil, anti-tank hedgehog, burnt jeep, cattle skull, oil barrel, wooden supply crate. No ground under them.
+12. P2 · desert-props2.png
+   SPICE PROPS SHEET. Same rules as P, with 4 to 6 objects from the spice list above.
+
+Reply "got it" with the number of images you'll make, then start with image 1.

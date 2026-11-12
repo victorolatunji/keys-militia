@@ -1,0 +1,23 @@
+CHAT: LOBBY POSES (Keys Militia)
+Follow this project's instructions. For each character: the SAME character as in 01-cast-style.png (same face, hair, outfit, colours, gear and gun), now facing the viewer (front or three-quarter front), full body head to boots, standing on nothing. Portrait 1024x1536, transparent background (real PNG alpha), the figure about 85% of the height, centred, feet at the bottom. The locked style from 16-style-locked.png, a little rough and hand-made. No text, no ground, no shadow box.
+
+Make the images below ONE PER REPLY, in this order. Under each image write its file name. Then wait for "next" or a change.
+
+1. lobby-player.png      Victor "Rookie" (Hero): ready stance, rifle across his chest, headset on, a small confident grin.
+2. lobby-commando.png    Sgt. Itunu (Commando): arms crossed, rifle slung, chin up, the drill sergeant.
+3. lobby-android.png     Android R (Android): one hand raised with a small teal hologram, blaster lowered in the other.
+4. lobby-soldier.png     Kolawole "Elite" (Soldier): rifle at low ready, goggles pushed up on the helmet, calm.
+5. lobby-mercenary.png   Mirembe "Vix" (Mercenary): sniper rifle resting on her shoulder, other hand on her hip.
+6. lobby-trooper.png     Keseki "Bulwark" (Armoured Trooper): wide heavy stance, big gun at the hip, armour plates forward.
+7. lobby-zombie.png      Rufiu (Zombie): slight hunch, one arm forward, a lopsided almost-friendly look.
+8. lobby-skeleton.png    Arije (Skeleton): leaning on his weapon, red bandana fluttering.
+9. lobby-infected.png    Igedunola "Blight" (Infected Soldier): rifle pointed down, a hand on her med pouch, tired but stubborn.
+10. lobby-robot.png      Bopoto "T-9" (Robot): a cheerful wave, her heavy gun in the other arm.
+11. lobby-alien.png      Mtumbe (Alien): alien blaster held up near her face, calm and watchful.
+12. lobby-cyborg.png     Black Cyba (Cyborg): cyber arm flexed with red light, SMG pointed down.
+13. lobby-mutant.png     Obonachocho (Mutant): fists clenched, glowing veins, mid-roar.
+14. lobby-drone.png      Kixon (Drone): hovering, tilted forward, red scanning light sweeping down.
+15. lobby-scrapbot.png   Junker (Scrap Bot): a little wave, wobbly legs, one bolt loose.
+16. lobby-k9.png         Rex (Zombie K9): sitting alert, ears up, head tilted, collar tag.
+
+Reply "got it" with the number of images you'll make, then start with image 1.

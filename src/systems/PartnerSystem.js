@@ -4,6 +4,8 @@ import EnemyBullet from '../entities/EnemyBullet.js';
 import { BOTS } from '../data/enemies.js';
 import { PARTNER } from '../data/partner.js';
 import { castOfBot } from '../data/cast.js';
+import { WEAPONS } from '../data/weapons.js';
+import { SPRITES } from '../data/spriteManifest.js';
 import { hasLineOfSight } from './LineOfSight.js';
 import { muzzleOf, muzzleFlash } from './ShotFx.js';
 import { groundBelow } from './Terrain.js';
@@ -16,7 +18,8 @@ import { groundBelow } from './Terrain.js';
 // still blocks it, it hops along your path; if it's left far behind, it
 // reappears behind you. It watches: it faces the nearest enemy, or looks
 // where you look and now and then checks behind you. It attacks often but
-// lightly. Enemies don't target it and it can't be typed at.
+// lightly. Enemies don't target it and it can't be typed at. Whoever it is,
+// it carries a random assault rifle and shoots with it.
 export default class PartnerSystem {
   constructor(scene, key) {
     this.scene = scene;
@@ -31,7 +34,12 @@ export default class PartnerSystem {
     this.glanceUntil = 0;
     this.nextGlanceAt = scene.time.now + 3000;
     const base = BOTS[key];
-    this.config = { ...base, name: base.name, hp: Math.round(base.hp * PARTNER.hpScale), smart: false, dropsGear: false };
+    // Every partner carries a random assault rifle (kept through respawns),
+    // zombies and mutants too, and fights the same way: it shoots.
+    const rifles = Object.keys(WEAPONS).filter((k) => WEAPONS[k].category === 'assault' && SPRITES.weapons[k]);
+    this.rifle = Phaser.Utils.Array.GetRandom(rifles.length ? rifles : ['ak47']);
+    const loadout = { ...base.loadout, guns: [this.rifle, null] };
+    this.config = { ...base, name: base.name, loadout, movement: 'jetpack', rush: null, hp: Math.round(base.hp * PARTNER.hpScale), smart: false, dropsGear: false };
     const p = scene.player;
     // (its BotBrain never runs: PartnerSystem moves it along your path)
     const bot = new Bot(scene, p.x - 60, p.y - 20, this.config, scene.groundLayer, () => null, 'partner');
@@ -69,6 +77,34 @@ export default class PartnerSystem {
     const now = scene.time.now;
     this.record();
 
+    if (bot.waiting) {
+      // Not in the match yet: out of sight until FIGHT.
+      bot.body.setVelocity(0, 0);
+      bot.body.setAllowGravity(false);
+      bot.updateVisuals();
+      bot.layout();
+      bot.hpBg?.setVisible(false);
+      bot.hpFill?.setVisible(false);
+      this.tag.setVisible(false);
+      this.trail = []; // your path starts once you're both in the match
+      this.cursor = 0;
+      return;
+    }
+    if (bot.droppingIn) {
+      // FIGHT: it comes down beside you, slowly, on its jetpack (and
+      // follows you as usual once you've landed).
+      if (!p.droppingIn && p.onGround) bot.droppingIn = false;
+      bot.updateDropIn();
+      if (!bot.droppingIn) {
+        // Landed: follow your path from where you are now.
+        this.trail = [this.point(p)];
+        this.cursor = 1;
+      }
+      bot.updateVisuals();
+      bot.layout();
+      this.tag.setVisible(true).setPosition(bot.x, bot.visualTop - 26);
+      return;
+    }
     if (bot.alive) {
       // Left far behind (off screen): it reappears behind you.
       if (Phaser.Math.Distance.Between(bot.x, bot.y, p.x, p.y) > PARTNER.path.lostPx && p.alive && p.onGround) this.rejoin();

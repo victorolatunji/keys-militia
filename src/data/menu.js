@@ -7,13 +7,32 @@ export const MENU = {
   entries: [
     { key: 'play', label: 'PLAY', go: 'modes' },
     { key: 'training', label: 'TRAINING', go: 'training' },
-    { key: 'story', label: 'STORY', go: 'story' },
+    { key: 'comic', label: 'COMIC', go: 'comic' },               // Earth Respond #0, the comic
+    { key: 'story', label: 'STORY MODE', off: 'COMING SOON' },
     { key: 'online', label: 'ONLINE', off: 'COMING SOON' },
     { key: 'controls', label: 'CONTROLS', go: 'controls' },
   ],
   // The menu's backdrop: an in-game shot, darkened and drifting slowly.
-  backdrop: 'assets/menu/backdrop.jpg',
-  backdropDarken: 0.55,
+  backdrop: 'assets/menu/menu-backdrop.jpg', // the ChatGPT menu scene (an outpost at night)
+  backdropDarken: 0.3,
+};
+
+// The title screen (BootScene, also the loader): an in-game action shot
+// under the logo, a progress bar, then PRESS ENTER for the main menu.
+// Colours come from the cast's palette (see the art pack); the font is the
+// game's monospace until a title font is picked with the ChatGPT scene art.
+export const TITLE = {
+  // The title scenes (ChatGPT art): the in-game fight and the cast
+  // assembled. They swap with a cross-fade every switchMs while the game
+  // loads (2 to 4 times), then keep swapping slowly until you press Enter.
+  scenes: ['assets/menu/title/action.jpg', 'assets/menu/title/assembly.jpg', 'assets/menu/title/assembly-glacier.jpg'],
+  switchMs: 1300, slowSwitchMs: 4000, fadeMs: 500,
+  logo: 'assets/menu/logo.png',
+  darken: 0.18,
+  font: 'monospace',
+  gold: '#d2a35f', bone: '#dcd1bf', teal: '#a49d95',
+  bar: { width: 560, height: 14, fill: 0xd2a35f },
+  minLoadMs: 4200, // the bar takes at least this long: you can read it and see the scenes swap
 };
 
 // Play: the modes, in order, with a line each on the mode picker.
@@ -34,6 +53,7 @@ export const MODE_INTRO = {
 };
 
 export const INTRO = {
+  banners: ['free', 'military', 'zombies', 'enemies', 'training'], // the mode banners (assets/ui/banner-<mode>.webp)
   countdownFrom: 11,         // the ring counts 11 ... 0, then the match starts
   stepMs: 1000,
   hideKey: 'keys-militia.intro.hide.', // + mode key: "don't show again" (Controls turns them back on)
@@ -52,7 +72,9 @@ export const LOBBY = {
   // Front-view lobby art (made in the ChatGPT art project, Chat "Lobby poses"):
   // cast keys that have public/assets/lobby/<key>.png. Until a key is listed,
   // its in-game rig stands on the stage instead.
-  portraits: [],
+  portraits: ['player', 'commando', 'android', 'soldier', 'mercenary', 'trooper', 'zombie', 'skeleton', 'infected', 'robot', 'alien', 'cyborg', 'mutant', 'drone', 'scrapbot', 'k9'],
+  portraitFile: (key) => `assets/lobby/${key}.webp`,
+  armoury: 'assets/menu/lobby-armoury.jpg', // the ChatGPT armoury wall behind it all
   // Rig poses on the stage until the front-view art comes: how each one holds
   // its gun (degrees: up is negative), by cast key.
   poses: { player: 0, commando: 30, android: -25, soldier: 12, mercenary: -12, trooper: 40, infected: 20, robot: 0, alien: -30, cyborg: 25, mutant: 0 },

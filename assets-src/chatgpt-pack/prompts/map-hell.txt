@@ -1,0 +1,35 @@
+MAP: HELL · file prefix: hell
+Look at 05-map-hell.jpg (what this map has now: keep its layout and idea) and 16-style-locked.png (the style: same artist, same rough hand-made finish, never glossy or "AI-perfect"). Use 15-style-ref-other-game.jpg only for readability (pebble-rimmed edges, grass on tops, dark back walls), never copy it.
+
+Setting: a volcanic hellscape around a lava crater, where Black Static holds a melting fortress. Signature colour: lava orange (muted, except the lava itself).
+War details: a half-melted fortress wall, a charred tank, fallen soldiers' helmets, chains, ash falling, embers rising.
+Spice it up (add freely where it fits): hanging cages, torn plain banners, a melted tank turret, sulphur vents, bone piles by the lava, chains across the crater.
+
+Make the images below ONE PER REPLY, in this order. Under each image write its file name. Then wait: I'll say "next" or ask for a change. Every image: no text, no letters, no logos, no watermark; darker and duller than the characters; light from the top left.
+
+1. A · hell-sky.jpg
+   SKY BACKDROP. Landscape 1536x1024, opaque. A dark blood-red and rust sky, ash clouds lit from below, a volcano erupting far back. Only sky and the farthest horizon, war details far away. Lower third fades into haze. No ground in front, no characters.
+2. B · hell-far.png
+   FAR LAYER. Landscape 1536x1024, transparent background (real PNG alpha). Jagged black volcanic peaks with glowing cracks, as a band of silhouettes in the lower 60%, solid at the bottom edge. Hazy, pale, low contrast, no outlines. Left and right edges must line up so it repeats sideways.
+3. C · hell-near.png
+   NEAR LAYER. Landscape 1536x1024, transparent background. Obsidian spires, a ruined bastion, a broken chain bridge, as a band in the lower 50%, solid at the bottom edge. Darker and sharper than the far layer, thin ink outlines. Left and right edges line up. No characters.
+4. D · hell-top.png
+   GROUND TOP texture. Square 1024x1024, straight-on, tiles left to right, opaque. The top 18% is the surface: cracked dark basalt lip with thin glowing magma veins and scorch marks, with a lit, slightly bumpy edge; below it the ground's soil. Bold chunky shapes that still read when shrunk to 32 px.
+5. E · hell-fill.png
+   GROUND FILL texture. Square 1024x1024, straight-on, seamless on all four sides, opaque. Dark red-brown volcanic rock with cooled lava swirls. Bold shapes, darker than the top, nothing that looks like a hole.
+6. F · hell-rock.png
+   ROCK texture. Square 1024x1024, straight-on, seamless on all four sides, opaque. Black basalt brick blocks with glowing seams, chipped. Large readable stones with ink-dark cracks and some battle damage.
+7. G · hell-under.png
+   UNDERSIDE texture (bottom of floating ground). Square 1024x1024, tiles left to right. The soil ending at the BOTTOM in a ragged lip: basalt ending in dripping cooled-lava stalactites; transparent below the lip.
+8. H · hell-backwall.png
+   BACK WALL texture (behind tunnels and caves you move through). Square 1024x1024, seamless on all four sides, opaque. Dark basalt cave wall with faint glowing cracks. About half as bright as the ground, soft detail, so the ground in front always reads.
+9. K · hell-edge.png
+   EDGE RIM. Landscape 1536x1024, transparent background. A horizontal strip about 120 px tall across the middle: jagged black basalt pebbles of mixed sizes with ember glints, hand-placed with small gaps, ink outlines. Tiles left to right. Nothing else.
+10. X · hell-extra.png
+   EXTRA texture. Square 1024x1024, straight-on, seamless on all four sides, opaque: obsidian: glossy black volcanic glass with purple-black highlights.
+11. P · hell-props.png
+   PROPS SHEET. Landscape 1536x1024, transparent background. These 8 objects, side view, each fully separate with empty space around it, all at the same scale (a man would be about 1/4 of the image height), ink outlines: fire geyser vent, heat vent grate, iron brazier, charred skeleton in armour, obsidian spike, burnt-out truck, hanging chain, lava rock. No ground under them.
+12. P2 · hell-props2.png
+   SPICE PROPS SHEET. Same rules as P, with 4 to 6 objects from the spice list above.
+
+Reply "got it" with the number of images you'll make, then start with image 1.

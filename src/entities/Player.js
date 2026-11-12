@@ -92,6 +92,13 @@ export default class Player extends Phaser.GameObjects.Rectangle {
 
   update(delta) {
     if (!this.alive) return;
+    if (this.waiting) {
+      // Not in the match yet (intro and countdown): held out of sight.
+      this.body.setVelocity(0, 0);
+      this.body.setAllowGravity(false);
+      this.updateVisuals();
+      return;
+    }
 
     const dt = delta / 1000;
     const { left, right, up, down } = this.cursors;
@@ -114,7 +121,27 @@ export default class Player extends Phaser.GameObjects.Rectangle {
     }
 
     this.updateFloat(left, right, up, down, delta);
+    this.updateDropIn();
     this.updateVisuals();
+  }
+
+  // The start of a match: you come down slowly on your jetpack (dropIn),
+  // until you land, take the controls with Up, or the time runs out.
+  dropIn(ms, fallSpeed) {
+    this.waiting = false;
+    this.body.setAllowGravity(true);
+    this.droppingIn = true;
+    this.dropInUntil = this.scene.time.now + ms;
+    this.dropInSpeed = fallSpeed;
+  }
+
+  updateDropIn() {
+    if (!this.droppingIn) return;
+    if (this.onGround || this.body.blocked.down || this.thrusting || this.scene.time.now > this.dropInUntil) {
+      this.droppingIn = false;
+      return;
+    }
+    if (this.body.velocity.y > this.dropInSpeed) this.body.setVelocityY(this.dropInSpeed);
   }
 
   // Jet Boost: floating. Gravity is off and you sink slowly instead. The
@@ -196,6 +223,7 @@ export default class Player extends Phaser.GameObjects.Rectangle {
   // 'melee', 'blast' (grenades, rockets) or 'fire' (burning: armor can't help).
   takeDamage(amount, cause, kind = 'bullet') {
     if (!this.alive) return;
+    if (this === this.scene.player && this.scene.ending) return; // the match is decided: you can't be hurt in the ending beat
 
     amount = this.armorAbsorb(amount, kind);
     this.lastHurtAt = this.scene.time.now;
@@ -406,11 +434,11 @@ export default class Player extends Phaser.GameObjects.Rectangle {
   }
 
   updateVisuals() {
-    this.tag?.setVisible(this.alive).setPosition(this.x, this.visualTop - 26).setAlpha(Math.max(0.35, this.alpha));
+    this.tag?.setVisible(this.alive && !this.waiting).setPosition(this.x, this.visualTop - 26).setAlpha(Math.max(0.35, this.alpha));
     this.eye.setPosition(this.x + this.facing * 8, this.y - 12);
 
     // Riot Shield: held on the side you face.
-    if (this.shield) {
+    if (this.shield && !this.shield.sprite.inRig) {
       const c = this.shield.config;
       this.shield.sprite.setPosition(this.x + this.facing * c.offsetX, this.y + (this.shield.sprite.isArt ? c.art.y : 0));
       if (this.shield.sprite.isArt) this.shield.sprite.setFlipX(this.facing < 0).setAlpha(this.rig?.root.alpha ?? 1);
@@ -456,7 +484,12 @@ export default class Player extends Phaser.GameObjects.Rectangle {
     // The held shield art in front of you (placeholder: a slab).
     const art = 'spr-util-riotShield-held';
     let sprite;
-    if (this.scene.textures.exists(art)) {
+    if (this.rig?.shieldImg) {
+      sprite = this.rig.shieldImg; // carried by the rig (CharacterRig: in front, back arm on the grip)
+      sprite.isArt = true;
+      sprite.inRig = true;
+      sprite.clearTint();
+    } else if (this.scene.textures.exists(art)) {
       sprite = this.scene.add.image(this.x, this.y, art).setDepth(13); // in front of you
       sprite.setScale(config.art.height / sprite.height);
       sprite.isArt = true;
@@ -481,8 +514,9 @@ export default class Player extends Phaser.GameObjects.Rectangle {
     s.hp -= amount;
     const worn = 1 - Math.max(0, s.hp) / s.config.hp;
     if (s.sprite.isArt) {
-      if (worn > 0.6) s.sprite.setTint(s.config.damagedColor); // badly worn: reddened
-      else s.sprite.clearTint();
+      const tint = worn > 0.6 ? s.config.damagedColor : 0xffffff; // badly worn: reddened
+      s.sprite.baseTint = tint; // (the rig repaints its images from baseTint)
+      s.sprite.setTint(tint);
     } else {
       s.sprite.setStrokeStyle(2, worn > 0.6 ? s.config.damagedColor : s.config.rimColor);
     }
@@ -494,7 +528,8 @@ export default class Player extends Phaser.GameObjects.Rectangle {
 
   dropShield() {
     if (!this.shield) return;
-    this.shield.sprite.destroy();
+    if (this.shield.sprite.inRig) this.shield.sprite.setVisible(false).clearTint();
+    else this.shield.sprite.destroy();
     this.shield = null;
   }
 

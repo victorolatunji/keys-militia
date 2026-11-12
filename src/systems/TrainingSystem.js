@@ -210,16 +210,16 @@ export default class TrainingSystem {
   // ---- Every frame ----
 
   update(delta) {
-    if (this.over) return;
     const now = this.scene.time.now;
-    for (const coach of Object.values(this.coaches)) this.moveCoach(coach, delta, now);
+    for (const coach of Object.values(this.coaches)) this.moveCoach(coach, delta, now); // they keep hovering through the ending beat
+    if (this.over) return;
 
     // Lines: the next one once this one is typed out and has been up a while.
     const typed = !this.speaker || this.speaker.bubble.done;
     if (typed) this.waitMs -= delta;
     const free = typed && this.waitMs <= 0;
     if (this.queue.length && free) this.speak(...this.queue.shift());
-    if (this.lesson.check === 'blast') this.refillThrowables();
+    this.refillThrowables(); // Training: never out of grenades
     if (!this.done && this.check()) this.complete();
     if (this.done && free) {
       if (this.index + 1 < TRAINING.lessons.length) this.start(this.index + 1);
@@ -227,10 +227,11 @@ export default class TrainingSystem {
     }
   }
 
-  // Never out of grenades in the throwing lesson.
+  // Never out of grenades in Training: an empty slot fills straight back up.
   refillThrowables() {
-    const slot = this.scene.weapons.throwSlots[0];
-    if (slot.config && slot.count <= 0) slot.count = 3;
+    for (const slot of this.scene.weapons.throwSlots) {
+      if (slot.config && slot.count < TRAINING.throwables) slot.count = TRAINING.throwables;
+    }
   }
 
   // ---- Coaches ----
@@ -260,45 +261,42 @@ export default class TrainingSystem {
     }
   }
 
-  // Stay with you, one either side: run beside you on the ground, fly with
-  // their jetpacks when you're up in the air (or a ledge is in the way),
-  // and never past a gate that's still closed. Close by: face you.
+  // Coaches hover: up in the air beside you on their jetpacks, drifting a
+  // little on their own (each its own slow sway), never far from you and
+  // never past a gate that's still closed. They only come down when there's
+  // no room above you (a low ceiling). Close by: they face you.
   moveCoach(coach, delta, now) {
     const p = this.scene.player;
     const body = coach.body;
+    const C = TRAINING.coachHover;
     const who = coach === this.coaches.sarge ? 'sarge' : 'tech';
-    let gx = p.x + TRAINING.coachSide[who];
+    const phase = who === 'sarge' ? 0 : 2.1;
+    const t = now / 1000;
+    let gx = p.x + TRAINING.coachSide[who] + Math.sin(t * C.swaySpeed + phase) * C.swayX;
     for (const g of this.gates) {
       if (g.open) continue;
       const wall = g.rect.x;
       if (p.x < wall) gx = Math.min(gx, wall - 30);
       else gx = Math.max(gx, wall + g.rect.width + 30);
     }
-    const gy = p.alive ? p.y : this.groundY - 40;
+    const base = p.alive ? p.y : this.groundY - 40;
+    let gy = base - C.height + Math.sin(t * C.swaySpeed * 1.4 + phase) * C.swayY;
+    // No room up there (a ceiling): hover lower, down to your level.
+    const layer = this.scene.groundLayer;
+    const solid = (x, y) => layer.getTileAtWorldXY(x, y)?.collides;
+    while (gy < base && (solid(gx, gy) || solid(gx, gy - 30))) gy += 16;
     const dx = gx - coach.x;
     const dy = gy - coach.y;
-    const blocked = body.blocked.left || body.blocked.right;
-    const fly = !coach.onGround || dy < -40 || (blocked && Math.abs(dx) > 10) || (p.alive && !p.onGround);
-    coach.thrusting = false;
-    if (Math.abs(dx) < 14 && Math.abs(dy) < 40 && coach.onGround) {
-      body.setAllowGravity(true);
-      body.setVelocityX(body.velocity.x * 0.6);
-      coach.faceToward(p.x);
-    } else if (!fly) {
-      body.setAllowGravity(true);
-      body.setVelocityX(Phaser.Math.Clamp(dx * 6, -TRAINING.coachSpeed, TRAINING.coachSpeed));
-      coach.facing = Math.sign(dx) || coach.facing;
-    } else {
-      // Fly straight there; wedged on a ledge: up and over it.
-      const want = Math.min(TRAINING.coachFly, Math.hypot(dx, dy) * 4);
-      const d = Math.max(1, Math.hypot(dx, dy));
-      const vy = blocked ? -TRAINING.coachFly * 0.8 : (dy / d) * want;
-      body.setAllowGravity(dy > 30 && Math.abs(dx) < 40); // right above where it's going: drop down
-      body.setVelocity(body.velocity.x + ((dx / d) * want - body.velocity.x) * 0.3, body.velocity.y + (vy - body.velocity.y) * 0.3);
-      coach.thrusting = vy < -4;
-      if (Math.abs(dx) > 14) coach.facing = Math.sign(dx);
-      else coach.faceToward(p.x);
-    }
+    // Steer smoothly towards the spot (no snapping), at most coachFly.
+    const d = Math.max(1, Math.hypot(dx, dy));
+    const want = Math.min(TRAINING.coachFly * (1 + d / C.catchUpPx), d * C.pull); // farther behind: faster, so they never stray
+    const k = Math.min(1, C.ease * (delta / 16.7));
+    body.setAllowGravity(false);
+    body.setVelocity(body.velocity.x + ((dx / d) * want - body.velocity.x) * k, body.velocity.y + ((dy / d) * want - body.velocity.y) * k);
+    if (body.blocked.left || body.blocked.right) body.setVelocityY(-TRAINING.coachFly * 0.6); // a wall in the way: up and over
+    coach.thrusting = true; // the jetpack keeps them up
+    if (Math.abs(dx) > 30) coach.facing = Math.sign(dx);
+    else coach.faceToward(p.x);
     // Lost (fell far behind, a respawn): back beside you.
     if (p.alive && Phaser.Math.Distance.Between(coach.x, coach.y, gx, gy) > 900) body.reset(gx, gy - 20);
     coach.updateVisuals();
@@ -368,10 +366,14 @@ export default class TrainingSystem {
   // All 8 done: a short summary, and what to play next.
   graduate() {
     const scene = this.scene;
+    if (this.over) return;
     this.over = true;
-    scene.matchOver = true;
-    scene.physics.world.pause();
-    scene.message?.setVisible(false);
+    for (const c of Object.values(this.coaches)) c.bubble.hide();
+    scene.endSequence('WELL DONE, ROOKIE', '#06d6a0', () => this.showGraduation());
+  }
+
+  showGraduation() {
+    const scene = this.scene;
     try {
       localStorage.setItem(TRAINING.storageKey, '1');
     } catch {

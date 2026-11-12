@@ -10,7 +10,7 @@ import { makeButton, buttonRow } from '../ui/Button.js';
 //     then the match runs. With the intro turned off: just the countdown.
 //   kind 'pause' (Esc in a match): leave for the main menu, or keep playing.
 const FONT = 'monospace';
-const GOLD = '#ffd166';
+const GOLD = '#d2a35f';
 
 const hidden = (mode) => {
   try {
@@ -25,12 +25,16 @@ export default class IntroScene extends Phaser.Scene {
     super('Intro');
   }
 
+  preload() {
+    for (const k of INTRO.banners) if (!this.textures.exists(`banner-${k}`)) this.load.image(`banner-${k}`, `assets/ui/banner-${k}.webp`);
+  }
+
   create(data) {
     this.kind = data.kind ?? 'start';
     this.mode = MODES[data.modeKey] ?? MODES.free;
     this.map = MAPS[data.mapKey];
     const { width: W, height: H } = this.scale;
-    this.shade = this.add.rectangle(W / 2, H / 2, W, H, 0x05070d, 0.55);
+    this.shade = this.add.rectangle(W / 2, H / 2, W, H, 0x0d1114, 0.55);
     this.parts = [];
     const k = this.input.keyboard;
     if (this.kind === 'pause') {
@@ -51,9 +55,9 @@ export default class IntroScene extends Phaser.Scene {
   // A small box with a title line and a few quieter lines.
   panel(titles, lines) {
     const { width: W, height: H } = this.scale;
-    this.parts.push(this.add.rectangle(W / 2, H / 2, 520, 200, 0x0b0d12, 0.96).setStrokeStyle(2, 0xffd166));
+    this.parts.push(this.add.rectangle(W / 2, H / 2, 520, 200, 0x0d1114, 0.96).setStrokeStyle(2, 0xd2a35f));
     titles.forEach((t, i) => this.parts.push(this.add.text(W / 2, H / 2 - 50 + i * 34, t, { fontFamily: FONT, fontSize: '28px', fontStyle: 'bold', color: GOLD }).setOrigin(0.5)));
-    lines.forEach((t, i) => this.parts.push(this.add.text(W / 2, H / 2 + 10 + i * 30, t, { fontFamily: FONT, fontSize: '18px', color: '#e9ecef' }).setOrigin(0.5)));
+    lines.forEach((t, i) => this.parts.push(this.add.text(W / 2, H / 2 + 10 + i * 30, t, { fontFamily: FONT, fontSize: '18px', color: '#dcd1bf' }).setOrigin(0.5)));
   }
 
   // ---- The mode intro ----
@@ -65,15 +69,24 @@ export default class IntroScene extends Phaser.Scene {
       this.parts.push(o);
       return o;
     };
-    add(this.add.rectangle(W / 2, H / 2, 760, 400, 0x0b0d12, 0.96).setStrokeStyle(2, 0xffd166));
-    add(this.add.text(W / 2, H / 2 - 160, this.mode.name.toUpperCase(), { fontFamily: FONT, fontSize: '36px', fontStyle: 'bold', color: GOLD }).setOrigin(0.5));
-    add(this.add.text(W / 2, H / 2 - 118, this.map?.name ?? '', { fontFamily: FONT, fontSize: '16px', color: '#9aa3b5' }).setOrigin(0.5));
+    add(this.add.rectangle(W / 2, H / 2, 760, 400, 0x0d1114, 0.96).setStrokeStyle(2, 0xd2a35f));
+    const banner = `banner-${this.mode.key}`;
+    if (this.textures.exists(banner)) {
+      // The mode's banner (ChatGPT art) across the top, its name on the dark left part.
+      const img = add(this.add.image(W / 2, H / 2 - 150, banner));
+      img.setScale(Math.min(744 / img.width, 96 / img.height));
+      add(this.add.text(W / 2 - 350, H / 2 - 164, this.mode.name.toUpperCase(), { fontFamily: FONT, fontSize: '30px', fontStyle: 'bold', color: GOLD, stroke: '#0d1114', strokeThickness: 5 }).setOrigin(0, 0.5));
+      add(this.add.text(W / 2 - 350, H / 2 - 130, this.map?.name ?? '', { fontFamily: FONT, fontSize: '15px', color: '#dcd1bf', stroke: '#0d1114', strokeThickness: 4 }).setOrigin(0, 0.5));
+    } else {
+      add(this.add.text(W / 2, H / 2 - 160, this.mode.name.toUpperCase(), { fontFamily: FONT, fontSize: '36px', fontStyle: 'bold', color: GOLD }).setOrigin(0.5));
+      add(this.add.text(W / 2, H / 2 - 118, this.map?.name ?? '', { fontFamily: FONT, fontSize: '16px', color: '#a49d95' }).setOrigin(0.5));
+    }
     add(this.add.text(W / 2, H / 2 - 72, text.goal, { fontFamily: FONT, fontSize: '19px', color: '#ffffff', align: 'center', wordWrap: { width: 680 } }).setOrigin(0.5));
-    text.keys.forEach((line, i) => add(this.add.text(W / 2, H / 2 - 4 + i * 32, line, { fontFamily: FONT, fontSize: '17px', color: '#c9d1e0' }).setOrigin(0.5)));
-    this.hideBox = add(this.add.text(W / 2, H / 2 + 120, '', { fontFamily: FONT, fontSize: '15px', color: '#9aa3b5' }).setOrigin(0.5).setInteractive({ useHandCursor: true }));
+    text.keys.forEach((line, i) => add(this.add.text(W / 2, H / 2 - 4 + i * 32, line, { fontFamily: FONT, fontSize: '17px', color: '#a49d95' }).setOrigin(0.5)));
+    this.hideBox = add(this.add.text(W / 2, H / 2 + 120, '', { fontFamily: FONT, fontSize: '15px', color: '#a49d95' }).setOrigin(0.5).setInteractive({ useHandCursor: true }));
     this.hideBox.on('pointerdown', () => this.toggleHide());
     this.drawHide();
-    add(makeButton(this, W / 2, H / 2 + 164, 'START', () => this.start(), { key: 'ENTER', keyLabel: 'Enter', size: 22, color: '#ffd166' }));
+    add(makeButton(this, W / 2, H / 2 + 164, 'START', () => this.start(), { key: 'ENTER', keyLabel: 'Enter', size: 22, color: '#d2a35f' }));
     const k = this.input.keyboard;
     k.on('keydown-D', () => this.toggleHide());
     k.once('keydown-SPACE', () => this.start());
@@ -129,7 +142,7 @@ export default class IntroScene extends Phaser.Scene {
         }
         // The ring empties as the seconds run out.
         ring.clear();
-        ring.fillStyle(0x0b0d12, 0.6).fillCircle(cx, cy, r);
+        ring.fillStyle(0x0d1114, 0.6).fillCircle(cx, cy, r);
         ring.lineStyle(C.width, C.track, 0.95).strokeCircle(cx, cy, r);
         ring.lineStyle(C.width, n <= 3 ? C.lastArc : C.arc, 1);
         ring.beginPath();

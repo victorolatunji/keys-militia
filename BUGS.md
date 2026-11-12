@@ -18,6 +18,46 @@ Every bug found in playtests or testing, with what caused it and how it was fixe
 
 ## Log
 
+### B-024: Frozen characters behind the countdown, no boot flames on machines
+- **Found:** 2026-11-12 · 0.31.2 · playtest
+- **Where:** match start; Android, Robot and Scrap Bot flying
+- **What happened:** you and your partner hung frozen in the air behind the countdown. Machines flying on their boot thrusters showed almost no flame.
+- **Cause:** the match was paused one frame after you spawned in the air, so that frame stayed on screen. The boot flames sat inside the shin, behind the boot, small, and turned sideways with the leg. Also, starting the drop-in at the resume used the paused clock, which jumps forward on the next frame, so the slow descent ended at once (caught in testing).
+- **Fix:** you and your partner wait out of sight (`waiting`) and drop in slowly at FIGHT (`Player.dropIn`, `GameScene.startMatch`, run on the first frame after the resume); the partner lands beside you on the same ground and starts following from there. Boot flames are drawn in the world at each sole, pointing down, bigger and glowing. (`CharacterRig`, `rigs.js`, `PartnerSystem`, `HazardSystem` note)
+- **Status:** fixed in 0.31.3
+
+### B-023: The Alien was the Rookie in Training
+- **Found:** 2026-11-12 · 0.31.1 · playtest
+- **Where:** Training
+- **What happened:** Training started with the Alien as you, not Victor.
+- **Cause:** Training took whoever you last picked in the lobby. Training is Victor's story (the Rookie arriving at the Militia Camp), so it should always be him.
+- **Fix:** Training always uses the hero (`TRAINING.character`), from the menu and on TRAIN AGAIN. (`MenuScene.go`, `GameScene.init`, `training.js`)
+- **Status:** fixed in 0.31.2
+
+### B-022: A match felt like jumping into a fight already going
+- **Found:** 2026-11-12 · 0.30.2 · playtest
+- **Where:** every mode with enemies
+- **What happened:** after the countdown, enemies were already out on the map and the fight was on from the first second.
+- **Cause:** the starting enemies were created with the map, before the intro and the countdown, so they were already placed (some near you) when the match began. Military also came in from fixed spawn points on the ground, not from the sky.
+- **Fix:** the field starts empty; after FIGHT the starting enemies drop in one by one. Military and other jetpack enemies drop in from the sky over the top level, away from you. Waves wait for FIGHT too. (`GameScene.startMatch` / `botSpawnPoint`, `MatchSystem.update`)
+- **Status:** fixed in 0.31
+
+### B-021: Flashbang glitched after the bang
+- **Found:** 2026-11-12 · 0.30 · playtest
+- **Where:** Flashbang on you
+- **What happened:** right after a flashbang went off, the screen hitched and showed a frozen copy of the picture.
+- **Cause:** the flash grabbed the whole screen as an "afterimage". Reading the frame back from the graphics card stalls the game for a moment, and the frozen picture over the live view looked like a rendering bug. The glare's fade also relied on a tween delay, the same pattern as B-012.
+- **Fix:** no afterimage; the white glare (now started by a timed call) and the blur and brightness that clear last stay. (`WeaponSystem.flashBlind`)
+- **Status:** fixed in 0.30.2
+
+### B-020: Fell through the floor
+- **Found:** 2026-11-12 · 0.30 · playtest (screenshot: the player and partner Arije standing on the bottom row of a map, inside the ground)
+- **Where:** a ground-fighter map (Graveyard-style floors), Duo
+- **What happened:** you and your partner ended up below the floor, inside solid ground.
+- **Cause:** not pinned down yet. Falls are capped well under a tile per physics step, so it's likely a push (knockback, a body pushing another, a moving slab) shoving someone into the tiles.
+- **Fix:** a safety net: a few times a second, anyone whose middle and feet are both inside solid tiles is lifted to the first open space above them (or put back at the nearest spawn). Checked by burying you and your partner at the bottom of Graveyard: both were back on the floor within a quarter second. (`src/systems/Unstuck.js`, `GameScene.update`)
+- **Status:** safety net in 0.30.2; root cause open
+
 ### B-019: Your partner showed as its type on the end screen
 - **Found:** 2026-11-12 · 0.29.2 (in testing)
 - **Where:** end screen scoreboard, Duo

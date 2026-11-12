@@ -1,0 +1,31 @@
+CHAT: COMIC, EARTH RESPOND #0 (Keys Militia)
+Follow this project's instructions and match 16-style-locked.png. This is a 4-page comic, 3 panels per page, plus a cover. Keep characters on-model from 01-cast-style.png; use the map sheets (04 to 14) for what each place looks like. The game adds ALL lettering (captions and speech bubbles), so draw NO text, and keep the space named in each panel calm and a little darker for it.
+
+Every panel: landscape 1536x1024, opaque, a dramatic comic-book shot (close-ups, low angles, wide shots are all welcome: it doesn't have to be side-on like the game), the locked painted style.
+
+Make the images below ONE PER REPLY, in this order. Under each image write its file name. Then wait for me to say "next" or ask for a change.
+
+1. comic-cover.jpg
+   Portrait 1024x1536. Victor in front, jetpack firing, rifle up; behind him Sgt. Itunu, Kolawole and Mirembe; above them the Signal's teal beam splitting a stormy sky, Black Static silhouettes and a Hush ship shadow in the clouds. Keep the top 22% calm (the title EARTH RESPOND #0 goes there).
+
+PAGE 1 · THE SIGNAL
+2. comic-p1-1.jpg  Space: a huge alien signal tower on an asteroid firing a teal beam at a small Earth. Calm: top-left corner (caption).
+3. comic-p1-2.jpg  Graveyard at night: skeletal hands and zombies clawing out of soldiers' graves under a full moon. Calm: top-left (caption).
+4. comic-p1-3.jpg  Wastelands: robots, hover drones with red eye lights and a scrap bot powering up in a ruined street, eyes lighting one by one. Calm: top-left (caption).
+
+PAGE 2 · THE FALL
+5. comic-p2-1.jpg  Forest: Black Static soldiers on jetpacks shooting down into a burning treeline. Calm: top-left (caption).
+6. comic-p2-2.jpg  Hell: an explosion over a lava lake, silhouettes thrown through the air, a melting fortress behind. Calm: top-left (caption).
+7. comic-p2-3.jpg  Catacombs: a pack of zombie K9s charging through a torch-lit bone tunnel straight at the viewer. Calm: top-left (caption).
+
+PAGE 3 · EARTH RESPONDS
+8. comic-p3-1.jpg  Militia Camp: Sgt. Itunu (arms crossed) and Android R by the flagpole as Victor walks in with a borrowed rifle. Calm: upper right (Itunu's speech bubble).
+9. comic-p3-2.jpg  Close-up: Victor's hands on a battered keyboard strapped to his rifle, a target glowing in the gun's sight. Calm: upper left (Android R's speech bubble).
+10. comic-p3-3.jpg  Victor's first jetpack flight over the camp, the sergeant shouting below, tents and sandbags. Calm: top-left (caption).
+
+PAGE 4 · FIRST CONTACT
+11. comic-p4-1.jpg  Sky Islands: Victor and Kolawole back to back in a jetpack air fight, muzzle flashes, Black Static closing in. Calm: upper left (Kolawole's bubble).
+12. comic-p4-2.jpg  Glacier: a rocket bursting inside a Black Static squad on the ice, Victor in the foreground mid-shout. Calm: upper right (Victor's bubble).
+13. comic-p4-3.jpg  Space: the signal tower pulsing brighter; at its top a tall shadowed figure of the Hush watching. Ominous, quiet. Calm: bottom third (the last caption).
+
+Reply "got it" with the number of images you'll make, then start with image 1.

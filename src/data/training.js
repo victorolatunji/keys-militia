@@ -32,6 +32,11 @@ export const TRAINING = {
   coachSpeed: 300,        // coaches run this fast (px/s)...
   coachFly: 420,          // ...and fly this fast with their jetpacks, staying with you
   coachSide: { sarge: 85, tech: -85 }, // where each stays, from you (px; + = to your right)
+  // Hovering coaches: how far above you, how much they drift on their own
+  // (px, and how fast), how hard they pull back to their spot, how smoothly.
+  coachHover: { height: 70, swayX: 36, swayY: 16, swaySpeed: 0.7, pull: 2.6, ease: 0.1, catchUpPx: 160 },
+  character: 'player', // you're always Victor, the hero, in Training
+  throwables: 3, // Training: never fewer than this in a throwable slot (unlimited grenades)
   enemy: { bot: 'soldier', hp: 0.6, damage: 0.35, reaction: 1.5, typing: 0.6 }, // live fire: easy Soldiers
   storageKey: 'keys-militia.trained', // set once you graduate
 

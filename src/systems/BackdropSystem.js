@@ -444,6 +444,7 @@ export default class BackdropSystem {
 
   // The dark back wall of a tunnel (so you don't see sky through rock).
   drawCave(o) {
+    if (this.scene.terrainArt?.caves) return; // TerrainArt draws the caves (soft, rounded)
     const g = this.scene.add.graphics().setDepth(-7);
     const hell = this.key === 'hell';
     g.fillStyle(this.palette.cave ?? (hell ? 0x1a0808 : 0x2b1d14), 1).fillRect(o.x, o.y, o.width, o.height);
