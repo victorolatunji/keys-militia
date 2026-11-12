@@ -245,7 +245,13 @@ export default class CharacterRig {
     }
     if (this.flame) {
       this.flame.setVisible(o.thrusting && this.pack.visible);
-      if (o.thrusting) this.flame.setScale(Phaser.Math.FloatBetween(0.85, 1.15), Phaser.Math.FloatBetween(0.75, 1.2));
+      // Jet Boost: the flame burns blue and long while it lasts.
+      const boost = o.boosted && o.boostConfig;
+      if (boost) this.flame.setTintFill(0xcaf0f8, 0xcaf0f8, boost.flameColor, boost.flameColor).setBlendMode(Phaser.BlendModes.ADD); // white-hot at the nozzle, blue below
+      else if (this.wasBoosted) this.flame.setTint(this.flame.baseTint).setBlendMode(Phaser.BlendModes.NORMAL);
+      this.wasBoosted = boost;
+      const long = boost ? RIG.boostFlame : 1;
+      if (o.thrusting) this.flame.setScale(Phaser.Math.FloatBetween(0.85, 1.15), Phaser.Math.FloatBetween(0.75, 1.2) * long);
     }
 
     // Place it: feet on the bottom of the physics box, flipped to face the way it faces.

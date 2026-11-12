@@ -208,6 +208,30 @@ export default class BlastFx {
     }
   }
 
+  // ---- Gear ----
+
+  // Health Pack: a soft green glow around you and little green crosses
+  // floating up.
+  healed(target) {
+    const s = this.scene;
+    this.blob(target.x, target.y, 70, 0x80ed99, { alpha: 0.55, grow: 1.6, life: 450, add: true });
+    for (let i = 0; i < 6; i++) {
+      const plus = s.add.text(target.x + Phaser.Math.Between(-18, 18), target.y + Phaser.Math.Between(-10, 20), '+', {
+        fontFamily: 'monospace', fontSize: `${Phaser.Math.Between(12, 18)}px`, fontStyle: 'bold', color: '#80ed99', stroke: '#1b4332', strokeThickness: 3,
+      }).setOrigin(0.5).setDepth(DEPTH + 1).setAlpha(0);
+      s.tweens.add({ targets: plus, alpha: { from: 0, to: 1 }, y: plus.y - Phaser.Math.Between(30, 50), delay: i * 70, duration: 650, onComplete: () => plus.destroy() });
+    }
+  }
+
+  // Gear that breaks (Riot Shield, Armor Vest): pieces flying off.
+  breakApart(x, y, colors) {
+    for (let i = 0; i < 9; i++) {
+      const w = Phaser.Math.Between(3, 7);
+      this.effects.piece(x, y, { w, h: Phaser.Math.Between(3, 9), color: Phaser.Utils.Array.GetRandom(colors) }, false);
+    }
+    this.streaks(x, y, 8, [0xffffff, 0xadb5bd], [120, 280], 260, { len: [3, 6] });
+  }
+
   // ---- Tactical grenades: each its own look ----
 
   tactical(x, y, effect, radius) {

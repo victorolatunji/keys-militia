@@ -95,8 +95,14 @@ export default class WeaponSystem {
     this.preview = scene.add.graphics().setDepth(45);
     this.reloadRing = scene.add.graphics().setDepth(46);
 
-    player.on('shieldBroke', () => this.floatText(player, 'shield broke', EMPTY_COLOR));
-    player.on('armorBroke', () => this.floatText(player, 'armor spent', EMPTY_COLOR));
+    player.on('shieldBroke', () => {
+      this.floatText(player, 'shield broke', EMPTY_COLOR);
+      this.scene.blastFx?.breakApart(player.x + player.facing * 20, player.y, [0x343a40, 0x495057, 0x48cae4]); // the shield in pieces
+    });
+    player.on('armorBroke', () => {
+      this.floatText(player, 'armor spent', EMPTY_COLOR);
+      this.scene.blastFx?.breakApart(player.x, player.y - 6, [0x1d4ed8, 0x3a86ff, 0x343a40]); // bits of the vest
+    });
 
     const kb = scene.input.keyboard;
     kb.addCapture(['SPACE', 'TAB']); // stop the browser scrolling / changing focus

@@ -180,6 +180,7 @@ export default class Player extends Phaser.GameObjects.Rectangle {
   heal(amount) {
     const before = this.hp;
     this.hp = Math.min(this.stats.maxHp, this.hp + amount);
+    if (this.hp > before) this.scene.blastFx?.healed(this);
     return Math.round(this.hp - before);
   }
 

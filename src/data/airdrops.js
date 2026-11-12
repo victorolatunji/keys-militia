@@ -42,7 +42,7 @@ export const AIRDROPS = {
     highlightColor: 0xffd166, // outline of the crate your panel is showing
     iconScale: 0.55,     // gun icons cycle on the crate's front (icons are 50 x 26 px)
     iconCycleMs: 700,
-    art: { width: 52, chuteWidth: 80, iconY: 0.15 }, // with art: drawn this wide (px); iconY: icon below the middle (share of height)
+    art: { width: 60, chuteWidth: 92 }, // with art: drawn this wide (px)
   },
   chute: {
     radius: 34,          // canopy half-width
@@ -74,7 +74,16 @@ export const DEATH_DROPS = {
   // Look: the item's icon on a small dark tag (also used by supply drops)
   // With art: the item itself (its sprite) this many px across, a soft glow
   // behind it (pulsing) and its name under it once it's landed.
-  art: { size: 30, glow: 46, glowAlpha: [0.35, 0.6], pulseMs: 700, tagSize: '10px' },
+  // Sizes (px across): guns by their length (a pistol smaller than an
+  // assault rifle, all easy to see), melee likewise, throwables and gear small.
+  art: {
+    gun: { min: 30, max: 50 },   // pistol ... sniper
+    melee: { min: 24, max: 44 }, // knife ... sword
+    throwable: 14,
+    gear: 22,
+    glow: 46, glowAlpha: [0.35, 0.6], pulseMs: 700, tagSize: '10px',
+    nameNearPx: 70,              // its name shows when you're this close
+  },
   look: {
     iconScale: 0.6,      // icons are 50 x 26 px; drops show them smaller
     width: 34,

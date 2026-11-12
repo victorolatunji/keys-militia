@@ -38,7 +38,7 @@ export default class Crate extends Phaser.GameObjects.Rectangle {
       this.setFillStyle(0, 0);
       this.isStroked = false;
       this.look = scene.add.image(x, y, dropKey('crate-airdrop')).setDepth(11);
-      this.icon.setDepth(11.5);
+      this.icon.setVisible(false); // no gun icon on the crate: the panel shows what's inside
     }
 
     // Cap the fall speed: gravity still pulls, the chute holds it to a slow drift.
@@ -170,11 +170,9 @@ export default class Crate extends Phaser.GameObjects.Rectangle {
       this.setLook(this.state === 'falling' && this.chute ? 'crate-airdrop' : 'crate-landed');
       this.look.setPosition(this.x, this.y).setRotation(this.rotation).setAlpha(this.alpha);
       // the icon on the crate's front, a little below the middle
-      const dy = AIRDROPS.crate.height * AIRDROPS.crate.art.iconY;
-      this.icon.setPosition(this.x - Math.sin(this.rotation) * dy, this.y + Math.cos(this.rotation) * dy);
-    } else {
-      this.icon.setPosition(this.x, this.y);
+      return;
     }
+    this.icon.setPosition(this.x, this.y);
     this.icon.setRotation(this.rotation);
     this.icon.setAlpha(this.alpha);
   }

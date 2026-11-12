@@ -22,6 +22,7 @@ export const RIG = {
   backTint: 0xb4b4b4,    // back arm and leg: a bit darker, so they read as further away
   flashMs: 80,           // hit flash (white)
   depth: 12,             // above the map, below word labels
+  boostFlame: 1.7,       // Jet Boost: the jet flame this much longer (and blue)
   groundGraceMs: 110,    // off the ground shorter than this (a bump): keep the running pose
 
   // Where things sit on the torso, as fractions of its width and height
@@ -95,7 +96,7 @@ export const GRIPS = {
   thumper: [0.4, 0.68], type25: [0.3, 0.62], warMachine: [0.28, 0.65], zrg20mm: [0.19, 0.62],
 };
 export const MELEE_GRIP = [0.12, 0.5];   // the handle end
-export const THROWABLE_SIZE = 0.15;      // a throwable in the hand, as a fraction of the drawn height
+export const THROWABLE_SIZE = 0.11;      // a throwable in the hand, as a fraction of the drawn height (a grenade is small)
 // Throwable art whose file name differs from its THROWABLES key.
 export const THROWABLE_ART = { grenade: 'frag' };
 

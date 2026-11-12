@@ -1,6 +1,8 @@
 import { gunKey, meleeKey, throwKey } from '../entities/CharacterRig.js';
 import { WEAPONS, THROWABLES } from '../data/weapons.js';
 import { ITEMS } from '../data/items.js';
+import { DEATH_DROPS } from '../data/airdrops.js';
+import { WEAPON_LENGTH, MELEE_LENGTH } from '../data/rigs.js';
 
 // The art for things you can pick up (packed by tools/pack-sprites.py):
 // guns, melee and throwables use their held sprites; gear (Armor Vest,
@@ -31,4 +33,22 @@ export function itemName(item) {
 export function itemGlow(item) {
   return { health: 0x80ed99, armor: 0x4cc9f0, shield: 0x4cc9f0, boost: 0x90e0ef, throwable: 0xff9f1c }[item.type] ??
     (WEAPONS[item.key]?.category === 'special' || WEAPONS[item.key]?.category === 'launcher' ? 0xff4d6d : 0xffd166);
+}
+
+// How big it's drawn lying on the ground (px across its longest side):
+// guns and melee by their real length (WEAPON_LENGTH / MELEE_LENGTH in
+// rigs.js), squeezed into DEATH_DROPS.art's min..max so every gun is easy
+// to see but a pistol is never bigger than a rifle; throwables and gear small.
+export function itemSize(item) {
+  const A = DEATH_DROPS.art;
+  if (GEAR.includes(item.type)) return A.gear;
+  if (item.type === 'throwable') return A.throwable;
+  const w = WEAPONS[item.key];
+  if (!w) return A.gear;
+  if (w.category === 'melee') {
+    const len = MELEE_LENGTH[item.key] ?? 0.45;
+    return A.melee.min + ((len - 0.26) / (0.66 - 0.26)) * (A.melee.max - A.melee.min);
+  }
+  const len = WEAPON_LENGTH[w.category] ?? 0.5;
+  return A.gun.min + ((len - 0.3) / (0.66 - 0.3)) * (A.gun.max - A.gun.min);
 }

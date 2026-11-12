@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { DEATH_DROPS } from '../data/airdrops.js';
 import { iconKey } from '../ui/Icons.js';
-import { itemArtKey, itemName, itemGlow } from '../ui/ItemArt.js';
+import { itemArtKey, itemName, itemGlow, itemSize } from '../ui/ItemArt.js';
 import Cloud from './Cloud.js';
 
 // An item lying loose on the map: a death drop (pops out when someone dies)
@@ -57,7 +57,7 @@ export default class Pickup extends Phaser.GameObjects.Rectangle {
     this.hasArt = Boolean(art);
     if (art) {
       this.icon.setTexture(art);
-      this.icon.setScale(DEATH_DROPS.art.size / Math.max(this.icon.width, this.icon.height));
+      this.icon.setScale(itemSize(item) / Math.max(this.icon.width, this.icon.height));
       this.setFillStyle(0, 0);
       this.isStroked = false;
       this.glow.setTint(itemGlow(item)).setVisible(true);
@@ -128,7 +128,10 @@ export default class Pickup extends Phaser.GameObjects.Rectangle {
     const lift = this.landed ? this.height / 2 - this.icon.displayHeight / 2 : 0;
     this.icon.y += lift;
     this.glow.y += lift;
-    this.tag.setPosition(this.x, this.icon.y - this.icon.displayHeight / 2 - 2).setVisible(this.landed).setAlpha(this.alpha);
+    // its name only when you're right by it (or it's the one the panel is about)
+    const p = this.scene.player;
+    const near = p?.alive && Math.abs(p.x - this.x) < A.nameNearPx && Math.abs(p.y - this.y) < A.nameNearPx;
+    this.tag.setPosition(this.x, this.icon.y - this.icon.displayHeight / 2 - 2).setVisible(this.landed && (near || this.highlighted)).setAlpha(this.alpha);
   }
 
   remove() {

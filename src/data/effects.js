@@ -167,6 +167,9 @@ export const BLAST_FX = {
 // disappears and the fire looks formless and glowing.
 export const FIRE_LOOK = {
   glow: true,
+  pieceWidth: 24,       // the fuel is laid in pieces this wide (px), each on the ground under it
+  pieceOverlap: 2.1,    // each piece's fire drawn this many times its width (they blend into one)
+  followTiles: 3,       // it runs down / up slopes and steps of up to this many tiles
   patchAlpha: [0.85, 0.6],
   puffAlpha: 0.8,
   scorch: { color: 0x1b1410, alpha: 0.55 },

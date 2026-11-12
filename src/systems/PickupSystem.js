@@ -5,6 +5,8 @@ import { WEAPONS, THROWABLES, WEAPON_CATEGORIES } from '../data/weapons.js';
 import { ITEMS } from '../data/items.js';
 import { GUN_SLOTS, MELEE_SLOT } from './WeaponSystem.js';
 import { iconKey } from '../ui/Icons.js';
+import { itemArtKey, dropKey } from '../ui/ItemArt.js';
+import { gunKey, throwKey } from '../entities/CharacterRig.js';
 
 const SLOT_KEYS = { 1: 0, 2: 1 }; // number key -> gun slot index
 const AUTO_PICKUP_PX = 44;        // walk this close: health, Jet Boost, more of your throwable
@@ -83,7 +85,8 @@ export default class PickupSystem {
     }
 
     const { title, options } = this.describe(target.item);
-    this.panel.show(title, options, iconKey(target.item));
+    const art = target.item.type === 'crate' ? dropKey('crate-landed') : itemArtKey(this.scene, target.item);
+    this.panel.show(title, options, art && this.scene.textures.exists(art) ? art : iconKey(target.item));
   }
 
   // Walk over these and they're yours, no key needed (AUTO_PICKUP_PX):
@@ -133,6 +136,7 @@ export default class PickupSystem {
           key: String(i + 1),
           label: `${gun.name} (${WEAPON_CATEGORIES[gun.category].name})${held ? ' · refill' : ''}`,
           enabled: true,
+          art: gunKey(key),
         });
       });
       return { title, options };
@@ -176,7 +180,7 @@ export default class PickupSystem {
         const have = w.ammo[heldSlot];
         const full = have >= config.ammo;
         const label = full ? 'ammo full' : `refill ammo (${have}/${config.ammo})`;
-        return { title, options: [{ key: String(heldSlot + 1), label, enabled: !full }] };
+        return { title, options: [{ key: String(heldSlot + 1), label, enabled: !full, art: gunKey(item.key) }] };
       }
 
       const options = GUN_SLOTS.map((slot) => {
@@ -185,6 +189,7 @@ export default class PickupSystem {
           key: String(slot + 1),
           label: gun ? `swap for ${gun.name} (${w.ammo[slot]})` : 'take (empty slot)',
           enabled: true,
+          art: gun ? gunKey(gun.key) : null, // the gun you'd give up
         };
       });
       return { title, options };
@@ -198,6 +203,7 @@ export default class PickupSystem {
     const free = w.throwSlots.some((t) => !t.config);
     let label;
     let enabled = true;
+    let art = throwKey(item.key);
     if (same) {
       enabled = same.count < config.maxCarry;
       label = enabled ? `take (you have ${same.count}/${config.maxCarry})` : `full (${same.count}/${config.maxCarry})`;
@@ -206,9 +212,10 @@ export default class PickupSystem {
     } else {
       const held = w.throwSlots[w.throwActive];
       label = `swap for ${held.config.name} x${held.count}`;
+      art = throwKey(held.config.key);
     }
 
-    return { title, options: [{ key: ITEM_KEY, label, enabled }] };
+    return { title, options: [{ key: ITEM_KEY, label, enabled, art }] };
   }
 
   handleKey(event) {

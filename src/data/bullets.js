@@ -47,7 +47,7 @@ export const SHOT_ART = {
 };
 
 // Thrown things in flight use their throwable art, this many px across.
-export const THROWN_SIZE = 17;
+export const THROWN_SIZE = 13;
 
 // Hits on the same target within this time add up into one damage number
 // ("-60" counting up during a burst) instead of a pile of small ones.
