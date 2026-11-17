@@ -40,7 +40,8 @@ export const AUDIO_FILES = {
   'burn-creature': voice('burn-creature'),
   // Ambience
   'zombie-horde': 'assets/audio/sfx/zombie-horde.mp3', // Zombies mode: low, under the ground, as a wave comes in
-  heartbeat: 'assets/audio/sfx/heartbeat.mp3',          // your HP is low
+  heartbeat: 'assets/audio/sfx/heartbeat.mp3',          // one beat ("lub-dub"): your HP is low
+  drowning: 'assets/audio/sfx/drowning.mp3',            // you're under water / sand and out of breath
   // Menus and buttons
   'ui-move': 'assets/audio/ui/ui-move.mp3',     // the highlight moves (menus, hovering a button)
   'ui-scroll': 'assets/audio/ui/ui-scroll.mp3', // browsing: lobby characters, maps, comic pages
@@ -107,7 +108,7 @@ export const SAMPLE_RARE = {
 };
 
 // How loud each kind of recording plays (times the Voices or Effects volume).
-export const SAMPLE_GAIN = { voice: 0.95, cry: 0.8, ui: 0.55, horde: 0.55, heartbeat: 0.7 };
+export const SAMPLE_GAIN = { voice: 0.95, cry: 0.8, ui: 0.55, horde: 0.55, heartbeat: 0.8 };
 
 // Who burns and dies with which family's voice (by enemy class name).
 export const VOICE_FAMILY = {
@@ -116,8 +117,12 @@ export const VOICE_FAMILY = {
   creature: ['Alien', 'Mutant', 'Zombie K9'],
 };
 
-// Low HP: the heartbeat fades in under this share of your HP.
-export const HEARTBEAT = { below: 0.3, full: 0.12 }; // starts at 30%, loudest at 12%
+// Low HP: under `below` of your HP your heart beats, slowly, and the screen
+// gives a little shake on each beat (a bit quicker and stronger near the end).
+export const HEARTBEAT = { below: 0.2, slowMs: 1300, fastMs: 1000, volume: [0.6, 1], shake: { ms: 120, from: 0.0018, to: 0.0035 } };
+// Under water or quicksand: the struggle starts when your breath is this
+// low, and plays fully once it's gone (you're drowning).
+export const DROWNING = { struggleAt: 0.3, volume: 0.8 };
 // Zombies: the horde rumbles under the ground as each wave comes in.
 export const HORDE = { volume: 1, maxMs: 14000, fadeMs: 2500 };
 

@@ -1,5 +1,5 @@
 // The menus' colours, from the ChatGPT UI style sheet
-// (assets-src/chatgpt-pack, ui-style-sheet.png), so text matches the scenes.
+// (the ChatGPT art project's UI style sheet), so text matches the scenes.
 //   headings: bone · normal text: ash · dim: dusk slate · highlight: ember · danger: rust
 // Fonts: monospace for now. The style sheet recommends Black Ops One
 // (headings) and IBM Plex Mono (body), both free (SIL Open Font License);

@@ -1,8 +1,10 @@
 import Phaser from 'phaser';
 import { SOUNDS, LOOPS, SOUND_SETTINGS, DEATH_CRIES, FALL_CRY, shotSoundFor } from '../data/sounds.js';
 import { FAMILY_MATERIAL } from '../data/effects.js';
-import { SAMPLE_FOR, SAMPLE_RARE, SAMPLE_GAIN, VOICE_FAMILY, HEARTBEAT, HORDE } from '../data/audio.js';
+import { SAMPLE_FOR, SAMPLE_RARE, SAMPLE_GAIN, VOICE_FAMILY, HEARTBEAT, HORDE, DROWNING } from '../data/audio.js';
 import { AudioSettings } from './AudioSettings.js';
+import { BOTS } from '../data/enemies.js';
+import { castOf } from '../data/cast.js';
 
 // Plays the sounds in data/sounds.js, made on the spot with Web Audio
 // (no files). Louder near you, quieter far away, panned left/right.
@@ -41,8 +43,8 @@ export default class SoundSystem {
     scene.events.once('shutdown', () => {
       offSettings();
       this.stopVoice();
-      this.beat?.stop(0.2);
-      this.beat = null;
+      this.drown?.stop(0.2);
+      this.drown = null;
       this.horde?.stop(0.3);
       this.horde = null;
       kb.off(`keydown-${SOUND_SETTINGS.toggleKey}`, toggle);
@@ -529,36 +531,82 @@ export default class SoundSystem {
       return;
     }
     if (target === this.scene.player) {
-      this.play('youHurt');
+      // Victor grunts; whoever else you picked sounds like their own kind.
+      if (this.isVictor()) this.play('youHurt');
+      else this.play(this.bodySound(this.voiceOf(target), 'hurt'), null, { volume: 0.8 });
       return;
     }
     this.play(this.bodySound(target, 'hurt'), target, { volume: 0.8 });
   }
 
+  // Are you playing Victor (his own voice), or another character (theirs)?
+  isVictor() {
+    return (this.scene.characterKey ?? 'player') === 'player';
+  }
+
+  // Who a character sounds like: you take the voice of the character you
+  // picked in the lobby (a zombie groans, a robot crunches, Nadia cries
+  // like a woman); Victor keeps his own recordings.
+  voiceOf(target) {
+    if (target !== this.scene.player || this.isVictor()) return target;
+    const bot = castOf(this.scene.characterKey)?.bot;
+    return bot && BOTS[bot] ? { config: BOTS[bot] } : target;
+  }
+
   // On fire: a cry of pain every so often (machines don't feel it).
   burnPain(target) {
     if (this.materialOf(target) === 'machine') return;
-    if (target === this.scene.player) {
+    const you = target === this.scene.player;
+    if (you && this.isVictor()) {
       this.play('burnPainYou');
       return;
     }
     // By family: a man's, a woman's, the undead's or a creature's scream
     // (recordings, data/audio.js); no file: the code-made cry.
-    const family = this.voiceFamily(target);
+    const family = this.voiceFamily(this.voiceOf(target));
     const key = { male: 'burnHumanMale', female: 'burnHumanFemale', undead: 'burnUndead', creature: 'burnCreature' }[family];
-    this.play(this.sampleFor(key) ? key : 'burnPain', target);
+    this.play(this.sampleFor(key) ? key : 'burnPain', you ? null : target);
   }
 
-  // Low HP: a heartbeat fades in under HEARTBEAT.below of your HP, loudest near the end.
+  // Low HP: under HEARTBEAT.below of your HP your heart beats, slowly, one
+  // beat at a time, with a small screen shake on each (quicker and a bit
+  // stronger the closer you are to dying).
   updateHeartbeat(player) {
+    const H = HEARTBEAT;
     const share = player.alive ? player.hp / (player.stats?.maxHp ?? 100) : 1;
-    const want = Phaser.Math.Clamp((HEARTBEAT.below - share) / (HEARTBEAT.below - HEARTBEAT.full), 0, 1);
-    if (want > 0 && this.ready && !this.scene.matchOver) {
-      this.beat ??= this.ambient('heartbeat', { loop: true, volume: SAMPLE_GAIN.heartbeat });
-      this.beat?.level(0.35 + want * 0.65, 0.25);
-    } else if (this.beat) {
-      this.beat.stop(0.8);
-      this.beat = null;
+    if (share >= H.below || !player.alive || this.scene.matchOver) {
+      this.nextBeatAt = 0;
+      return;
+    }
+    const now = this.scene.time.now;
+    const k = Phaser.Math.Clamp(1 - share / H.below, 0, 1); // 0 at the line, 1 at 0 HP
+    if (!this.nextBeatAt) this.nextBeatAt = now; // first beat straight away
+    if (now < this.nextBeatAt) return;
+    this.nextBeatAt = now + Phaser.Math.Linear(H.slowMs, H.fastMs, k);
+    if (this.ready && this.scene.cache.audio.exists('heartbeat')) {
+      const beat = this.ambient('heartbeat', { volume: SAMPLE_GAIN.heartbeat * Phaser.Math.Linear(H.volume[0], H.volume[1], k) });
+      beat?.level(1, 0.005);
+    }
+    // The shake follows the beat: "lub" now, a softer "dub" a moment later.
+    const cam = this.scene.cameras.main;
+    const strength = Phaser.Math.Linear(H.shake.from, H.shake.to, k);
+    cam.shake(H.shake.ms, strength);
+    this.scene.time.delayedCall(300, () => player.alive && cam.shake(H.shake.ms * 0.8, strength * 0.6));
+  }
+
+  // Under water or quicksand: you struggle for air as your breath runs low,
+  // and drown loudly once it's gone (stops the moment you're out).
+  updateDrowning(player) {
+    const st = player.hazard;
+    const under = player.alive && (player.submerged || player.buried) && st && !this.scene.matchOver;
+    const left = under ? st.breath / (st.breathMax || 1) : 1;
+    const level = !under ? 0 : left <= 0 ? 1 : left < DROWNING.struggleAt ? 0.45 : 0;
+    if (level > 0 && this.ready) {
+      this.drown ??= this.ambient('drowning', { loop: true, volume: DROWNING.volume });
+      this.drown?.level(level, 0.2);
+    } else if (this.drown) {
+      this.drown.stop(0.4);
+      this.drown = null;
     }
   }
 
@@ -595,14 +643,20 @@ export default class SoundSystem {
   }
 
   materialOf(target) {
-    if (target === this.scene.player) return 'flesh';
+    if (target === this.scene.player) {
+      if (this.isVictor()) return 'flesh';
+      target = this.voiceOf(target); // the character you picked
+    }
     const c = target.config ?? {};
     if (c.material === 'cyborg') return 'machine';
     return c.material ?? FAMILY_MATERIAL[c.family] ?? (c.family ? 'flesh' : 'straw');
   }
 
   deathSound(target) {
-    if (target === this.scene.player) return 'dieYou';
+    if (target === this.scene.player) {
+      if (this.isVictor()) return 'dieYou';
+      target = this.voiceOf(target); // you die with your character's own cry
+    }
     const cry = DEATH_CRIES[target.config?.name];
     if (cry) return cry;
     return {

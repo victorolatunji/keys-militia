@@ -178,7 +178,14 @@ export default class MenuScene extends Phaser.Scene {
   }
 
   heading(text) {
-    this.layer.add(this.add.text(this.scale.width / 2, 218, text, { fontFamily: FONT, fontSize: '24px', fontStyle: 'bold', color: '#ffffff', stroke: '#000000', strokeThickness: 4 }).setOrigin(0.5));
+    // A page title is a label, not a button: smaller, in the tagline's pale
+    // steel and font, with thin rules either side (buttons are big, white, gold when picked).
+    const W = this.scale.width;
+    const t = this.add.text(W / 2, 218, text, { fontFamily: TITLE.tagline.font, fontSize: '18px', fontStyle: 'bold', color: '#9fb6c4', stroke: '#000000', strokeThickness: 4 }).setOrigin(0.5).setLetterSpacing(4);
+    this.layer.add(t);
+    const g = this.add.graphics().lineStyle(1, 0x9fb6c4, 0.6);
+    g.lineBetween(W / 2 - t.width / 2 - 70, 218, W / 2 - t.width / 2 - 16, 218).lineBetween(W / 2 + t.width / 2 + 16, 218, W / 2 + t.width / 2 + 70, 218);
+    this.layer.add(g);
   }
 
   note(text) {
@@ -198,7 +205,7 @@ export default class MenuScene extends Phaser.Scene {
       this.layer.add(t);
       if (it.off) this.layer.add(this.add.text(x + t.width / 2 + 14, y, it.off, { fontFamily: FONT, fontSize: '13px', color: '#0d1114', backgroundColor: '#8a837b', padding: { x: 6, y: 2 } }).setOrigin(0, 0.5));
       if (it.line) {
-        it.sub = this.add.text(x, y + size * 0.85, it.line, { fontFamily: FONT, fontSize: '15px', color: '#a49d95' }).setOrigin(0.5);
+        it.sub = this.add.text(x, y + size * 0.88, it.line, { fontFamily: FONT, fontSize: '16px', fontStyle: 'bold', color: '#e3d6bf', stroke: '#0d1114', strokeThickness: 4 }).setOrigin(0.5);
         this.layer.add(it.sub);
       }
       if (it.action) {

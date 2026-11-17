@@ -710,6 +710,7 @@ export default class GameScene extends Phaser.Scene {
     this.sfx.updateJet(this.player.alive && this.player.thrusting, this.player.boosted);
     this.sfx.endFrame(); // loops nobody held this frame fade out
     this.sfx.updateHeartbeat(this.player); // low HP: your heartbeat
+    this.sfx.updateDrowning(this.player); // out of breath under water or sand
     this.voidSystem?.update(this.player);
     for (const bot of this.bots) this.voidSystem?.update(bot);
     if (this.partner) this.voidSystem?.update(this.partner.bot);

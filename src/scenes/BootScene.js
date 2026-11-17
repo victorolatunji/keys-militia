@@ -77,6 +77,7 @@ export default class BootScene extends Phaser.Scene {
     this.testing = ['mode', 'map', 'partner', 'character'].some((k) => q.has(k));
     this.drawTitle();
     Music.play(this, 'title'); // (if the browser still blocks sound: from the first click or key)
+    this.soundHint();
     this.queueAssets();
     // The bar shows the real progress, filling smoothly over at least
     // TITLE.minLoadMs so you can read it (the percentage counts up).
@@ -167,6 +168,17 @@ export default class BootScene extends Phaser.Scene {
     this.barFill = this.add.rectangle(W / 2 - bw / 2, by, 1, T.bar.height, T.bar.fill).setOrigin(0, 0.5);
     this.barText = this.add.text(W / 2, by + 26, 'LOADING 0%', { fontFamily: T.font, fontSize: '16px', fontStyle: 'bold', color: T.teal }).setOrigin(0.5);
     this.add.text(W - 20, H - 14, 'VAO', { fontFamily: T.font, fontSize: '14px', color: '#8a837b' }).setOrigin(1, 1);
+  }
+
+  // Browsers block sound until the page gets its first click or key press
+  // (no game can skip that). While it's blocked, a small line over the bar
+  // says so; any click or key unlocks it and the title music starts.
+  soundHint() {
+    if (!this.sound.locked) return;
+    const { width: W, height: H } = this.scale;
+    const hint = this.add.text(W / 2, H - 146, 'CLICK OR PRESS ANY KEY FOR SOUND', { fontFamily: TITLE.font, fontSize: '14px', fontStyle: 'bold', color: '#d9e6ee', stroke: '#0d1114', strokeThickness: 4 }).setOrigin(0.5);
+    this.tweens.add({ targets: hint, alpha: 0.35, duration: 650, yoyo: true, repeat: -1 });
+    this.sound.once('unlocked', () => hint.destroy());
   }
 
   setProgress(v) {
