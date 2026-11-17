@@ -25,6 +25,8 @@ export const AUDIO_FILES = {
   'die-you': voice('die-you'),
   'burn-you': voice('burn-you'),
   // Death cries and burning screams by family
+  'die-you-chai': voice('die-you-chai'),               // "Chai! Aaagh!": now and then (SAMPLE_RARE)
+  'die-human-male-chai': voice('die-human-male-chai'), // "Argh! Chai!": now and then
   'die-human-male-1': voice('die-human-male-1'),
   'die-human-male-2': voice('die-human-male-2'),
   'die-human-female-1': voice('die-human-female-1'),
@@ -92,6 +94,16 @@ export const SAMPLE_FOR = {
   burnHumanFemale: ['burn-human-female'],
   burnUndead: ['burn-undead'],
   burnCreature: ['burn-creature'],
+};
+
+// Now and then (chance per cry) a code sound plays one of these instead:
+// the cries with "Chai!" in them, so you hear it sometimes, not every time.
+const MALE_CHAI = { chance: 0.2, keys: ['die-human-male-chai'] };
+export const SAMPLE_RARE = {
+  dieYou: { chance: 0.25, keys: ['die-you-chai'] },
+  dieSoldier: MALE_CHAI,
+  dieCommando: MALE_CHAI,
+  dieTrooper: MALE_CHAI,
 };
 
 // How loud each kind of recording plays (times the Voices or Effects volume).

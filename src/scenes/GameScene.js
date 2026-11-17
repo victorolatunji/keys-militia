@@ -107,6 +107,7 @@ export default class GameScene extends Phaser.Scene {
 
   create() {
     this.tweens.timeScale = 1; // (a previous match may have ended in slow motion)
+    Music.play(this, 'battle'); // the lobby's track ends here (a match is silent until a battle track is added)
     this.cameras.main.setBackgroundColor(this.map.background);
 
     const { width, height, spawn, dummySpawns, botSpawns } = this.buildTilemap();
@@ -301,7 +302,6 @@ export default class GameScene extends Phaser.Scene {
   startMatch() {
     if (this.started) return;
     this.started = true;
-    Music.play(this, 'battle'); // (silent until the music is added)
     // You (and your partner beside you) come down slowly on your jetpacks,
     // from a little higher than a normal spawn when there's sky for it.
     const p = this.player;

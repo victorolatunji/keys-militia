@@ -68,12 +68,15 @@ export default class BootScene extends Phaser.Scene {
   preload() {
     TITLE.scenes.forEach((src, i) => this.load.image(`title-scene-${i}`, src));
     this.load.image('logo', TITLE.logo);
+    // The title music too, so it plays from the start of the loading screen.
+    for (const { key, path } of musicKeys('title')) this.load.audio(key, path);
   }
 
   create() {
     const q = new URLSearchParams(window.location.search);
     this.testing = ['mode', 'map', 'partner', 'character'].some((k) => q.has(k));
     this.drawTitle();
+    Music.play(this, 'title'); // (if the browser still blocks sound: from the first click or key)
     this.queueAssets();
     // The bar shows the real progress, filling smoothly over at least
     // TITLE.minLoadMs so you can read it (the percentage counts up).
@@ -188,7 +191,7 @@ export default class BootScene extends Phaser.Scene {
     for (const key of Object.keys(SPRITES.utility ?? {})) this.load.image(utilKey(key), `assets/sprites/utility/${key}.png`);
     // Recorded sounds: voices, cries, buttons (src/data/audio.js), and the music once it's added.
     for (const [key, path] of Object.entries(AUDIO_FILES)) this.load.audio(key, path);
-    for (const name of MUSIC_TRACKS) for (const { key, path } of musicKeys(name)) this.load.audio(key, path);
+    for (const name of MUSIC_TRACKS) if (name !== 'title') for (const { key, path } of musicKeys(name)) this.load.audio(key, path); // (title: already loaded)
     for (const map of Object.values(MAPS)) {
       this.load.tilemapTiledJSON(map.tilemapKey, map.tilemapFile);
       // Maps can share a tileset; only load each image once.
@@ -208,7 +211,6 @@ export default class BootScene extends Phaser.Scene {
       this.scene.start('Game', { mapKey: startingMap(), modeKey: startingMode(), partnerKey: startingPartner(), characterKey: q.get('character') ?? 'player', skipIntro: q.get('intro') !== '1' });
       return;
     }
-    Music.play(this, 'title'); // (silent until the music is added)
     const go = makeButton(this, this.scale.width / 2, this.scale.height - 44, 'PRESS ENTER', () => this.scene.start('Menu'), { key: 'ENTER', keyLabel: '', size: 22, color: TITLE.gold });
     this.tweens.add({ targets: go, alpha: 0.45, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
     this.input.once('pointerdown', () => go.run());

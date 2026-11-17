@@ -46,7 +46,7 @@ export const TITLE = {
   font: 'monospace',
   gold: '#d2a35f', bone: '#dcd1bf', teal: '#a49d95',
   bar: { width: 560, height: 14, fill: 0xd2a35f },
-  minLoadMs: 4200, // the bar takes at least this long: you can read it and see the scenes swap
+  minLoadMs: 6000, // the bar takes at least this long: you can read it, see the scenes swap and hear the title music start
 };
 
 // Play: the modes, in order, with a line each on the mode picker.

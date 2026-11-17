@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { SOUNDS, LOOPS, SOUND_SETTINGS, DEATH_CRIES, FALL_CRY, shotSoundFor } from '../data/sounds.js';
 import { FAMILY_MATERIAL } from '../data/effects.js';
-import { SAMPLE_FOR, SAMPLE_GAIN, VOICE_FAMILY, HEARTBEAT, HORDE } from '../data/audio.js';
+import { SAMPLE_FOR, SAMPLE_RARE, SAMPLE_GAIN, VOICE_FAMILY, HEARTBEAT, HORDE } from '../data/audio.js';
 import { AudioSettings } from './AudioSettings.js';
 
 // Plays the sounds in data/sounds.js, made on the spot with Web Audio
@@ -193,9 +193,11 @@ export default class SoundSystem {
 
   // The decoded file for a code sound, if it has any (one of its takes at random).
   sampleFor(key) {
-    const list = SAMPLE_FOR[key];
+    let list = SAMPLE_FOR[key];
     if (!list || !this.ctx) return null;
     const cache = this.scene.cache.audio;
+    const rare = SAMPLE_RARE[key]; // now and then: a rarer take (the "Chai!" cries)
+    if (rare && Math.random() < rare.chance && rare.keys.some((k) => cache.exists(k))) list = rare.keys;
     const have = list.filter((k) => cache.exists(k));
     if (!have.length) return null;
     const buf = cache.get(have[Math.floor(Math.random() * have.length)]);
