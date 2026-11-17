@@ -3,6 +3,8 @@ import { MODES } from '../data/modes.js';
 import { MAPS } from '../data/maps.js';
 import { MODE_INTRO, INTRO } from '../data/menu.js';
 import { makeButton, buttonRow } from '../ui/Button.js';
+import { uiSound } from '../systems/AudioSettings.js';
+import { Music } from '../systems/Music.js';
 
 // Drawn over the (paused) match:
 //   kind 'start': the mode's intro pop-up (its goal and the keys that
@@ -42,11 +44,23 @@ export default class IntroScene extends Phaser.Scene {
     this.parts = [];
     const k = this.input.keyboard;
     if (this.kind === 'pause') {
-      this.panel(['LEAVE THE MATCH?'], []);
-      this.parts.push(...buttonRow(this, W / 2, H / 2 + 40, [
-        ['MAIN MENU', () => this.toMenu(), 'ENTER', 'Enter'],
-        ['KEEP PLAYING', () => this.resume(), 'ESC', 'Esc'],
-      ], { size: 18 }));
+      // Paused (Esc, the HUD's pause button, or another browser tab).
+      uiSound(this, 'ui-pause');
+      Music.duck(true);
+      const game = this.scene.get('Game');
+      const training = Boolean(game?.training);
+      this.parts.push(this.add.rectangle(W / 2, H / 2, 560, 300, 0x0d1114, 0.96).setStrokeStyle(2, 0xd2a35f));
+      this.parts.push(this.add.text(W / 2, H / 2 - 110, 'PAUSED', { fontFamily: FONT, fontSize: '32px', fontStyle: 'bold', color: GOLD }).setOrigin(0.5));
+      this.parts.push(this.add.text(W / 2, H / 2 - 74, `${this.mode.name}${game?.map ? `  ·  ${game.map.name}` : ''}`, { fontFamily: FONT, fontSize: '15px', color: '#a49d95' }).setOrigin(0.5));
+      this.parts.push(makeButton(this, W / 2, H / 2 - 22, 'RESUME', () => this.resume(), { key: 'ESC', keyLabel: 'Esc', size: 20, color: GOLD, width: 300, sound: 'ui-pause' }));
+      this.parts.push(...buttonRow(this, W / 2, H / 2 + 38, [
+        ['SETTINGS', () => this.openSettings(), 'S'],
+        ['RESTART', () => this.restart(), 'R'],
+      ], { size: 16 }));
+      this.parts.push(...buttonRow(this, W / 2, H / 2 + 92, [
+        ...(training ? [] : [['LOBBY', () => this.toLobby(), 'L']]),
+        ['QUIT TO MENU', () => this.toMenu(), 'M'],
+      ], { size: 16 }));
       return;
     }
     if (data.countdownOnly || hidden(this.mode.key)) {
@@ -169,11 +183,34 @@ export default class IntroScene extends Phaser.Scene {
   }
 
   resume() {
+    Music.duck(false);
     this.scene.resume('Game');
     if (this.kind === 'pause') this.scene.stop();
   }
 
+  // Settings over the paused match (this box waits underneath).
+  openSettings() {
+    this.scene.launch('Settings', { from: 'pause' });
+    this.scene.pause();
+    this.scene.bringToTop('Settings');
+  }
+
+  // The same match again from its countdown (same mode, map and picks).
+  restart() {
+    Music.duck(false);
+    const game = this.scene.get('Game');
+    this.scene.stop();
+    if (game?.training) game.scene.restart({ mapKey: 'camp', modeKey: 'training', replay: true });
+    else game?.scene.restart({ mapKey: game.map.key, modeKey: game.mode.key, characterKey: game.characterKey, partnerKey: game.partnerKey, replay: true });
+  }
+
+  toLobby() {
+    Music.duck(false);
+    this.scene.get('Game')?.toLobby();
+  }
+
   toMenu() {
+    Music.duck(false);
     this.scene.stop('Game');
     this.scene.start('Menu');
   }

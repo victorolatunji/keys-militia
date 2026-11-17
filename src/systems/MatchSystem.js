@@ -138,6 +138,7 @@ export default class MatchSystem {
       if (now < this.breakUntil) return;
       this.breakUntil = 0;
       this.toSpawn = this.waveConfig.count;
+      if (this.mode.key === 'zombies') scene.sfx?.hordeRising(); // the horde rumbles under the ground as it comes
       const level = Math.min(1, this.wave / 6);
       if (scene.airdrops) scene.airdrops.difficulty = level;
       scene.botCombat.maxTurns = Math.min(4, 2 + Math.floor(this.wave / 2));

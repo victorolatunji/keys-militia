@@ -1,4 +1,6 @@
 import Phaser from 'phaser';
+import { AUDIO_FILES, MUSIC } from '../data/audio.js';
+import { Music } from '../systems/Music.js';
 import { SPRITES } from '../data/spriteManifest.js';
 import { partKey, gunKey, meleeKey } from '../entities/CharacterRig.js';
 import { projKey, fxKey } from '../systems/ShotFx.js';
@@ -183,6 +185,9 @@ export default class BootScene extends Phaser.Scene {
     for (const key of Object.keys(SPRITES.effects ?? {})) this.load.image(fxKey(key), `assets/sprites/effects/${key}.png`);
     for (const key of Object.keys(SPRITES.drops ?? {})) this.load.image(dropKey(key), `assets/sprites/drops/${key}.png`);
     for (const key of Object.keys(SPRITES.utility ?? {})) this.load.image(utilKey(key), `assets/sprites/utility/${key}.png`);
+    // Recorded sounds: voices, cries, buttons (src/data/audio.js), and the music once it's added.
+    for (const [key, path] of Object.entries(AUDIO_FILES)) this.load.audio(key, path);
+    for (const name of ['title', 'menu', 'lobby', 'battle', 'win', 'lose']) if (MUSIC[name]) this.load.audio(`music-${name}`, MUSIC[name]);
     for (const map of Object.values(MAPS)) {
       this.load.tilemapTiledJSON(map.tilemapKey, map.tilemapFile);
       // Maps can share a tileset; only load each image once.
@@ -202,6 +207,7 @@ export default class BootScene extends Phaser.Scene {
       this.scene.start('Game', { mapKey: startingMap(), modeKey: startingMode(), partnerKey: startingPartner(), characterKey: q.get('character') ?? 'player', skipIntro: q.get('intro') !== '1' });
       return;
     }
+    Music.play(this, 'title'); // (silent until the music is added)
     const go = makeButton(this, this.scale.width / 2, this.scale.height - 44, 'PRESS ENTER', () => this.scene.start('Menu'), { key: 'ENTER', keyLabel: '', size: 22, color: TITLE.gold });
     this.tweens.add({ targets: go, alpha: 0.45, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
     this.input.once('pointerdown', () => go.run());

@@ -1,6 +1,8 @@
 import Phaser from 'phaser';
 import { SOUNDS, LOOPS, SOUND_SETTINGS, DEATH_CRIES, FALL_CRY, shotSoundFor } from '../data/sounds.js';
 import { FAMILY_MATERIAL } from '../data/effects.js';
+import { SAMPLE_FOR, SAMPLE_GAIN, VOICE_FAMILY, HEARTBEAT, HORDE } from '../data/audio.js';
+import { AudioSettings } from './AudioSettings.js';
 
 // Plays the sounds in data/sounds.js, made on the spot with Web Audio
 // (no files). Louder near you, quieter far away, panned left/right.
@@ -8,14 +10,17 @@ import { FAMILY_MATERIAL } from '../data/effects.js';
 // off), and big ones (explosions, snipers) a far echo.
 // Loops (jetpack, hissing clouds, fire, saw, choking) are "held": whoever
 // owns one calls hold() every frame, and it fades out the frame nobody does.
-// F4 turns sound on/off (remembered in this browser).
+// F4 turns sound on/off (remembered in this browser). Since 0.34 some
+// sounds are recordings instead (voices, cries: SAMPLE_FOR in data/audio.js),
+// played through the same reverb and panning; volumes follow Settings.
 // Lives on the scene as scene.sfx (scene.sound is Phaser's own).
 export default class SoundSystem {
   constructor(scene) {
     this.scene = scene;
     this.ctx = scene.sound?.context ?? null; // null: no Web Audio (sound off)
     this.lastPlayed = {};
-    this.on = this.loadSetting();
+    this.on = !AudioSettings.get().muted;
+    this.voiceNow = null; // the Training line playing
     this.loops = new Map();   // id -> playing loop
     this.held = new Set();    // loop ids held this frame
     this.idSeq = 0;
@@ -28,7 +33,18 @@ export default class SoundSystem {
       this.toggle();
     };
     kb.on(`keydown-${SOUND_SETTINGS.toggleKey}`, toggle);
+    // Settings changed (volumes, mute): follow them.
+    const offSettings = AudioSettings.onChange((st) => {
+      this.on = !st.muted;
+      this.setMaster();
+    });
     scene.events.once('shutdown', () => {
+      offSettings();
+      this.stopVoice();
+      this.beat?.stop(0.2);
+      this.beat = null;
+      this.horde?.stop(0.3);
+      this.horde = null;
       kb.off(`keydown-${SOUND_SETTINGS.toggleKey}`, toggle);
       for (const id of [...this.loops.keys()]) this.stopLoop(id);
       // Switching maps restarts the scene: let this scene's sounds ring out, then unplug them.
@@ -41,8 +57,8 @@ export default class SoundSystem {
   buildBuses() {
     const ctx = this.ctx;
     this.master = ctx.createGain();
-    this.master.gain.value = this.on ? SOUND_SETTINGS.master : 0;
     this.master.connect(ctx.destination);
+    this.setMaster();
     this.noise = this.makeNoise();
     this.crackle = this.makeCrackle();
 
@@ -72,22 +88,20 @@ export default class SoundSystem {
 
   // ---- Setting ----
 
-  loadSetting() {
-    try {
-      return window.localStorage.getItem(SOUND_SETTINGS.storageKey) !== 'off';
-    } catch {
-      return true;
-    }
+  // Overall loudness: the game's mix level times Settings' Master (0 muted).
+  setMaster() {
+    if (!this.master) return;
+    const st = AudioSettings.get();
+    this.master.gain.setTargetAtTime(this.on ? SOUND_SETTINGS.master * st.master : 0, this.ctx.currentTime, 0.02);
+  }
+
+  // A channel's share (Settings: Effects or Voices; Master is on the bus).
+  channel(name) {
+    return AudioSettings.get()[name] ?? 1;
   }
 
   toggle() {
-    this.on = !this.on;
-    try {
-      window.localStorage.setItem(SOUND_SETTINGS.storageKey, this.on ? 'on' : 'off');
-    } catch {
-      // not saved
-    }
-    if (this.master) this.master.gain.value = this.on ? SOUND_SETTINGS.master : 0;
+    this.on = AudioSettings.toggleMute(); // (setMaster runs from onChange)
     this.scene.effects?.notice(`Sound: ${this.on ? 'On' : 'Off'}  (${SOUND_SETTINGS.toggleKey})`);
   }
 
@@ -135,15 +149,20 @@ export default class SoundSystem {
   // opts.volume, opts.pitch: extra scaling (enemy shots use these).
   // opts.wet, opts.echo: more room / echo. opts.highpassHz: thin it out.
   play(key, at = null, opts = {}) {
-    const sound = SOUNDS[key];
+    const sample = this.sampleFor(key);
+    const sound = SOUNDS[key] ?? (sample ? {} : null);
     if (!sound || !this.ready) return;
+    if (sample) {
+      this.playSample(key, sample, sound, at, opts);
+      return;
+    }
 
     const now = this.scene.time.now;
     if (sound.gapMs && now - (this.lastPlayed[key] ?? -1e9) < sound.gapMs) return;
     this.lastPlayed[key] = now;
 
     const place = this.place(at);
-    const volume = place.volume * (opts.volume ?? 1);
+    const volume = place.volume * (opts.volume ?? 1) * this.channel('sfx');
     // vary: each play a little higher or lower (no two cries the same).
     const pitch = (opts.pitch ?? 1) * (sound.vary ? 1 + (Math.random() * 2 - 1) * sound.vary : 1);
     const out = this.ctx.createStereoPanner();
@@ -168,6 +187,111 @@ export default class SoundSystem {
     }
     // Let go of the nodes once it (and its reverb send) is over.
     setTimeout(release, (end - t0) * 1000 + 200);
+  }
+
+  // ---- Recordings (voices, cries) ----
+
+  // The decoded file for a code sound, if it has any (one of its takes at random).
+  sampleFor(key) {
+    const list = SAMPLE_FOR[key];
+    if (!list || !this.ctx) return null;
+    const cache = this.scene.cache.audio;
+    const have = list.filter((k) => cache.exists(k));
+    if (!have.length) return null;
+    const buf = cache.get(have[Math.floor(Math.random() * have.length)]);
+    return buf instanceof AudioBuffer ? buf : null;
+  }
+
+  // Like play(), for a recording: panned, quieter far away, with the room's reverb.
+  playSample(key, buffer, sound, at, opts = {}) {
+    const now = this.scene.time.now;
+    // Screams while burning wait for the last one to finish (no pile-up).
+    const gap = Math.max(sound.gapMs ?? 60, key.startsWith('burn') ? buffer.duration * 1000 + 400 : 0);
+    if (now - (this.lastPlayed[key] ?? -1e9) < gap) return;
+    this.lastPlayed[key] = now;
+    const place = this.place(at);
+    const src = this.ctx.createBufferSource();
+    src.buffer = buffer;
+    src.playbackRate.value = (opts.pitch ?? 1) * (1 + (Math.random() * 2 - 1) * 0.04); // a little different each time
+    const gain = this.ctx.createGain();
+    gain.gain.value = place.volume * (opts.volume ?? 1) * SAMPLE_GAIN.cry * this.channel('voice');
+    const out = this.ctx.createStereoPanner();
+    out.pan.value = place.pan;
+    src.connect(gain).connect(out);
+    let tail = out;
+    if (opts.highpassHz) {
+      tail = this.ctx.createBiquadFilter();
+      tail.type = 'highpass';
+      tail.frequency.value = opts.highpassHz;
+      out.connect(tail);
+    }
+    const release = this.route(tail, sound, place.volume, opts);
+    src.onended = () => setTimeout(() => {
+      release();
+      if (tail !== out) out.disconnect();
+      gain.disconnect();
+    }, 300);
+    src.start();
+  }
+
+  // A Training line (file train-...): one at a time, on you, no reverb.
+  // Returns how long it lasts (ms), or 0 when there's no file / no sound.
+  voice(key) {
+    this.stopVoice();
+    if (!this.ready || !this.scene.cache.audio.exists(key)) return 0;
+    const buffer = this.scene.cache.audio.get(key);
+    if (!(buffer instanceof AudioBuffer)) return 0;
+    const src = this.ctx.createBufferSource();
+    src.buffer = buffer;
+    const gain = this.ctx.createGain();
+    gain.gain.value = SAMPLE_GAIN.voice * this.channel('voice');
+    src.connect(gain).connect(this.master);
+    src.onended = () => {
+      gain.disconnect();
+      if (this.voiceNow === src) this.voiceNow = null;
+    };
+    src.start();
+    this.voiceNow = src;
+    return buffer.duration * 1000;
+  }
+
+  stopVoice() {
+    try {
+      this.voiceNow?.stop();
+    } catch {
+      // already over
+    }
+    this.voiceNow = null;
+  }
+
+  // A recording that plays on its own (no reverb, not placed): the horde,
+  // the heartbeat. Returns { gain, stop } so it can fade and end.
+  ambient(key, { loop = false, volume = 1 } = {}) {
+    if (!this.ctx || !this.master || !this.scene.cache.audio.exists(key)) return null;
+    const buffer = this.scene.cache.audio.get(key);
+    if (!(buffer instanceof AudioBuffer)) return null;
+    const src = this.ctx.createBufferSource();
+    src.buffer = buffer;
+    src.loop = loop;
+    const gain = this.ctx.createGain();
+    gain.gain.value = 0.0001;
+    src.connect(gain).connect(this.master);
+    src.start();
+    const t = () => this.ctx.currentTime;
+    const handle = {
+      level: (v, sec = 0.3) => gain.gain.setTargetAtTime(Math.max(0.0001, v * volume * this.channel('sfx')), t(), sec),
+      stop: (sec = 0.5) => {
+        gain.gain.setTargetAtTime(0.0001, t(), sec / 3);
+        try {
+          src.stop(t() + sec);
+        } catch {
+          // already stopped
+        }
+        setTimeout(() => gain.disconnect(), sec * 1000 + 200);
+      },
+    };
+    src.onended = () => gain.disconnect();
+    return handle;
   }
 
   // One noise or tone layer. Returns when it ends (audio time).
@@ -264,7 +388,7 @@ export default class SoundSystem {
     if (!loop) loop = this.startLoop(id, name);
     const place = this.place(at);
     const t = this.ctx.currentTime;
-    loop.gain.gain.setTargetAtTime(Math.max(0.0001, LOOPS[name].gain * level * place.volume), t, 0.05);
+    loop.gain.gain.setTargetAtTime(Math.max(0.0001, LOOPS[name].gain * level * place.volume * this.channel('sfx')), t, 0.05);
     loop.pan.pan.setTargetAtTime(place.pan, t, 0.05);
   }
 
@@ -411,8 +535,49 @@ export default class SoundSystem {
   // On fire: a cry of pain every so often (machines don't feel it).
   burnPain(target) {
     if (this.materialOf(target) === 'machine') return;
-    const key = target === this.scene.player ? 'burnPainYou' : 'burnPain';
-    this.play(key, target === this.scene.player ? null : target);
+    if (target === this.scene.player) {
+      this.play('burnPainYou');
+      return;
+    }
+    // By family: a man's, a woman's, the undead's or a creature's scream
+    // (recordings, data/audio.js); no file: the code-made cry.
+    const family = this.voiceFamily(target);
+    const key = { male: 'burnHumanMale', female: 'burnHumanFemale', undead: 'burnUndead', creature: 'burnCreature' }[family];
+    this.play(this.sampleFor(key) ? key : 'burnPain', target);
+  }
+
+  // Low HP: a heartbeat fades in under HEARTBEAT.below of your HP, loudest near the end.
+  updateHeartbeat(player) {
+    const share = player.alive ? player.hp / (player.stats?.maxHp ?? 100) : 1;
+    const want = Phaser.Math.Clamp((HEARTBEAT.below - share) / (HEARTBEAT.below - HEARTBEAT.full), 0, 1);
+    if (want > 0 && this.ready && !this.scene.matchOver) {
+      this.beat ??= this.ambient('heartbeat', { loop: true, volume: SAMPLE_GAIN.heartbeat });
+      this.beat?.level(0.35 + want * 0.65, 0.25);
+    } else if (this.beat) {
+      this.beat.stop(0.8);
+      this.beat = null;
+    }
+  }
+
+  // Zombies: the horde rumbles low under the ground as a wave comes in, then fades.
+  hordeRising() {
+    if (!this.ready) return;
+    this.horde?.stop(0.5);
+    this.horde = this.ambient('zombie-horde', { volume: SAMPLE_GAIN.horde * HORDE.volume });
+    if (!this.horde) return;
+    const h = this.horde;
+    h.level(1, 0.8);
+    this.scene.time.delayedCall(HORDE.maxMs, () => {
+      h.stop(HORDE.fadeMs / 1000);
+      if (this.horde === h) this.horde = null;
+    });
+  }
+
+  // Whose voice a character screams with: 'male', 'female', 'undead', 'creature'.
+  voiceFamily(target) {
+    const name = target.config?.name;
+    for (const fam of ['female', 'undead', 'creature']) if (VOICE_FAMILY[fam].includes(name)) return fam;
+    return 'male';
   }
 
   // Dying: the last cry of that enemy class (machines crunch, bones clatter).

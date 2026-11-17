@@ -3,7 +3,10 @@
 // key both run the same action, once.
 //   opts: key (Phaser key name, e.g. 'R', 'ENTER', 'ESC'), keyLabel (what the
 //   label shows for the key), size, fixed (stays on screen while the camera
-//   moves), depth, color, width.
+//   moves), depth, color, width, sound ('ui-select' by default, 'ui-back'
+//   for Esc buttons, null for none).
+import { uiSound } from '../systems/AudioSettings.js';
+
 const GOLD = 0xd2a35f;
 const EDGE = 0x30353b;
 
@@ -21,10 +24,13 @@ export function makeButton(scene, x, y, label, action, opts = {}) {
   const run = () => {
     if (done && opts.once !== false) return;
     done = true;
+    const sound = opts.sound !== undefined ? opts.sound : opts.key === 'ESC' ? 'ui-back' : 'ui-select';
+    if (sound) uiSound(scene, sound);
     action();
   };
   box.setInteractive({ useHandCursor: true });
   box.on('pointerover', () => {
+    uiSound(scene, 'ui-move', 0.8);
     bg.setStrokeStyle(2, GOLD);
     text.setColor('#d2a35f');
   });

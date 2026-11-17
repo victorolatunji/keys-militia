@@ -2,9 +2,14 @@ import Phaser from 'phaser';
 import { MENU, PLAY_MODES, INTRO } from '../data/menu.js';
 import { MODES } from '../data/modes.js';
 import { TRAINING } from '../data/training.js';
+import { CREDITS, ABOUT } from '../data/credits.js';
+import { makeButton } from '../ui/Button.js';
+import { AudioSettings, uiSound } from '../systems/AudioSettings.js';
+import { Music } from '../systems/Music.js';
 
 // The main menu (Phase 9): PLAY, TRAINING, COMIC, STORY MODE and ONLINE
-// (both coming soon) and CONTROLS over a dark, slowly drifting in-game shot. One scene with a few
+// (both coming soon), SETTINGS and CONTROLS, ABOUT VAO and CREDITS in the
+// corner, sound / music / fullscreen switches top right, over a dark, slowly drifting in-game shot. One scene with a few
 // pages: the main list, the mode picker (Play), the first-time Training
 // prompt, the controls list and the story page.
 // Arrows (or the mouse) to choose, Enter (or a click) to pick, Esc to go back.
@@ -22,7 +27,7 @@ const KEY_LINES = [
   ['Space / hold mouse', 'aim and throw'],
   ['Tab / mouse wheel', 'switch throwable'],
   ['1 - 6', 'take from a crate or an item'],
-  ['Esc', 'leave the match'],
+  ['Esc', 'pause (resume, settings, restart, lobby, quit)'],
 ];
 
 const storage = {
@@ -72,12 +77,35 @@ export default class MenuScene extends Phaser.Scene {
     this.add.text(W - 20, H - 14, 'VAO', { fontFamily: FONT, fontSize: '14px', color: DIM }).setOrigin(1, 1);
 
     this.layer = this.add.container(0, 0);
+    this.drawCorners();
+    Music.play(this, 'menu');
     this.input.keyboard.on('keydown-UP', () => this.move(-1));
     this.input.keyboard.on('keydown-DOWN', () => this.move(1));
     this.input.keyboard.on('keydown-ENTER', () => this.choose());
     this.input.keyboard.on('keydown-SPACE', () => this.choose());
     this.input.keyboard.on('keydown-ESC', () => this.back());
     this.show(data.page ?? 'main');
+  }
+
+  // The edge buttons: ABOUT VAO and CREDITS bottom left, switches top right.
+  drawCorners() {
+    const { width: W, height: H } = this.scale;
+    makeButton(this, 92, H - 30, MENU.corner.about, () => this.show('about'), { size: 14, once: false });
+    makeButton(this, 214, H - 30, MENU.corner.credits, () => this.show('credits'), { size: 14, once: false });
+    const label = {
+      sound: () => `SOUND ${AudioSettings.get().muted ? 'OFF' : 'ON'}`,
+      music: () => `MUSIC ${AudioSettings.get().music > 0 ? 'ON' : 'OFF'}`,
+    };
+    const sound = makeButton(this, W - 330, 30, label.sound(), () => {
+      AudioSettings.toggleMute();
+      sound.list[1].setText(label.sound());
+    }, { size: 14, once: false, width: 118 });
+    const music = makeButton(this, W - 200, 30, label.music(), () => {
+      const s = AudioSettings.get();
+      AudioSettings.set(s.music > 0 ? { music: 0, musicWas: s.music } : { music: s.musicWas || 0.7 });
+      music.list[1].setText(label.music());
+    }, { size: 14, once: false, width: 118 });
+    makeButton(this, W - 72, 30, 'FULLSCREEN', () => this.scale.toggleFullscreen(), { size: 14, once: false });
   }
 
   // ---- Pages ----
@@ -92,7 +120,7 @@ export default class MenuScene extends Phaser.Scene {
       for (const e of MENU.entries) {
         this.item(e.label, e.off ? null : () => this.go(e.go), e.off);
       }
-      this.list(W / 2, 262, 52, 32);
+      this.list(W / 2, 258, 50, 30);
     } else if (page === 'modes') {
       this.heading('PLAY · PICK A MODE');
       for (const m of PLAY_MODES) this.item(MODES[m.key].name.toUpperCase(), () => this.scene.start('Lobby', { modeKey: m.key }), null, m.line);
@@ -121,6 +149,24 @@ export default class MenuScene extends Phaser.Scene {
       } : null);
       this.item('BACK', () => this.back());
       this.list(W / 2, 580, 46, 24);
+    } else if (page === 'about') {
+      this.heading(ABOUT.title);
+      this.layer.add(this.add.rectangle(W / 2, 340, 760, 170, 0x0d1114, 0.85).setStrokeStyle(1, 0x30353b));
+      this.layer.add(this.add.text(W / 2, 340, [...ABOUT.lines, '', ABOUT.contact].join('\n'), { fontFamily: FONT, fontSize: '18px', color: '#dcd1bf', align: 'center', lineSpacing: 6 }).setOrigin(0.5));
+      this.item('BACK', () => this.back());
+      this.list(W / 2, 470, 50, 26);
+    } else if (page === 'credits') {
+      this.heading('CREDITS');
+      this.layer.add(this.add.rectangle(W / 2, 430, 980, 380, 0x0d1114, 0.85).setStrokeStyle(1, 0x30353b));
+      let y = 252;
+      for (const [what, who] of CREDITS) {
+        this.layer.add(this.add.text(W / 2 - 300, y, what, { fontFamily: FONT, fontSize: '14px', fontStyle: 'bold', color: GOLD }).setOrigin(1, 0));
+        const t = this.add.text(W / 2 - 280, y, who, { fontFamily: FONT, fontSize: '14px', color: '#dcd1bf', wordWrap: { width: 740 } }).setOrigin(0, 0);
+        this.layer.add(t);
+        y += t.height + 12;
+      }
+      this.item('BACK', () => this.back());
+      this.list(W / 2, 640, 50, 24);
     } else if (page === 'story') {
       this.heading('COMIC · EARTH RESPOND #0');
       this.note('The comic is on its way: four pages of how the Signal hit Earth\nand how the militias answered. Story mode comes after it.');
@@ -157,10 +203,14 @@ export default class MenuScene extends Phaser.Scene {
       if (it.action) {
         t.setInteractive({ useHandCursor: true });
         t.on('pointerover', () => {
+          if (this.index !== i) uiSound(this, 'ui-move');
           this.index = i;
           this.highlight();
         });
-        t.on('pointerdown', () => it.action());
+        t.on('pointerdown', () => {
+          if (it.label !== 'BACK') uiSound(this, 'ui-select'); // (BACK plays its own)
+          it.action();
+        });
       }
     });
     this.index = Math.max(0, this.items.findIndex((it) => it.action));
@@ -182,16 +232,21 @@ export default class MenuScene extends Phaser.Scene {
       i = (i + dir + this.items.length) % this.items.length;
       if (this.items[i].action) break;
     }
+    if (i !== this.index) uiSound(this, 'ui-move');
     this.index = i;
     this.highlight();
   }
 
   choose() {
-    this.items?.[this.index]?.action?.();
+    const it = this.items?.[this.index];
+    if (!it?.action) return;
+    if (it.label !== 'BACK') uiSound(this, 'ui-select'); // (BACK plays its own)
+    it.action();
   }
 
   back() {
     if (this.page === 'main') return;
+    uiSound(this, 'ui-back');
     this.show('main');
   }
 
@@ -202,6 +257,8 @@ export default class MenuScene extends Phaser.Scene {
       this.show(trained ? 'modes' : 'firstTime');
     } else if (where === 'comic') {
       this.scene.start('Comic'); // Earth Respond #0
+    } else if (where === 'settings') {
+      this.scene.start('Settings', { from: 'menu' });
     } else if (where === 'training') {
       storage.set(TRAINING.storageKey + '.offered', '1');
       // Training is Victor's: the Rookie learning at the Militia Camp (the

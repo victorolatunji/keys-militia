@@ -68,7 +68,7 @@ export default class TrainingSystem {
     // The coaches walk over: the one who talks stands at the spot.
     const speaker = lesson.lines[0][0];
     for (const [who, coach] of Object.entries(this.coaches)) coach.goalX = who === speaker ? spot.x : spot.x + (who === 'sarge' ? 90 : -90);
-    this.queue = lesson.lines.slice();
+    this.queue = lesson.lines.map(([who, text], n) => [who, text, `train-${lesson.key}-${n + 1}`]); // + its recording
     this.speaker = null;
     this.waitMs = 0;
     this.title.setText(`TRAINING  ·  LESSON ${i + 1}/${TRAINING.lessons.length}  ·  ${lesson.title.toUpperCase()}`);
@@ -124,7 +124,7 @@ export default class TrainingSystem {
     this.clearLesson();
     const [who, text] = lesson.good;
     this.queue = [];
-    this.speak(who, text);
+    this.speak(who, text, `train-${lesson.key}-good`);
     this.waitMs += TRAINING.goodMs - TRAINING.readMs; // then on to the next lesson
     this.scene.sfx?.play('pickup');
     if (lesson.gate) this.openGate(this.gateIndex(lesson));
@@ -200,11 +200,14 @@ export default class TrainingSystem {
 
   // ---- Talking ----
 
-  speak(who, text) {
+  // A coach says a line: the bubble, and its recording when there is one
+  // (the next line waits until both the reading time and the voice are over).
+  speak(who, text, voiceKey = null) {
     for (const [name, coach] of Object.entries(this.coaches)) if (name !== who) coach.bubble.hide();
     this.coaches[who].bubble.say(text);
     this.speaker = this.coaches[who];
-    this.waitMs = TRAINING.readMs + text.length * 45;
+    const voiceMs = voiceKey ? this.scene.sfx?.voice(voiceKey) ?? 0 : (this.scene.sfx?.stopVoice(), 0);
+    this.waitMs = Math.max(TRAINING.readMs + text.length * 45, voiceMs + TRAINING.voiceGapMs);
   }
 
   // ---- Every frame ----
@@ -369,6 +372,7 @@ export default class TrainingSystem {
     if (this.over) return;
     this.over = true;
     for (const c of Object.values(this.coaches)) c.bubble.hide();
+    scene.sfx?.voice('train-graduate'); // Sgt. Itunu: "Well done, Rookie!"
     scene.endSequence('WELL DONE, ROOKIE', '#06d6a0', () => this.showGraduation());
   }
 

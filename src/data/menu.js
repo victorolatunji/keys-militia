@@ -10,8 +10,12 @@ export const MENU = {
     { key: 'comic', label: 'COMIC', go: 'comic' },               // Earth Respond #0, the comic
     { key: 'story', label: 'STORY MODE', off: 'COMING SOON' },
     { key: 'online', label: 'ONLINE', off: 'COMING SOON' },
+    { key: 'settings', label: 'SETTINGS', go: 'settings' },        // volumes, gore, intros, fullscreen
     { key: 'controls', label: 'CONTROLS', go: 'controls' },
   ],
+  // Small buttons on the edges: ABOUT VAO and CREDITS bottom left; sound,
+  // music and fullscreen switches top right.
+  corner: { about: 'ABOUT VAO', credits: 'CREDITS' },
   // The menu's backdrop: an in-game shot, darkened and drifting slowly.
   backdrop: 'assets/menu/menu-backdrop.jpg', // the ChatGPT menu scene (an outpost at night)
   backdropDarken: 0.3,

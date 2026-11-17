@@ -1,6 +1,8 @@
 import Phaser from 'phaser';
 import { COMIC } from '../data/comic.js';
 import { makeButton } from '../ui/Button.js';
+import { uiSound } from '../systems/AudioSettings.js';
+import { Music } from '../systems/Music.js';
 
 // The comic viewer (COMIC on the main menu): the cover, then each page
 // with its three panels on the war-room table, captions and speech
@@ -34,13 +36,18 @@ export default class ComicScene extends Phaser.Scene {
     k.on('keydown-RIGHT', () => this.turn(1));
     k.on('keydown-LEFT', () => this.turn(-1));
     k.on('keydown-SPACE', () => this.turn(1));
-    k.on('keydown-ESC', () => this.scene.start('Menu'));
+    k.on('keydown-ESC', () => {
+      uiSound(this, 'ui-back');
+      this.scene.start('Menu');
+    });
+    Music.play(this, 'menu');
     this.show();
   }
 
   turn(dir) {
     const next = Phaser.Math.Clamp(this.page + dir, -1, COMIC.pages.length - 1);
     if (next === this.page) return;
+    uiSound(this, 'ui-scroll'); // a page turns
     this.page = next;
     this.show();
   }
@@ -58,9 +65,9 @@ export default class ComicScene extends Phaser.Scene {
     if (this.page < 0) this.drawCover();
     else this.drawPage(COMIC.pages[this.page]);
     // Navigation
-    makeButton(this, 52, H / 2, '◀', () => this.turn(-1), { size: 24, once: false }).setAlpha(this.page < 0 ? 0.3 : 1).setDepth(50);
-    makeButton(this, W - 52, H / 2, '▶', () => this.turn(1), { size: 24, once: false }).setAlpha(this.page >= COMIC.pages.length - 1 ? 0.3 : 1).setDepth(50);
-    makeButton(this, W - 90, 30, 'MENU', () => this.scene.start('Menu'), { keyLabel: 'Esc', size: 13 }).setDepth(50);
+    makeButton(this, 52, H / 2, '◀', () => this.turn(-1), { size: 24, once: false, sound: null }).setAlpha(this.page < 0 ? 0.3 : 1).setDepth(50);
+    makeButton(this, W - 52, H / 2, '▶', () => this.turn(1), { size: 24, once: false, sound: null }).setAlpha(this.page >= COMIC.pages.length - 1 ? 0.3 : 1).setDepth(50);
+    makeButton(this, W - 90, 30, 'MENU', () => this.scene.start('Menu'), { keyLabel: 'Esc', size: 13, sound: 'ui-back' }).setDepth(50);
     const where = this.page < 0 ? 'COVER' : `PAGE ${this.page + 1} OF ${COMIC.pages.length}`;
     this.add.text(W / 2, H - 14, `${where}   ·   ← / → to turn`, { fontFamily: FONT, fontSize: '12px', color: '#a49d95', stroke: '#000000', strokeThickness: 3 }).setOrigin(0.5, 1).setDepth(50);
   }

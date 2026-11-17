@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { CAST } from '../data/cast.js';
+import { Music } from '../systems/Music.js';
 import Unstuck from '../systems/Unstuck.js';
 import TerrainArt from '../systems/TerrainArt.js';
 import { TRAINING } from '../data/training.js';
@@ -270,9 +271,8 @@ export default class GameScene extends Phaser.Scene {
       this.airdrops?.shiftTime(d);
     });
     this.input.keyboard.on('keydown-ESC', () => {
-      if (this.training || this.matchOver) return;
-      this.scene.launch('Intro', { kind: 'pause', modeKey: this.mode.key });
-      this.scene.pause();
+      if (this.training) return; // (Training: Esc leaves; its pause is the HUD button)
+      this.openPause();
     });
     // Switching to another browser tab mid-match: the match pauses (the
     // Esc box, so you choose when it goes on). The browser stops the game
@@ -280,13 +280,7 @@ export default class GameScene extends Phaser.Scene {
     // used to skip timers and end moves early (B-028). Training just waits.
     const onHidden = () => {
       if (!this.scene.isActive() || this.matchOver || !this.started) return; // already paused (intro, Esc) or over
-      if (this.training) {
-        this.hiddenPause = true;
-        this.scene.pause();
-        return;
-      }
-      this.scene.launch('Intro', { kind: 'pause', modeKey: this.mode.key });
-      this.scene.pause();
+      this.openPause();
     };
     const onVisible = () => {
       if (!this.hiddenPause) return;
@@ -307,6 +301,7 @@ export default class GameScene extends Phaser.Scene {
   startMatch() {
     if (this.started) return;
     this.started = true;
+    Music.play(this, 'battle'); // (silent until the music is added)
     // You (and your partner beside you) come down slowly on your jetpacks,
     // from a little higher than a normal spawn when there's sky for it.
     const p = this.player;
@@ -346,6 +341,11 @@ export default class GameScene extends Phaser.Scene {
     this.matchOver = true; // stats, typing and partners stop counting
     this.ending = true;
     this.message?.setVisible(false);
+    // The music: a short win or lose sting (when added), else it fades out.
+    const won = /VICTORY|WELL DONE|YOU WIN/.test(title);
+    const lost = /DEFEAT|GAME OVER|YOU LOSE/.test(title);
+    if (won || lost) Music.play(this, won ? 'win' : 'lose', { once: true });
+    else Music.stop();
     this.physics.world.timeScale = ENDING.slowMo; // >1 = slower
     this.tweens.timeScale = 1 / ENDING.slowMo; // (blood, sparks, flashes too)
     const banner = this.add
@@ -361,6 +361,14 @@ export default class GameScene extends Phaser.Scene {
       this.tweens.add({ targets: banner, alpha: 0, duration: 200, onComplete: () => banner.destroy() });
       then();
     });
+  }
+
+  // The pause box (Esc, the HUD's pause button, leaving the browser tab):
+  // Resume, Settings, Restart, Lobby, Quit to menu.
+  openPause() {
+    if (this.matchOver || !this.started || !this.scene.isActive()) return;
+    this.scene.launch('Intro', { kind: 'pause', modeKey: this.mode.key });
+    this.scene.pause();
   }
 
   // Back to the main menu.
@@ -701,6 +709,7 @@ export default class GameScene extends Phaser.Scene {
     this.effects.update(delta);
     this.sfx.updateJet(this.player.alive && this.player.thrusting, this.player.boosted);
     this.sfx.endFrame(); // loops nobody held this frame fade out
+    this.sfx.updateHeartbeat(this.player); // low HP: your heartbeat
     this.voidSystem?.update(this.player);
     for (const bot of this.bots) this.voidSystem?.update(bot);
     if (this.partner) this.voidSystem?.update(this.partner.bot);

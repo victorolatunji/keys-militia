@@ -5,6 +5,7 @@ import { iconKey } from './Icons.js';
 import { gunKey, meleeKey, throwKey } from '../entities/CharacterRig.js';
 import { ITEMS } from '../data/items.js';
 import { headIcon } from './ItemArt.js';
+import { makeButton } from './Button.js';
 
 const BAR_WIDTH = 200;
 const BAR_HEIGHT = 12;
@@ -42,6 +43,8 @@ export default class Hud {
     this.vitalsPlate = fix(scene.add.rectangle(bx, 8, 300, 50, PLATE, 0.72).setOrigin(0).setStrokeStyle(2, EDGE));
     this.hpBar = this.makeBar(scene, bx + 8, 16, 'HP', HP_COLOR);
     this.fuelBar = this.makeBar(scene, bx + 8, 36, 'FUEL', FUEL_COLOR);
+    // Pause, right of the bars (same as Esc): Resume, Settings, Restart, Lobby, Quit.
+    this.pauseBtn = makeButton(scene, bx + 300 + 26, 33, 'II', () => scene.openPause?.(), { size: 16, fixed: true, depth: 100, once: false, sound: null });
     // Armor Vest points, below (only while you wear one).
     this.armorBar = this.makeBar(scene, bx + 8, 56, 'ARMOR', ITEMS.armorVest.barColor);
     this.armorBar.parts.forEach((o) => o.setVisible(false));

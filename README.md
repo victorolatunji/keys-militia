@@ -1,10 +1,10 @@
 # Keys Militia
 *A VAO game. Living plan book: update it whenever the plan changes.*
 
-**Version:** 0.33.2
+**Version:** 0.34
 **Owner:** Victor Olatunji / VAO
 **Budget:** $0, free tools and free assets only
-**Status:** Phase 9 (Menus) nearly done: main menu, mode picker, lobby, Arsenal, mode intro and countdown, comic. Left: Settings (later). Phase 9.5 (art) mostly done.
+**Status:** Phase 9 (Menus) done: settings, pause box, sound pass with voices, about and credits pages. Music tracks still to add. Launching.
 **Live build:** https://victorolatunji.github.io/keys-militia/
 
 ---
@@ -36,7 +36,8 @@ A 2D arena shooter **influenced by Mini Militia**, but its own game: **typing is
 | Pick from a crate | 1–6 (one gun per key, take any 2) |
 | Pick a loose item | Walk over Health Packs (when hurt), Jet Boosts, Armor Vests and more of a throwable you carry: picked up automatically. Others: 1 / 2 (gun into that slot, or refill a gun you hold), 3 (new throwable, Riot Shield) |
 | Gore level | F2 (Off / Cartoon / Full, remembered in your browser) |
-| Sound on/off | F4 (remembered in your browser) |
+| Sound on/off | F4, the SOUND switch on the main menu, or Settings (remembered in your browser) |
+| Pause | Esc or the II button by your HP bar: Resume, Settings, Restart, Lobby, Quit to menu (switching browser tabs pauses too) |
 | Next map (testing only, `?dev=1`) | F6 (Forest → Hell → Glacier → Desert → Catacombs → Graveyard → Monastery → Wastelands → Sky Islands → Space → Test, remembered in your browser), or open the game with `?map=` and the map's name |
 | Partner (testing, until the menus) | `` ` `` (the key left of 1): Solo → each character as your AI partner → Solo (remembered), or `?partner=commando` / `?partner=none` |
 | Next mode (testing only, `?dev=1`) | F8 (Free play → Training → You vs Military → Zombies → You vs Enemies, remembered), or `?mode=enemies`; at the end of a match, R plays again. Each mode only plays on the maps that fit it (F6 cycles those). Players pick modes from the menu (0.29) |
@@ -436,6 +437,19 @@ Stats live in `src/data/weapons.js` (guns, specials, throwables), `src/data/item
 
 Names (0.33.1): a mix from around the world that fits each character's style; Victor, Sgt. Itunu, Kolawole and Black Cyba kept theirs. Stories cover each one's past, how they came to fight, their skills and their character.
 
+**Sound pass** (0.34, `src/data/audio.js`, `src/systems/SoundSystem.js`, `src/systems/AudioSettings.js`, `src/systems/Music.js`): recorded voices and sounds where they matter, made-in-code sounds everywhere else (guns, blasts, hazards, the jetpack). Files in `public/assets/audio/` (trimmed, levelled, small MP3s); a sound with no file keeps its code-made version, so nothing breaks when one is missing.
+- **Training voices:** every coach line has its recording (Sgt. Itunu with a Nigerian voice, Keseki as an android), played with its speech bubble; the next line waits for the voice to finish. Sgt. Itunu says "Well done, Rookie" at graduation.
+- **Cries by family:** death cries and burning screams for human men, human women (Mercenary, Infected Soldier), the undead and creatures (Alien, Mutant, K9), two takes where there are two, picked at random; machines keep their code-made crunch, skeletons their bone clatter. Your own hurt grunts, death cry and burning scream.
+- **Ambience:** a low heartbeat when your HP drops under 30%, louder near the end; in Zombies the horde rumbles low under the ground as each wave comes in.
+- **Buttons:** a sound when the highlight moves (menus, hovering a button), a scroll tick when browsing (lobby characters, maps, comic pages), a click to select, a soft pop for back / Esc, a press for pause and resume.
+- **Music:** one track per screen (title, menu, lobby, battle) with cross-fades, quieter while paused, and a win / lose sting at the ending beat. Wired, waiting for the tracks: put a file in `public/assets/audio/music/` and its path in `MUSIC`.
+
+**Settings** (0.34, `src/scenes/SettingsScene.js`): from the main menu or the pause box. Master, Music, Effects and Voices volumes, sound on/off, gore level, mode intros on/off, fullscreen, and reset progress (press twice; keeps your settings). Remembered in this browser.
+
+**Pause box** (0.34): Esc, the II button next to your bars, or leaving the browser tab: RESUME (Esc), SETTINGS (S), RESTART (R: the same match from its countdown), LOBBY (L) and QUIT TO MENU (M). In Training Esc still leaves; the II button pauses.
+
+**Main menu extras** (0.34): SETTINGS on the list; SOUND, MUSIC and FULLSCREEN switches top right; ABOUT VAO (a short blurb; website, contact and support come later) and CREDITS (`src/data/credits.js`, the full list in CREDITS.md) bottom left.
+
 **Testing:** an address with `?mode=`, `?map=`, `?partner=` or `?character=` goes straight into a match without the intro (add `&intro=1` to see it); the testing keys (F6 map, F8 mode, ` partner) and the debug readout only work in testing: add `?dev=1` to the address, or use one of those testing addresses. Normal players only get the gameplay keys, plus F2 (gore) and F4 (sound) until a Settings page exists.
 
 ## 10. Game modes
@@ -666,7 +680,7 @@ keys-militia/
 | 6 | Effects | Blood, gibs, gore toggle, explosions, smoke/gas clouds with night vision, sounds made in code (shots, explosions, loops, voices, death cries), finishing touches | ✅ |
 | 7 | Maps | All launch maps with hazards and advantages, open and enclosed | ✅ Forest, Hell, Glacier, Desert, Catacombs, Graveyard, Monastery, Wastelands, Sky Islands, Space |
 | 8 | Offline modes | Solo or Duo (you + an AI partner of your chosen character): You vs Military (25 kills / 10 min, respawns, a hidden difficulty ramp), Zombies (waves, no respawns), You vs Enemies (waves, 3 respawns), Training (Militia Camp, 2 coaches, 8 lessons); drops that scale with difficulty; stats, scoreboard, awards, MVP, local leaderboard | ✅ |
-| 9 | Menus and guest | Menu, settings, name and character select, local saves | |
+| 9 | Menus and guest | Menu, settings, name and character select, local saves | ✅ (your tag is ROOKIE: no name entry) |
 | 9.5 | Art pass | Replace placeholders with final sprites, tiles, backgrounds and effects; mode intro pop-ups with real gameplay screenshots and a Skip button | |
 | 10 | Launch | Published on itch.io, linked from the VAO site | |
 | 11 | Online | Sign-in, lobby, online modes (section 10) | |
@@ -700,6 +714,7 @@ keys-militia/
 ## 18. Changelog
 
 Bugs found and how they were fixed are logged in [BUGS.md](BUGS.md) (newest first). Every new bug gets an entry there.
+- **0.34:** Phase 9 done. Sound pass: the Training coaches speak every line (ElevenLabs), death cries and burning screams by family, your hurt and death cries, a heartbeat at low HP, the zombie horde under Zombies waves, button and menu sounds everywhere; music per screen wired, waiting for the tracks. Settings (volumes, sound, gore, intros, fullscreen, reset progress). A pause box with Resume, Settings, Restart, Lobby and Quit, opened with Esc or a II button on the HUD. Main menu: SETTINGS, sound / music / fullscreen switches, ABOUT VAO and CREDITS. Credits for ElevenLabs and Pixabay.
 - **0.33.2:** Title screen: the logo is smaller and higher so it no longer covers the characters' heads, and EARTH RESPOND sits right under it in bigger gold letters on a dark band, readable on both scenes.
 - **0.33.1:** New cast names and stories (no code changes): Android R is now Keseki, the Mutant is Obaraka, the Armoured Trooper is Dmitri "Kixon", the Drone is Talon, and Nadia, Mort, Hollow, Lazara, Ferra, Selene, Rusty and Rex replace the old names. Victor, Sgt. Itunu, Kolawole and Black Cyba stay. Every story now covers the character's past, how they came to fight, their skills and their character. Training and the comic use the new names.
 - **0.33:** Bug pass. START / Enter on a mode intro works every time (it stopped answering after the first match: B-025). A walker Duo partner (Mutant, Zombie, Skeleton) moves like any partner: your speeds, the flying pose when it flies, no hopping, and it comes to you instead of hovering over a drop (B-026). The ending's slow motion slows everything together (B-027). Switching browser tabs pauses the match and no longer skips the countdown or jumps the clock; the drop-in only happens at FIGHT (B-028). Your character's head on the HUD. Shocked characters (EMP) show small drawn sparks instead of the lightning art; the EMP blast itself now uses the lightning arc art. The Drone and the Zombie K9 can't be picked as your character any more (still in the lobby to read about; enemies only). The title screen swaps two scenes (the fight and the glacier assembly). No difficulty setting: each mode has its own.

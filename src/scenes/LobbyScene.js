@@ -9,6 +9,8 @@ import { gunKey, meleeKey, throwKey } from '../entities/CharacterRig.js';
 import { WEAPONS, THROWABLES, WEAPON_CATEGORIES } from '../data/weapons.js';
 import { makeRig } from '../entities/rigFactory.js';
 import { makeButton } from '../ui/Button.js';
+import { uiSound } from '../systems/AudioSettings.js';
+import { Music } from '../systems/Music.js';
 import { headIcon } from '../ui/ItemArt.js';
 
 // The lobby (Phase 9), after you pick a mode: an armoury (gun racks and
@@ -91,6 +93,7 @@ export default class LobbyScene extends Phaser.Scene {
   }
 
   create(data) {
+    Music.play(this, 'lobby'); // (the menu's track until a lobby track is added)
     this.info = null; // reused scene object: nothing left open from last time (B-025)
     this.arsenal = null;
     this.mode = MODES[data.modeKey] ?? MODES.free;
@@ -110,18 +113,26 @@ export default class LobbyScene extends Phaser.Scene {
     this.add.text(LEFT, 64, '< > or ←/→: browse · Enter: pick · I: info · D: solo/duo · Tab: slot · Q/E: map · A: arsenal · R: ready · Esc: back', { fontFamily: FONT, fontSize: '12px', color: '#a49d95', stroke: '#000000', strokeThickness: 3 });
     this.drawStage();
     this.drawSide();
-    makeButton(this, 1180, 46, 'ARSENAL', () => (this.arsenal ? this.closeArsenal() : this.openArsenal()), { key: null, keyLabel: 'A', size: 16, once: false });
+    makeButton(this, 1180, 46, 'ARSENAL', () => (this.arsenal ? this.closeArsenal() : this.openArsenal()), { key: null, keyLabel: 'A', size: 16, once: false, sound: null });
 
     const k = this.input.keyboard;
     k.on('keydown-ENTER', () => (this.info ? this.closeInfo() : this.pick(CAST[this.cursor])));
     k.on('keydown-I', () => (this.info ? this.closeInfo() : this.openInfo(CAST[this.cursor])));
     k.on('keydown-D', () => this.toggleDuo());
     k.on('keydown-TAB', (e) => {
+      uiSound(this, 'ui-move');
       e.preventDefault?.();
       if (this.duo) this.setSlot(this.slot === 'you' ? 'partner' : 'you');
     });
     k.addCapture('TAB');
-    k.on('keydown-ESC', () => (this.arsenal ? this.closeArsenal() : this.info ? this.closeInfo() : this.scene.start('Menu', { page: 'modes' })));
+    k.on('keydown-ESC', () => {
+      if (this.arsenal) this.closeArsenal();
+      else if (this.info) this.closeInfo();
+      else {
+        uiSound(this, 'ui-back');
+        this.scene.start('Menu', { page: 'modes' });
+      }
+    });
     k.on('keydown-A', () => (this.arsenal ? this.closeArsenal() : this.openArsenal()));
     this.refresh();
   }
@@ -192,14 +203,14 @@ export default class LobbyScene extends Phaser.Scene {
     this.stageArt = null; // the rig or the picture on the stage
     this.stageKey = null;
     // < >
-    makeButton(this, 70, 300, '◀', () => this.browse(-1), { key: 'LEFT', keyLabel: '', size: 26, once: false });
-    makeButton(this, 610, 300, '▶', () => this.browse(1), { key: 'RIGHT', keyLabel: '', size: 26, once: false });
+    makeButton(this, 70, 300, '◀', () => this.browse(-1), { key: 'LEFT', keyLabel: '', size: 26, once: false, sound: null });
+    makeButton(this, 610, 300, '▶', () => this.browse(1), { key: 'RIGHT', keyLabel: '', size: 26, once: false, sound: null });
     // Name, type, (i), what it is for you
     this.stageName = this.add.text(STAGE_X, 532, '', { fontFamily: FONT, fontSize: '26px', fontStyle: 'bold', color: '#ffffff', stroke: '#000000', strokeThickness: 5 }).setOrigin(0.5, 0);
     this.stageType = this.add.text(STAGE_X, 564, '', { fontFamily: FONT, fontSize: '14px', color: '#a49d95' }).setOrigin(0.5, 0);
     this.stageTag = this.add.text(STAGE_X, 102, '', { fontFamily: FONT, fontSize: '13px', fontStyle: 'bold', color: '#0d1114', padding: { x: 6, y: 2 } }).setOrigin(0.5, 0);
-    this.infoBtn = makeButton(this, 0, 548, 'i', () => this.openInfo(CAST[this.cursor]), { keyLabel: '', size: 15, once: false });
-    this.pickBtn = makeButton(this, STAGE_X, 608, 'PICK', () => this.pick(CAST[this.cursor]), { keyLabel: 'Enter', size: 17, once: false });
+    this.infoBtn = makeButton(this, 0, 548, 'i', () => this.openInfo(CAST[this.cursor]), { keyLabel: '', size: 15, once: false, sound: null });
+    this.pickBtn = makeButton(this, STAGE_X, 608, 'PICK', () => this.pick(CAST[this.cursor]), { keyLabel: 'Enter', size: 17, once: false, sound: null });
     // The row of heads: where you are in the cast, click one to jump
     const step = 36;
     const x0 = STAGE_X - ((CAST.length - 1) * step) / 2;
@@ -220,6 +231,7 @@ export default class LobbyScene extends Phaser.Scene {
 
   browse(dir) {
     if (this.info || this.arsenal) return;
+    uiSound(this, 'ui-scroll');
     const list = this.browsable();
     const i = list.indexOf(CAST[this.cursor]);
     const next = list[Phaser.Math.Wrap((i < 0 ? 0 : i) + dir, 0, list.length)];
@@ -229,6 +241,7 @@ export default class LobbyScene extends Phaser.Scene {
 
   jump(i) {
     if (this.info || !this.browsable().includes(CAST[i])) return;
+    uiSound(this, 'ui-scroll');
     this.cursor = i;
     this.refresh();
   }
@@ -274,8 +287,8 @@ export default class LobbyScene extends Phaser.Scene {
   drawSide() {
     this.add.rectangle(X0, 84, 590, 610, 0x0d1114, 0.82).setOrigin(0).setStrokeStyle(2, 0x30353b);
     // Solo / Duo
-    this.soloBtn = makeButton(this, X0 + 80, 118, 'SOLO', () => this.toggleDuo(false), { size: 17, once: false });
-    this.duoBtn = makeButton(this, X0 + 200, 118, 'DUO', () => this.toggleDuo(true), { keyLabel: 'D', size: 17, once: false });
+    this.soloBtn = makeButton(this, X0 + 80, 118, 'SOLO', () => this.toggleDuo(false), { size: 17, once: false, sound: null });
+    this.duoBtn = makeButton(this, X0 + 200, 118, 'DUO', () => this.toggleDuo(true), { keyLabel: 'D', size: 17, once: false, sound: null });
     // Slots: who's picked (click one to pick for it)
     this.slotViews = {};
     for (const [slot, x] of [['you', X0 + 30], ['partner', X0 + 305]]) {
@@ -288,15 +301,15 @@ export default class LobbyScene extends Phaser.Scene {
     }
     // Map: < name > and its picture
     this.add.text(X0 + 30, 310, 'MAP', { fontFamily: FONT, fontSize: '13px', fontStyle: 'bold', color: '#a49d95' });
-    makeButton(this, X0 + 60, 345, '◀', () => this.changeMap(-1), { key: 'Q', keyLabel: 'Q', size: 16, once: false });
+    makeButton(this, X0 + 60, 345, '◀', () => this.changeMap(-1), { key: 'Q', keyLabel: 'Q', size: 16, once: false, sound: null });
     this.mapText = this.add.text(X0 + 295, 345, '', { fontFamily: FONT, fontSize: '22px', fontStyle: 'bold', color: '#ffffff' }).setOrigin(0.5);
-    makeButton(this, X0 + 530, 345, '▶', () => this.changeMap(1), { key: 'E', keyLabel: 'E', size: 16, once: false });
+    makeButton(this, X0 + 530, 345, '▶', () => this.changeMap(1), { key: 'E', keyLabel: 'E', size: 16, once: false, sound: null });
     this.add.rectangle(X0 + 295, 474, 384, 220, 0x0d1114, 1).setStrokeStyle(2, 0x30353b);
     this.mapPic = this.add.image(X0 + 295, 474, '__DEFAULT').setVisible(false);
     this.mapNone = this.add.text(X0 + 295, 474, 'no picture yet', { fontFamily: FONT, fontSize: '13px', color: '#4d5967' }).setOrigin(0.5);
     this.mapNote = this.add.text(X0 + 295, 596, '', { fontFamily: FONT, fontSize: '12px', color: '#a49d95' }).setOrigin(0.5);
     // Ready
-    makeButton(this, X0 + 295, 645, 'READY', () => this.ready(), { key: 'R', size: 26, color: '#d2a35f', once: false });
+    makeButton(this, X0 + 295, 645, 'READY', () => this.ready(), { key: 'R', size: 26, color: '#d2a35f', once: false, sound: null });
   }
 
   // ---- Actions ----
@@ -305,6 +318,7 @@ export default class LobbyScene extends Phaser.Scene {
   pick(c) {
     if (this.info || this.arsenal) return;
     if (!canPick(c, this.slot)) return;
+    uiSound(this, 'ui-select');
     if (this.slot === 'partner') {
       this.partner = c;
     } else {
@@ -325,6 +339,7 @@ export default class LobbyScene extends Phaser.Scene {
 
   toggleDuo(on = !this.duo) {
     if (this.info) return;
+    uiSound(this, 'ui-select');
     this.duo = on;
     if (!on) this.setSlot('you');
     this.save();
@@ -333,6 +348,7 @@ export default class LobbyScene extends Phaser.Scene {
 
   changeMap(dir) {
     if (this.info || this.arsenal || !this.maps.length) return;
+    uiSound(this, 'ui-scroll');
     this.mapIndex = Phaser.Math.Wrap(this.mapIndex + dir, 0, this.maps.length);
     this.save();
     this.refresh();
@@ -351,6 +367,7 @@ export default class LobbyScene extends Phaser.Scene {
 
   ready() {
     if (this.info || this.arsenal) return;
+    uiSound(this, 'ui-select');
     this.save();
     this.scene.start('Game', {
       modeKey: this.mode.key,
@@ -364,7 +381,8 @@ export default class LobbyScene extends Phaser.Scene {
 
   openArsenal() {
     if (this.arsenal) return;
-    this.closeInfo();
+    uiSound(this, 'ui-select');
+    this.closeInfo(true);
     const { width: W, height: H } = this.scale;
     const parts = [];
     const add = (o) => {
@@ -393,6 +411,7 @@ export default class LobbyScene extends Phaser.Scene {
         const label = add(this.add.text(x, y + rowH / 2 - 10, it.w.name, { fontFamily: FONT, fontSize: '9px', color: '#8a837b' }).setOrigin(0.5));
         const hit = add(this.add.rectangle(x, y, step - 4, rowH - 6, 0xffffff, 0.001).setInteractive({ useHandCursor: true }));
         hit.on('pointerover', () => {
+          uiSound(this, 'ui-move', 0.7);
           label.setColor('#d2a35f');
           img.setScale(img.scale * 1.12);
           detail.setText(this.arsenalLine(it));
@@ -403,7 +422,7 @@ export default class LobbyScene extends Phaser.Scene {
         });
       });
     });
-    add(makeButton(this, W - 110, 40, 'CLOSE', () => this.closeArsenal(), { keyLabel: 'Esc', size: 14 }));
+    add(makeButton(this, W - 110, 40, 'CLOSE', () => this.closeArsenal(), { keyLabel: 'Esc', size: 14, sound: null }));
     this.arsenal = parts;
   }
 
@@ -420,6 +439,7 @@ export default class LobbyScene extends Phaser.Scene {
 
   closeArsenal() {
     if (!this.arsenal) return;
+    uiSound(this, 'ui-back');
     const parts = this.arsenal;
     this.arsenal = null;
     parts.forEach((o) => o.destroy());
@@ -428,7 +448,8 @@ export default class LobbyScene extends Phaser.Scene {
   // ---- Info (the (i) button) ----
 
   openInfo(c) {
-    this.closeInfo();
+    this.closeInfo(true);
+    uiSound(this, 'ui-select');
     const { width: W, height: H } = this.scale;
     const parts = [];
     const add = (o) => {
@@ -442,12 +463,13 @@ export default class LobbyScene extends Phaser.Scene {
     add(this.add.text(W / 2 - 236, H / 2 - 124, fullName(c), { fontFamily: FONT, fontSize: '28px', fontStyle: 'bold', color: GOLD }));
     add(this.add.text(W / 2 - 236, H / 2 - 86, `${c.type}${c.playable === false ? ' · not playable (enemy only)' : c.partner ? '' : ' · can\'t be your partner'}`, { fontFamily: FONT, fontSize: '15px', color: '#a49d95' }));
     add(this.add.text(W / 2 - 290, H / 2 - 48, c.story, { fontFamily: FONT, fontSize: '18px', color: '#dcd1bf', wordWrap: { width: 580 }, lineSpacing: 6 }));
-    add(makeButton(this, W / 2, H / 2 + 118, 'CLOSE', () => this.closeInfo(), { keyLabel: 'Esc', size: 15 }));
+    add(makeButton(this, W / 2, H / 2 + 118, 'CLOSE', () => this.closeInfo(), { keyLabel: 'Esc', size: 15, sound: null }));
     this.info = parts;
   }
 
-  closeInfo() {
+  closeInfo(quiet = false) {
     if (!this.info) return;
+    if (!quiet) uiSound(this, 'ui-back');
     const parts = this.info;
     this.info = null;
     parts.forEach((o) => o.destroy());

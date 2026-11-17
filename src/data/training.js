@@ -28,7 +28,8 @@ export const TRAINING = {
   targetHp: 20,           // one finished word takes a target down
   lettersPerSec: 40,      // speech bubbles type out this fast
   readMs: 1800,           // a line stays up at least this long (plus 45 ms a letter) before the next
-  goodMs: 1600,           // after "Good": the next lesson starts this much later
+  goodMs: 1600,
+  voiceGapMs: 350,        // a coach's recorded line: this long after it ends before the next one           // after "Good": the next lesson starts this much later
   coachSpeed: 300,        // coaches run this fast (px/s)...
   coachFly: 420,          // ...and fly this fast with their jetpacks, staying with you
   coachSide: { sarge: 85, tech: -85 }, // where each stays, from you (px; + = to your right)
