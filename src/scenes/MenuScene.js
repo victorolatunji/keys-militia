@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { MENU, PLAY_MODES, INTRO } from '../data/menu.js';
+import { MENU, PLAY_MODES, INTRO, TITLE } from '../data/menu.js';
 import { MODES } from '../data/modes.js';
 import { TRAINING } from '../data/training.js';
 import { CREDITS, ABOUT } from '../data/credits.js';
@@ -73,12 +73,12 @@ export default class MenuScene extends Phaser.Scene {
     } else {
       this.add.text(W / 2, 110, 'KEYS MILITIA', { fontFamily: FONT, fontSize: '76px', fontStyle: 'bold', color: GOLD, stroke: '#000000', strokeThickness: 8 }).setOrigin(0.5);
     }
-    this.add.text(W / 2, 168, 'E A R T H   R E S P O N D', { fontFamily: FONT, fontSize: '18px', color: '#dcd1bf', stroke: '#000000', strokeThickness: 4 }).setOrigin(0.5);
+    const L = TITLE.tagline; // EARTH RESPOND, as on the title screen
+    this.add.text(W / 2, 168, L.text, { fontFamily: L.font, fontSize: '19px', fontStyle: 'bold', color: L.color, stroke: L.stroke, strokeThickness: 5 }).setOrigin(0.5).setLetterSpacing(L.spacing);
     this.add.text(W - 20, H - 14, 'VAO', { fontFamily: FONT, fontSize: '14px', color: DIM }).setOrigin(1, 1);
 
     this.layer = this.add.container(0, 0);
     this.drawCorners();
-    Music.play(this, 'menu');
     this.input.keyboard.on('keydown-UP', () => this.move(-1));
     this.input.keyboard.on('keydown-DOWN', () => this.move(1));
     this.input.keyboard.on('keydown-ENTER', () => this.choose());
@@ -112,6 +112,7 @@ export default class MenuScene extends Phaser.Scene {
 
   show(page) {
     this.page = page;
+    Music.play(this, ['controls', 'about', 'credits'].includes(page) ? 'pages' : 'menu'); // (a quieter track for the reading pages)
     this.layer.removeAll(true);
     this.items = [];
     this.index = 0;

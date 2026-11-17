@@ -55,7 +55,7 @@ export default class Dummy extends Phaser.GameObjects.Rectangle {
 
     this.lastHitKind = kind;
     this.scene.effects?.hit(this, amount, kind);
-    this.scene.sfx?.hurt(this, kind);
+    if (this.hp - amount > 0) this.scene.sfx?.hurt(this, kind); // a killing hit: only the death sound
     this.hp = Math.max(0, this.hp - amount);
     this.flash();
     this.layout();

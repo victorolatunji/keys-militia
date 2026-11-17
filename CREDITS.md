@@ -66,3 +66,7 @@ Screams, the zombie wave screech and the menu / button sounds: from Pixabay (htt
 | Scroll tick | freesound_community-mouse-clicks-and-scroll-wheel-34380.mp3 | freesound_community | pixabay.com (ID 34380) |
 | Select click | freesound_gamestudio-click-1-384917.mp3 | freesound_gamestudio | pixabay.com (ID 384917) |
 | Menu move / hover | soundshelfstudio-sci-fi-ui-hover-596257.mp3 | soundshelfstudio | pixabay.com (ID 596257) |
+
+Music (title, menu, menu pages, lobby, comic, settings): from Pixabay (https://pixabay.com), Pixabay Content License. Authors to be added.
+
+Tools: Claude Opus 5.5 (Anthropic) as code partner; ChatGPT (OpenAI) for image generation; ElevenLabs (Eleven v3) for voices.

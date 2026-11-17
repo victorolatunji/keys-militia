@@ -40,7 +40,7 @@ export default class ComicScene extends Phaser.Scene {
       uiSound(this, 'ui-back');
       this.scene.start('Menu');
     });
-    Music.play(this, 'menu');
+    Music.play(this, 'comic');
     this.show();
   }
 

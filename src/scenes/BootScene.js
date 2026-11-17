@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { AUDIO_FILES, MUSIC } from '../data/audio.js';
+import { AUDIO_FILES, MUSIC_TRACKS, musicKeys } from '../data/audio.js';
 import { Music } from '../systems/Music.js';
 import { SPRITES } from '../data/spriteManifest.js';
 import { partKey, gunKey, meleeKey } from '../entities/CharacterRig.js';
@@ -152,7 +152,8 @@ export default class BootScene extends Phaser.Scene {
       this.add.text(W / 2, T.logoY, 'KEYS MILITIA', { fontFamily: T.font, fontSize: '72px', fontStyle: 'bold', color: T.gold, stroke: '#131112', strokeThickness: 10 }).setOrigin(0.5);
     }
     const L = T.tagline;
-    const tag = this.add.text(W / 2, L.y, L.text, { fontFamily: T.font, fontSize: `${L.size}px`, fontStyle: 'bold', color: L.color, stroke: L.stroke, strokeThickness: L.strokeThickness }).setOrigin(0.5);
+    const tag = this.add.text(W / 2, L.y, L.text, { fontFamily: L.font, fontSize: `${L.size}px`, fontStyle: 'bold', color: L.color, stroke: L.stroke, strokeThickness: L.strokeThickness }).setOrigin(0.5);
+    tag.setLetterSpacing(L.spacing);
     tag.setShadow(0, 2, '#000000', 4, true, true);
     this.add.rectangle(W / 2, L.y, tag.width + 36, tag.height + 6, 0x0d1114, L.plate).setDepth(tag.depth - 1);
     this.children.bringToTop(tag);
@@ -187,7 +188,7 @@ export default class BootScene extends Phaser.Scene {
     for (const key of Object.keys(SPRITES.utility ?? {})) this.load.image(utilKey(key), `assets/sprites/utility/${key}.png`);
     // Recorded sounds: voices, cries, buttons (src/data/audio.js), and the music once it's added.
     for (const [key, path] of Object.entries(AUDIO_FILES)) this.load.audio(key, path);
-    for (const name of ['title', 'menu', 'lobby', 'battle', 'win', 'lose']) if (MUSIC[name]) this.load.audio(`music-${name}`, MUSIC[name]);
+    for (const name of MUSIC_TRACKS) for (const { key, path } of musicKeys(name)) this.load.audio(key, path);
     for (const map of Object.values(MAPS)) {
       this.load.tilemapTiledJSON(map.tilemapKey, map.tilemapFile);
       // Maps can share a tileset; only load each image once.

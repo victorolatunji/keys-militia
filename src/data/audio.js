@@ -47,17 +47,27 @@ export const AUDIO_FILES = {
   'ui-pause': 'assets/audio/ui/ui-pause.mp3',   // pause and resume
 };
 
-// Music per screen. Empty until the tracks are added: put the file in
-// public/assets/audio/music/ and its path here (e.g. 'assets/audio/music/menu.mp3').
+// Music per screen (one path, or several: one picked at random each time).
+// A screen with null stays silent (e.g. matches until a battle track is added).
+const music = (name) => `assets/audio/music/${name}.mp3`;
 export const MUSIC = {
-  title: null,
-  menu: null,
-  lobby: null,  // (null: the lobby keeps the menu's track)
-  battle: null,
-  win: null,    // short stinger at the ending beat
+  title: [music('title-1'), music('title-2')], // the loading / title screen
+  menu: music('menu'),                         // main menu and mode picker
+  pages: music('pages'),                       // menu pages: controls, about, credits
+  lobby: music('lobby'),
+  comic: music('comic'),
+  settings: music('settings'),
+  battle: null, // in a match (none yet)
+  win: null,    // short sting at the ending beat
   lose: null,
-  volume: { title: 0.7, menu: 0.6, lobby: 0.55, battle: 0.35, win: 0.7, lose: 0.7 }, // times the Music volume
+  volume: { title: 0.75, menu: 0.6, pages: 0.55, lobby: 0.55, comic: 0.6, settings: 0.55, battle: 0.35, win: 0.7, lose: 0.7 }, // times the Music volume
   fadeMs: 900,
+};
+export const MUSIC_TRACKS = ['title', 'menu', 'pages', 'lobby', 'comic', 'settings', 'battle', 'win', 'lose'];
+// The file keys of a track (music-<name>-<n>).
+export const musicKeys = (name) => {
+  const v = MUSIC[name];
+  return v ? (Array.isArray(v) ? v : [v]).map((path, i) => ({ key: `music-${name}-${i}`, path })) : [];
 };
 
 // Which files a code sound (src/data/sounds.js key) plays instead, picked at

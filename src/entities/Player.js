@@ -229,7 +229,7 @@ export default class Player extends Phaser.GameObjects.Rectangle {
     this.lastHurtAt = this.scene.time.now;
     this.lastHitKind = kind;
     this.scene.effects?.hit(this, amount, kind); // blood, sparks or ash
-    this.scene.sfx?.hurt(this, kind);
+    if (this.hp - amount > 0) this.scene.sfx?.hurt(this, kind); // a killing hit: only the death cry, right on time
     this.scene.stats?.onDamage(this, Math.min(this.hp, amount), cause); // the end-of-match numbers
     this.hp = Math.max(0, this.hp - amount);
     this.flash();

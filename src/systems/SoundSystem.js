@@ -206,7 +206,8 @@ export default class SoundSystem {
   playSample(key, buffer, sound, at, opts = {}) {
     const now = this.scene.time.now;
     // Screams while burning wait for the last one to finish (no pile-up).
-    const gap = Math.max(sound.gapMs ?? 60, key.startsWith('burn') ? buffer.duration * 1000 + 400 : 0);
+    // Your hurt grunts don't pile up under fast hits either.
+    const gap = Math.max(sound.gapMs ?? 60, key.startsWith('burn') ? buffer.duration * 1000 + 400 : key === 'youHurt' ? buffer.duration * 1000 + 250 : 0);
     if (now - (this.lastPlayed[key] ?? -1e9) < gap) return;
     this.lastPlayed[key] = now;
     const place = this.place(at);

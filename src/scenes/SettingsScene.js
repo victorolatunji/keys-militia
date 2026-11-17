@@ -6,6 +6,7 @@ import { MODES } from '../data/modes.js';
 import { SOUND_SETTINGS } from '../data/sounds.js';
 import { AUDIO_STORAGE_KEY } from '../data/audio.js';
 import { makeButton } from '../ui/Button.js';
+import { Music } from '../systems/Music.js';
 
 // SETTINGS (Phase 9): from the main menu, or from the pause box in a match
 // (then drawn over the paused match). Up / Down choose a line, Left / Right
@@ -46,6 +47,7 @@ export default class SettingsScene extends Phaser.Scene {
 
   create(data = {}) {
     this.from = data.from ?? 'menu'; // 'menu' or 'pause'
+    if (this.from === 'menu') Music.play(this, 'settings'); // (over a match: the match's music stays)
     this.index = 0;
     this.confirming = false;
     const { width: W, height: H } = this.scale;
@@ -54,7 +56,7 @@ export default class SettingsScene extends Phaser.Scene {
       bg.setScale(Math.max(W / bg.width, H / bg.height) * 1.12);
     }
     this.add.rectangle(W / 2, H / 2, W, H, 0x0d1114, this.from === 'menu' ? MENU.backdropDarken + 0.25 : 0.82);
-    this.add.rectangle(W / 2, H / 2, 720, 560, 0x0d1114, 0.94).setStrokeStyle(2, 0xd2a35f);
+    this.add.rectangle(W / 2, H / 2, 800, 560, 0x0d1114, 0.94).setStrokeStyle(2, 0xd2a35f);
     this.add.text(W / 2, H / 2 - 245, 'SETTINGS', { fontFamily: FONT, fontSize: '30px', fontStyle: 'bold', color: GOLD }).setOrigin(0.5);
     this.add.text(W / 2, H / 2 + 248, '↑ ↓ choose   ·   ← → change   ·   Enter use   ·   Esc back', { fontFamily: FONT, fontSize: '13px', color: ASH }).setOrigin(0.5);
 
@@ -65,7 +67,7 @@ export default class SettingsScene extends Phaser.Scene {
       vol('sfx', 'EFFECTS'),
       vol('voice', 'VOICES'),
       { name: 'SOUND', get: () => (AudioSettings.get().muted ? 'OFF' : 'ON'), change: () => AudioSettings.toggleMute() },
-      { name: 'GORE', get: () => this.gore().toUpperCase(), change: (d) => this.setGore(d) },
+      { name: 'BLOOD AND GORE', get: () => this.gore().toUpperCase(), change: (d) => this.setGore(d) },
       { name: 'MODE INTROS', get: () => (this.introsHidden() ? 'OFF' : 'ON'), change: () => this.toggleIntros() },
       { name: 'FULLSCREEN', get: () => (this.scale.isFullscreen ? 'ON' : 'OFF'), change: () => this.scale.toggleFullscreen(), press: true },
       { name: 'RESET PROGRESS', get: () => (this.confirming ? 'PRESS AGAIN TO ERASE' : ''), change: () => this.reset(), press: true, danger: true },
@@ -75,17 +77,17 @@ export default class SettingsScene extends Phaser.Scene {
     this.rows.forEach((r, i) => {
       const y = top + i * 42;
       r.y = y;
-      r.label = this.add.text(W / 2 - 320, y, r.name, { fontFamily: FONT, fontSize: '19px', fontStyle: 'bold', color: BONE }).setOrigin(0, 0.5).setInteractive({ useHandCursor: true });
-      r.value = this.add.text(W / 2 + 300, y, '', { fontFamily: FONT, fontSize: '18px', fontStyle: 'bold', color: r.danger ? '#e07a5f' : GOLD }).setOrigin(1, 0.5);
+      r.label = this.add.text(W / 2 - 360, y, r.name, { fontFamily: FONT, fontSize: '19px', fontStyle: 'bold', color: BONE }).setOrigin(0, 0.5).setInteractive({ useHandCursor: true });
+      r.value = this.add.text(W / 2 + 370, y, '', { fontFamily: FONT, fontSize: '18px', fontStyle: 'bold', color: r.danger ? '#e07a5f' : GOLD }).setOrigin(1, 0.5);
       r.label.on('pointerover', () => this.select(i));
       r.label.on('pointerdown', () => this.use(i, 1));
       if (r.bar) {
-        r.track = this.add.rectangle(W / 2 + 30, y, 180, 8, 0x30353b).setOrigin(0, 0.5);
-        r.fill = this.add.rectangle(W / 2 + 30, y, 180, 8, 0xd2a35f).setOrigin(0, 0.5);
+        r.track = this.add.rectangle(W / 2 + 10, y, 180, 8, 0x30353b).setOrigin(0, 0.5);
+        r.fill = this.add.rectangle(W / 2 + 10, y, 180, 8, 0xd2a35f).setOrigin(0, 0.5);
       }
       if (!r.press) {
-        makeButton(this, W / 2 - 10, y, '-', () => this.use(i, -1), { size: 14, once: false, sound: null });
-        makeButton(this, W / 2 + 232, y, '+', () => this.use(i, 1), { size: 14, once: false, sound: null });
+        makeButton(this, W / 2 - 30, y, '-', () => this.use(i, -1), { size: 14, once: false, sound: null });
+        makeButton(this, W / 2 + 222, y, '+', () => this.use(i, 1), { size: 14, once: false, sound: null });
       }
     });
     const k = this.input.keyboard;

@@ -1,10 +1,10 @@
 # Keys Militia
 *A VAO game. Living plan book: update it whenever the plan changes.*
 
-**Version:** 0.34
+**Version:** 0.34.1
 **Owner:** Victor Olatunji / VAO
 **Budget:** $0, free tools and free assets only
-**Status:** Phase 9 (Menus) done: settings, pause box, sound pass with voices, about and credits pages. Music tracks still to add. Launching.
+**Status:** Phase 9 (Menus) done: settings, pause box, sound pass with voices, about and credits pages. Music in (title, menu, lobby, comic, settings); a battle track still to add.
 **Live build:** https://victorolatunji.github.io/keys-militia/
 
 ---
@@ -442,7 +442,7 @@ Names (0.33.1): a mix from around the world that fits each character's style; Vi
 - **Cries by family:** death cries and burning screams for human men, human women (Mercenary, Infected Soldier), the undead and creatures (Alien, Mutant, K9), two takes where there are two, picked at random; machines keep their code-made crunch, skeletons their bone clatter. Your own hurt grunts, death cry and burning scream.
 - **Ambience:** a low heartbeat when your HP drops under 30%, louder near the end; in Zombies the horde rumbles low under the ground as each wave comes in.
 - **Buttons:** a sound when the highlight moves (menus, hovering a button), a scroll tick when browsing (lobby characters, maps, comic pages), a click to select, a soft pop for back / Esc, a press for pause and resume.
-- **Music:** one track per screen (title, menu, lobby, battle) with cross-fades, quieter while paused, and a win / lose sting at the ending beat. Wired, waiting for the tracks: put a file in `public/assets/audio/music/` and its path in `MUSIC`.
+- **Music** (0.34.1): one track per screen, cross-faded: the title screen (one of two tracks at random), the main menu, a quieter track for the reading pages (controls, about, credits), the lobby, the comic and Settings; quieter while paused. Matches are silent until a battle track is added (`MUSIC.battle`), and the win / lose stings are ready for files too. Browsers keep sound locked until the first click or key, so the title track starts then.
 
 **Settings** (0.34, `src/scenes/SettingsScene.js`): from the main menu or the pause box. Master, Music, Effects and Voices volumes, sound on/off, gore level, mode intros on/off, fullscreen, and reset progress (press twice; keeps your settings). Remembered in this browser.
 
@@ -714,6 +714,7 @@ keys-militia/
 ## 18. Changelog
 
 Bugs found and how they were fixed are logged in [BUGS.md](BUGS.md) (newest first). Every new bug gets an entry there.
+- **0.34.1:** Music for the title, menu, menu pages, lobby, comic and Settings. Sharper, shorter cries that start right on the death (the killing hit no longer plays a hurt sound first, and your hurt grunts don't pile up); no more "Chai" in the death cries; women's cries are pain, not moans. EARTH RESPOND has its own look (a clean, wide-spaced sans in pale steel). Settings: GORE is now BLOOD AND GORE and its value no longer hides behind the + button. Credits: a TOOLS line (Claude Opus 5.5, ChatGPT image generation, ElevenLabs, Phaser, Vite) and a MUSIC line.
 - **0.34:** Phase 9 done. Sound pass: the Training coaches speak every line (ElevenLabs), death cries and burning screams by family, your hurt and death cries, a heartbeat at low HP, the zombie horde under Zombies waves, button and menu sounds everywhere; music per screen wired, waiting for the tracks. Settings (volumes, sound, gore, intros, fullscreen, reset progress). A pause box with Resume, Settings, Restart, Lobby and Quit, opened with Esc or a II button on the HUD. Main menu: SETTINGS, sound / music / fullscreen switches, ABOUT VAO and CREDITS. Credits for ElevenLabs and Pixabay.
 - **0.33.2:** Title screen: the logo is smaller and higher so it no longer covers the characters' heads, and EARTH RESPOND sits right under it in bigger gold letters on a dark band, readable on both scenes.
 - **0.33.1:** New cast names and stories (no code changes): Android R is now Keseki, the Mutant is Obaraka, the Armoured Trooper is Dmitri "Kixon", the Drone is Talon, and Nadia, Mort, Hollow, Lazara, Ferra, Selene, Rusty and Rex replace the old names. Victor, Sgt. Itunu, Kolawole and Black Cyba stay. Every story now covers the character's past, how they came to fight, their skills and their character. Training and the comic use the new names.

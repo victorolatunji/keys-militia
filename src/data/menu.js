@@ -37,7 +37,9 @@ export const TITLE = {
   // to the top of the screen so their heads sit lower), with a soft dark
   // band behind them so they read on any scene.
   logoWidth: 400, logoY: 72,
-  tagline: { text: 'E A R T H   R E S P O N D', y: 150, size: 22, color: '#e9c46a', stroke: '#0d1114', strokeThickness: 7, plate: 0.55 },
+  // EARTH RESPOND: its own look, not the logo's gold blocks: a clean, wide-spaced
+  // sans in pale steel (a militia's radio-call feel), same on the title and the menu.
+  tagline: { text: 'EARTH RESPOND', y: 150, size: 22, font: '"Trebuchet MS", "Segoe UI", Arial, sans-serif', color: '#d9e6ee', stroke: '#0d1114', strokeThickness: 6, spacing: 10, plate: 0.55 },
   topShade: { height: 200, alpha: 0.6 },
   sceneAnchor: 'top', // 'top' or 'center'
   darken: 0.18,
