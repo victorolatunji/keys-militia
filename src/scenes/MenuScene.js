@@ -8,7 +8,7 @@ import { AudioSettings, uiSound } from '../systems/AudioSettings.js';
 import { Music } from '../systems/Music.js';
 
 // The main menu (Phase 9): PLAY, TRAINING, COMIC, STORY MODE and ONLINE
-// (both coming soon), SETTINGS and CONTROLS, ABOUT VAO and CREDITS in the
+// (both coming soon), SETTINGS and CONTROLS, ABOUT VAO LABS and CREDITS in the
 // corner, sound / music / fullscreen switches top right, over a dark, slowly drifting in-game shot. One scene with a few
 // pages: the main list, the mode picker (Play), the first-time Training
 // prompt, the controls list and the story page.
@@ -75,7 +75,7 @@ export default class MenuScene extends Phaser.Scene {
     }
     const L = TITLE.tagline; // EARTH RESPOND, as on the title screen
     this.add.text(W / 2, 168, L.text, { fontFamily: L.font, fontSize: '19px', fontStyle: 'bold', color: L.color, stroke: L.stroke, strokeThickness: 5 }).setOrigin(0.5).setLetterSpacing(L.spacing);
-    this.add.text(W - 20, H - 14, 'VAO', { fontFamily: FONT, fontSize: '14px', color: DIM }).setOrigin(1, 1);
+    this.add.text(W - 20, H - 14, 'VAO LABS', { fontFamily: FONT, fontSize: '14px', color: DIM }).setOrigin(1, 1);
 
     this.layer = this.add.container(0, 0);
     this.drawCorners();
@@ -87,11 +87,11 @@ export default class MenuScene extends Phaser.Scene {
     this.show(data.page ?? 'main');
   }
 
-  // The edge buttons: ABOUT VAO and CREDITS bottom left, switches top right.
+  // The edge buttons: ABOUT VAO LABS and CREDITS bottom left, switches top right.
   drawCorners() {
     const { width: W, height: H } = this.scale;
-    makeButton(this, 92, H - 30, MENU.corner.about, () => this.show('about'), { size: 14, once: false });
-    makeButton(this, 214, H - 30, MENU.corner.credits, () => this.show('credits'), { size: 14, once: false });
+    makeButton(this, 104, H - 30, MENU.corner.about, () => this.show('about'), { size: 14, once: false });
+    makeButton(this, 258, H - 30, MENU.corner.credits, () => this.show('credits'), { size: 14, once: false });
     const label = {
       sound: () => `SOUND ${AudioSettings.get().muted ? 'OFF' : 'ON'}`,
       music: () => `MUSIC ${AudioSettings.get().music > 0 ? 'ON' : 'OFF'}`,

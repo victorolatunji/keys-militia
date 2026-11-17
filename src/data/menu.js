@@ -13,9 +13,9 @@ export const MENU = {
     { key: 'settings', label: 'SETTINGS', go: 'settings' },        // volumes, gore, intros, fullscreen
     { key: 'controls', label: 'CONTROLS', go: 'controls' },
   ],
-  // Small buttons on the edges: ABOUT VAO and CREDITS bottom left; sound,
+  // Small buttons on the edges: ABOUT VAO LABS and CREDITS bottom left; sound,
   // music and fullscreen switches top right.
-  corner: { about: 'ABOUT VAO', credits: 'CREDITS' },
+  corner: { about: 'ABOUT VAO LABS', credits: 'CREDITS' },
   // The menu's backdrop: an in-game shot, darkened and drifting slowly.
   backdrop: 'assets/menu/menu-backdrop.jpg', // the ChatGPT menu scene (an outpost at night)
   backdropDarken: 0.3,

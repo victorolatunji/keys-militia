@@ -19,6 +19,7 @@ export const SOUND_SETTINGS = {
   enemyVolume: 0.6,         // enemy gunfire is a bit quieter than yours...
   enemyPitch: 0.85,         // ...and a bit lower, so you can tell them apart
   hurtGapMs: 140,           // per character: pain sounds at most this often
+  playerPainBelow: 0.3,     // you only cry out in pain once a hit leaves you under this share of your HP
   // Room reverb on everything (sounds ring out instead of cutting off)...
   reverb: { seconds: 1.4, decay: 3.5, level: 0.4, send: 0.14 },
   // ...and a far echo for big sounds (sounds with an `echo` amount).

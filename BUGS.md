@@ -18,6 +18,14 @@ Every bug found in playtests or testing, with what caused it and how it was fixe
 
 ## Log
 
+### B-030: You grunted on every hit, even at full health
+- **Found:** 2026-11-17 · 0.34.5 · playtest
+- **Where:** sound / your character
+- **What happened:** every hit played a pain sound, so a healthy player sounded like they were dying.
+- **Cause:** `SoundSystem.hurt()` played your grunt on any non-killing hit, with no HP check.
+- **Fix:** the hit's leftover HP is passed in; your pain sound plays only under 30% HP (`SOUND_SETTINGS.playerPainBelow`). Files: src/data/sounds.js, src/systems/SoundSystem.js, src/entities/Player.js.
+- **Status:** fixed in 0.34.6
+
 ### B-029: The Drone and the Zombie K9 could be picked as your character
 - **Found:** 2026-11-12 · 0.33 · playtest
 - **Where:** lobby

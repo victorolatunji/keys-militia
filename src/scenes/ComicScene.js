@@ -81,7 +81,7 @@ export default class ComicScene extends Phaser.Scene {
     this.add.rectangle(W / 2, H / 2 + 6, img.displayWidth + 12, img.displayHeight + 12).setStrokeStyle(6, INK);
     const top = H / 2 + 6 - img.displayHeight / 2;
     this.add.text(W / 2, top + 54, COMIC.title, { fontFamily: FONT, fontSize: '40px', fontStyle: 'bold', color: GOLD, stroke: '#0d1114', strokeThickness: 8 }).setOrigin(0.5);
-    this.add.text(W / 2, top + 92, 'KEYS MILITIA · A VAO COMIC', { fontFamily: FONT, fontSize: '14px', fontStyle: 'bold', color: BONE, stroke: '#0d1114', strokeThickness: 4 }).setOrigin(0.5);
+    this.add.text(W / 2, top + 92, 'KEYS MILITIA · A VAO LABS COMIC', { fontFamily: FONT, fontSize: '14px', fontStyle: 'bold', color: BONE, stroke: '#0d1114', strokeThickness: 4 }).setOrigin(0.5);
   }
 
   // Two panels side by side, one wide below (its art cropped to a band).

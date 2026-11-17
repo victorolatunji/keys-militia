@@ -211,7 +211,7 @@ export default class SoundSystem {
     const now = this.scene.time.now;
     // Screams while burning wait for the last one to finish (no pile-up).
     // Your hurt grunts don't pile up under fast hits either.
-    const gap = Math.max(sound.gapMs ?? 60, key.startsWith('burn') ? buffer.duration * 1000 + 400 : key === 'youHurt' ? buffer.duration * 1000 + 250 : 0);
+    const gap = Math.max(sound.gapMs ?? 60, key.startsWith('burn') ? buffer.duration * 1000 + 400 : key === 'youHurt' || key.startsWith('hurt') ? buffer.duration * 1000 + 250 : 0);
     if (now - (this.lastPlayed[key] ?? -1e9) < gap) return;
     this.lastPlayed[key] = now;
     const place = this.place(at);
@@ -516,8 +516,13 @@ export default class SoundSystem {
   }
 
   // A character got hurt: what you hear depends on what it's made of.
-  hurt(target, kind) {
+  // hpAfter: the HP left after this hit (you only cry out once you're low).
+  hurt(target, kind, hpAfter = target.hp) {
     const now = this.scene.time.now;
+    if (target === this.scene.player && kind !== 'gas' && kind !== 'drown') {
+      const max = target.stats?.maxHp ?? 100;
+      if (hpAfter / max >= SOUND_SETTINGS.playerPainBelow) return; // above 30%: you take it quietly
+    }
     if (now - (target.lastHurtSoundAt ?? -1e9) < SOUND_SETTINGS.hurtGapMs) return;
     target.lastHurtSoundAt = now;
     if (kind === 'gas') {
@@ -532,8 +537,17 @@ export default class SoundSystem {
     }
     if (target === this.scene.player) {
       // Victor grunts; whoever else you picked sounds like their own kind.
-      if (this.isVictor()) this.play('youHurt');
-      else this.play(this.bodySound(this.voiceOf(target), 'hurt'), null, { volume: 0.8 });
+      if (this.isVictor()) {
+        this.play('youHurt');
+        return;
+      }
+      const who = this.voiceOf(target);
+      if (['machine', 'bone'].includes(this.materialOf(target))) {
+        this.play(this.bodySound(who, 'hurt'), null, { volume: 0.8 }); // machines ping, skeletons clack
+        return;
+      }
+      const key = { male: 'hurtMale', female: 'hurtFemale', undead: 'hurtUndead', creature: 'hurtCreature' }[this.voiceFamily(who)];
+      this.play(this.sampleFor(key) ? key : this.bodySound(who, 'hurt'), null, { volume: 0.9 });
       return;
     }
     this.play(this.bodySound(target, 'hurt'), target, { volume: 0.8 });

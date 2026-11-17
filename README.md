@@ -1,7 +1,7 @@
 # Keys Militia
 *A VAO game. Living plan book: update it whenever the plan changes.*
 
-**Version:** 0.34.4
+**Version:** 0.34.6
 **Owner:** Victor Olatunji / VAO
 **Budget:** $0, free tools and free assets only
 **Status:** Phase 9 (Menus) done: settings, pause box, sound pass with voices, about and credits pages. Music in (title, menu, lobby, comic, settings); a battle track still to add.
@@ -439,7 +439,7 @@ Names (0.33.1): a mix from around the world that fits each character's style; Vi
 
 **Sound pass** (0.34, `src/data/audio.js`, `src/systems/SoundSystem.js`, `src/systems/AudioSettings.js`, `src/systems/Music.js`): recorded voices and sounds where they matter, made-in-code sounds everywhere else (guns, blasts, hazards, the jetpack). Files in `public/assets/audio/` (trimmed, levelled, small MP3s); a sound with no file keeps its code-made version, so nothing breaks when one is missing.
 - **Training voices:** every coach line has its recording (Sgt. Itunu with a Nigerian voice, Keseki as an android), played with its speech bubble; the next line waits for the voice to finish. Sgt. Itunu says "Well done, Rookie" at graduation.
-- **Cries by family:** death cries and burning screams for human men, human women (Mercenary, Infected Soldier), the undead and creatures (Alien, Mutant, K9), two takes where there are two, picked at random; machines keep their code-made crunch, skeletons their bone clatter. Your own hurt grunts, death cry and burning scream.
+- **Cries by family:** death cries and burning screams for human men, human women (Mercenary, Infected Soldier), the undead and creatures (Alien, Mutant, K9), two takes where there are two, picked at random; machines keep their code-made crunch, skeletons their bone clatter. Your own hurt grunts (only once a hit leaves you under 30% HP), death cry and burning scream.
 - **Ambience:** under 20% HP your heart beats, slowly, one beat at a time, with a small screen shake on each beat (a little quicker and stronger near the end); under water or quicksand you struggle for air as your breath runs low and drown loudly once it's gone; in Zombies the horde rumbles low under the ground as each wave comes in.
 - **Your voice:** Victor has his own recordings (hurt, death, burning). Pick anyone else in the lobby and you sound like them: a zombie groans, Nadia or Lazara cry like women, machines crunch instead of screaming.
 - **Buttons:** a sound when the highlight moves (menus, hovering a button), a scroll tick when browsing (lobby characters, maps, comic pages), a click to select, a soft pop for back / Esc, a press for pause and resume.
@@ -683,7 +683,7 @@ keys-militia/
 | 8 | Offline modes | Solo or Duo (you + an AI partner of your chosen character): You vs Military (25 kills / 10 min, respawns, a hidden difficulty ramp), Zombies (waves, no respawns), You vs Enemies (waves, 3 respawns), Training (Militia Camp, 2 coaches, 8 lessons); drops that scale with difficulty; stats, scoreboard, awards, MVP, local leaderboard | ✅ |
 | 9 | Menus and guest | Menu, settings, name and character select, local saves | ✅ (your tag is ROOKIE: no name entry) |
 | 9.5 | Art pass | Replace placeholders with final sprites, tiles, backgrounds and effects; mode intro pop-ups with real gameplay screenshots and a Skip button | |
-| 10 | Launch | Published on itch.io, linked from the VAO site | |
+| 10 | Launch | Published on itch.io, linked from the VAO site | ✅ itch.io (0.34.5); the VAO Labs site comes later |
 | 11 | Online | Sign-in, lobby, online modes (section 10) | |
 | 12+ | Upgrades | Coins, more weapons, characters and maps | |
 
@@ -715,6 +715,8 @@ keys-militia/
 ## 18. Changelog
 
 Bugs found and how they were fixed are logged in [BUGS.md](BUGS.md) (newest first). Every new bug gets an entry there.
+- **0.34.6:** You only cry out in pain once a hit leaves you under 30% HP (above that you take hits quietly; coughing in gas and gurgling under water stay). Heartbeat stays under 20%. Gameplay video and LinkedIn cut made for the relaunch.
+- **0.34.5 (launch):** Published on itch.io (https://victorolatunji.itch.io/keys-militia). VAO is now VAO Labs everywhere in the game (the tech side of VAO; vaolabs.dev coming). Playing someone other than Victor, you now grunt when hurt in your character's voice (man, woman, undead, creature; machines ping).
 - **0.34.4:** Heartbeat under 20% HP, slow, with a small shake on each beat. Drowning sound when you're out of breath under water or quicksand. You sound like the character you picked (Victor keeps his own voice). Mode picker: the mode lines are brighter and bolder; page titles (PLAY · PICK A MODE, CONTROLS...) are pale-steel labels, so they don't look like buttons. Credits: the image models (Nano Banana 2, 2.5 and Lite, GPT-6.1 Sol Medium).
 - **0.34.3:** While the browser still blocks sound (before the first click or key), the title screen says CLICK OR PRESS ANY KEY FOR SOUND; the music starts on that input. Clean-up: removed the old Claude outputs folder, the ChatGPT pack, the retired Forest map art and four unused menu pictures.
 - **0.34.2:** The title music starts with the loading screen (loaded first, and the bar takes at least 6s). The lobby music stops when the match opens (it used to run into the countdown), and its long opening swoosh is cut short. "Chai!" comes back now and then: about one in four of your deaths and one in five of a soldier's.

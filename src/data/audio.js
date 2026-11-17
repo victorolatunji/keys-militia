@@ -25,6 +25,10 @@ export const AUDIO_FILES = {
   'die-you': voice('die-you'),
   'burn-you': voice('burn-you'),
   // Death cries and burning screams by family
+  'hurt-male': voice('hurt-male'),       // short pain grunts: you, when you play someone other than Victor
+  'hurt-female': voice('hurt-female'),
+  'hurt-undead': voice('hurt-undead'),
+  'hurt-creature': voice('hurt-creature'),
   'die-you-chai': voice('die-you-chai'),               // "Chai! Aaagh!": now and then (SAMPLE_RARE)
   'die-human-male-chai': voice('die-human-male-chai'), // "Argh! Chai!": now and then
   'die-human-male-1': voice('die-human-male-1'),
@@ -91,6 +95,10 @@ export const SAMPLE_FOR = {
   dieAlien: ['die-creature'],
   dieMutant: ['die-creature'],
   dieK9: ['die-creature'],
+  hurtMale: ['hurt-male'],
+  hurtFemale: ['hurt-female'],
+  hurtUndead: ['hurt-undead'],
+  hurtCreature: ['hurt-creature'],
   burnHumanMale: ['burn-human-male'],
   burnHumanFemale: ['burn-human-female'],
   burnUndead: ['burn-undead'],

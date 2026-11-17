@@ -167,7 +167,7 @@ export default class BootScene extends Phaser.Scene {
     this.add.rectangle(W / 2, by, bw + 8, T.bar.height + 8, 0x131112, 0.9).setStrokeStyle(2, 0x5c5a5f);
     this.barFill = this.add.rectangle(W / 2 - bw / 2, by, 1, T.bar.height, T.bar.fill).setOrigin(0, 0.5);
     this.barText = this.add.text(W / 2, by + 26, 'LOADING 0%', { fontFamily: T.font, fontSize: '16px', fontStyle: 'bold', color: T.teal }).setOrigin(0.5);
-    this.add.text(W - 20, H - 14, 'VAO', { fontFamily: T.font, fontSize: '14px', color: '#8a837b' }).setOrigin(1, 1);
+    this.add.text(W - 20, H - 14, 'VAO LABS', { fontFamily: T.font, fontSize: '14px', color: '#8a837b' }).setOrigin(1, 1);
   }
 
   // Browsers block sound until the page gets its first click or key press
