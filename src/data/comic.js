@@ -28,7 +28,7 @@ export const COMIC = {
       title: 'EARTH RESPONDS',
       panels: [
         { art: 'p3-1', speaker: 'SGT. ITUNU', text: 'You made it out of Lakeport, Rookie. Now you learn to fight.', at: 'tr' },
-        { art: 'p3-2', speaker: 'ANDROID R', text: "The Signal can't read a typed code. Your keyboard is your trigger.", at: 'tl' },
+        { art: 'p3-2', speaker: 'KESEKI', text: "The Signal can't read a typed code. Your keyboard is your trigger.", at: 'tl' },
         { art: 'p3-3', text: 'Earth Respond: every militia that still answers to us.', at: 'tl' },
       ],
     },

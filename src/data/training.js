@@ -23,7 +23,7 @@
 export const TRAINING = {
   coaches: {
     sarge: { bot: 'commando', title: 'Sgt. Itunu' }, // moving and fighting (names: src/data/cast.js)
-    tech: { bot: 'android', title: 'Android R' },   // typing and gear
+    tech: { bot: 'android', title: 'Keseki' },   // typing and gear
   },
   targetHp: 20,           // one finished word takes a target down
   lettersPerSec: 40,      // speech bubbles type out this fast
@@ -58,7 +58,7 @@ export const TRAINING = {
         ['sarge', 'Down drops you faster.'],
       ],
       keys: '↑   jetpack      ↑ + ← →   fly sideways      ↓   drop',
-      good: ['sarge', 'Nice landing. Come down. Android R takes it from here.'],
+      good: ['sarge', 'Nice landing. Come down. Keseki takes it from here.'],
     },
     {
       key: 'type', title: 'Type to shoot', check: 'targets', points: 'target', gate: false,

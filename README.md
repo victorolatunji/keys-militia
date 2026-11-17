@@ -1,7 +1,7 @@
 # Keys Militia
 *A VAO game. Living plan book: update it whenever the plan changes.*
 
-**Version:** 0.33
+**Version:** 0.33.2
 **Owner:** Victor Olatunji / VAO
 **Budget:** $0, free tools and free assets only
 **Status:** Phase 9 (Menus) nearly done: main menu, mode picker, lobby, Arsenal, mode intro and countdown, comic. Left: Settings (later). Phase 9.5 (art) mostly done.
@@ -395,7 +395,7 @@ Stats live in `src/data/weapons.js` (guns, specials, throwables), `src/data/item
 
 **Map look (0.32, `src/systems/TerrainArt.js`, `src/data/terrainLook.js`):** the ground is drawn the readable 2D way, closer to Mini Militia: the square tiles become soft organic shapes (a small mask of the tiles is blurred and cut again, so every corner rounds), one ground colour per map with stones and patches in it, a rim of small stones with ink outlines along every edge, the map's own surface on the tops (grass, dry grass, snow caps, sand, volcanic crust with embers, moss, rubble, moon dust) and the caves as dark, rounded back walls, which is how you read where you can pass through. **It's only a picture over the tiles:** the tiles stay underneath (hidden) for collisions, so spawn points, hazards, bots and drops behave exactly as before (checked: the three spawns on all 10 maps land the same, soak test clean). Tiles that change in a match (thin ice, crumbling rock, planks, gates) stay as tiles. Made once when a map loads (well under a second), in 1024 px chunks, skipping empty ones.
 
-**Title screen** (`src/scenes/BootScene.js`, `TITLE` in `src/data/menu.js`, 0.31, art in 0.32): two ChatGPT scenes (the in-game fight and the cast assembled on the glacier; the first assembly scene was dropped in 0.33) swap with a cross-fade every 1.3s while the game loads (the bar takes at least 4.2s, so 2 to 4 swaps), then every 4s until you press Enter. The logo is the ChatGPT logo. Menu colours follow the ChatGPT style sheet (`src/data/theme.js`: bunker ink, gunmetal, dusk slate, ash, bone, olive, ember, rust); the fonts it recommends (Black Ops One, IBM Plex Mono) wait for your go-ahead to add.
+**Title screen** (`src/scenes/BootScene.js`, `TITLE` in `src/data/menu.js`, 0.31, art in 0.32): two ChatGPT scenes (the in-game fight and the cast assembled on the glacier; the first assembly scene was dropped in 0.33) swap with a cross-fade every 1.3s while the game loads (the bar takes at least 4.2s, so 2 to 4 swaps), then every 4s until you press Enter. The logo is the ChatGPT logo, smaller and at the very top since 0.33.2 (the scenes are pinned to the top so the characters' heads sit below it), with EARTH RESPOND right under it in gold on a soft dark band. Menu colours follow the ChatGPT style sheet (`src/data/theme.js`: bunker ink, gunmetal, dusk slate, ash, bone, olive, ember, rust); the fonts it recommends (Black Ops One, IBM Plex Mono) wait for your go-ahead to add.
 
 **Title screen, first version** (0.31): the first thing you see is an action scene (jetpacks, an airdrop, a fight) under the KEYS MILITIA logo, with a progress bar while the game really loads. Then PRESS ENTER (or a click) opens the main menu, which has its own, different backdrop. Both pictures are in-game shots for now (`public/assets/menu/title.jpg`, `menu-bg.jpg`), replaced by the ChatGPT scenes `title-scene.jpg` and `menu-backdrop.jpg`. A testing address skips the title.
 
@@ -425,14 +425,16 @@ Stats live in `src/data/weapons.js` (guns, specials, throwables), `src/data/item
 
 | Character | Name | Character | Name |
 | --- | --- | --- | --- |
-| Hero | Victor "Rookie" | Infected Soldier | Igedunola "Blight" |
-| Commando (coach) | Sgt. Itunu | Robot | Bopoto "T-9" |
-| Android (coach) | Android R | Alien | Mtumbe |
+| Hero | Victor "Rookie" | Infected Soldier | Lazara "Blight" |
+| Commando (coach) | Sgt. Itunu | Robot | Ferra "T-9" |
+| Android (coach) | Keseki | Alien | Selene |
 | Soldier | Kolawole "Elite" | Cyborg | Black Cyba |
-| Mercenary | Mirembe "Vix" | Mutant | Obonachocho |
-| Armoured Trooper | Keseki "Bulwark" | Drone | Kixon |
-| Zombie | Rufiu | Scrap Bot | Junker |
-| Skeleton | Arije | Zombie K9 | Rex |
+| Mercenary | Nadia "Vix" | Mutant | Obaraka |
+| Armoured Trooper | Dmitri "Kixon" | Drone | Talon (not playable) |
+| Zombie | Mort | Scrap Bot | Rusty |
+| Skeleton | Hollow | Zombie K9 | Rex (not playable) |
+
+Names (0.33.1): a mix from around the world that fits each character's style; Victor, Sgt. Itunu, Kolawole and Black Cyba kept theirs. Stories cover each one's past, how they came to fight, their skills and their character.
 
 **Testing:** an address with `?mode=`, `?map=`, `?partner=` or `?character=` goes straight into a match without the intro (add `&intro=1` to see it); the testing keys (F6 map, F8 mode, ` partner) and the debug readout only work in testing: add `?dev=1` to the address, or use one of those testing addresses. Normal players only get the gameplay keys, plus F2 (gore) and F4 (sound) until a Settings page exists.
 
@@ -476,7 +478,7 @@ New enemies of a step arrive after a 4s calm. Drops get more generous each step.
 
 **Training, built in 0.25** (`src/data/training.js`, `src/systems/TrainingSystem.js`, `src/ui/SpeechBubble.js`, the camp map in `tools/make-maps.mjs`):
 - **Map: Militia Camp, used only for Training** (never in the F6 list; another mode opened on it goes to Forest). A war-zone base laid out left to right as a row of stations: army tents and a flagpole, a watchtower, a firing range with its berm, a sandbag wall, a helipad for the airdrop and a live-fire yard with a low wall of cover; floodlights, supply crates, hedgehogs and barbed wire. Each station is closed off by a gate: a chain-link fence from the ground to the sky with a striped boom and a STATION sign, which sinks into the ground when you finish the lesson before it. Normal gravity, thick floor, no void (it can't kill you by a fall), no hazards, room for two everywhere. A fixed map means every lesson is built for its station, and a new player always sees the same, clear setup.
-- **Coaches:** the Commando (the Sergeant: moving and fighting) and the Android (Android R: typing and gear), with name tags. They stay with you, one either side: running beside you on the ground and flying with their jetpacks when you're up (never past a closed gate), and talk in **speech bubbles** above their heads, typed out letter by letter; each line stays up until it's typed out and you've had time to read it. The title at the top shows the lesson (LESSON 3/8 · TYPE TO SHOOT) and a hint bar at the bottom shows its keys.
+- **Coaches:** the Commando (the Sergeant: moving and fighting) and the Android (Keseki: typing and gear), with name tags. They stay with you, one either side: running beside you on the ground and flying with their jetpacks when you're up (never past a closed gate), and talk in **speech bubbles** above their heads, typed out letter by letter; each line stays up until it's typed out and you've had time to read it. The title at the top shows the lesson (LESSON 3/8 · TYPE TO SHOOT) and a hint bar at the bottom shows its keys.
 - **Fixed series of lessons:** one at a time, in order. Each lesson is a station with a task; the game checks when you've done it, the coach says "Good", and the gate to the next station opens. Lessons live as data (`src/data/training.js`: coach, lines, keys, the check, the station) and `src/systems/TrainingSystem.js` runs them, so a lesson can be changed or added without touching code.
   1. **Move:** Left / Right, run to the flag. Done: you reach it.
   2. **Fly:** hold Up to fly, land on the watchtower; fuel refills only on the ground; Down to drop. Done: you stand on the tower.
@@ -698,6 +700,8 @@ keys-militia/
 ## 18. Changelog
 
 Bugs found and how they were fixed are logged in [BUGS.md](BUGS.md) (newest first). Every new bug gets an entry there.
+- **0.33.2:** Title screen: the logo is smaller and higher so it no longer covers the characters' heads, and EARTH RESPOND sits right under it in bigger gold letters on a dark band, readable on both scenes.
+- **0.33.1:** New cast names and stories (no code changes): Android R is now Keseki, the Mutant is Obaraka, the Armoured Trooper is Dmitri "Kixon", the Drone is Talon, and Nadia, Mort, Hollow, Lazara, Ferra, Selene, Rusty and Rex replace the old names. Victor, Sgt. Itunu, Kolawole and Black Cyba stay. Every story now covers the character's past, how they came to fight, their skills and their character. Training and the comic use the new names.
 - **0.33:** Bug pass. START / Enter on a mode intro works every time (it stopped answering after the first match: B-025). A walker Duo partner (Mutant, Zombie, Skeleton) moves like any partner: your speeds, the flying pose when it flies, no hopping, and it comes to you instead of hovering over a drop (B-026). The ending's slow motion slows everything together (B-027). Switching browser tabs pauses the match and no longer skips the countdown or jumps the clock; the drop-in only happens at FIGHT (B-028). Your character's head on the HUD. Shocked characters (EMP) show small drawn sparks instead of the lightning art; the EMP blast itself now uses the lightning arc art. The Drone and the Zombie K9 can't be picked as your character any more (still in the lobby to read about; enemies only). The title screen swaps two scenes (the fight and the glacier assembly). No difficulty setting: each mode has its own.
 - **0.32:** Map look: organic ground instead of squares, stone rims along every edge, grass / snow / sand / crust on the tops, rounded dark cave walls, one colour per map (only a picture over the unchanged tiles: spawns, collisions and hazards as before). The ChatGPT art goes in: three title scenes swapping while the game loads, the logo, the menu backdrop, the lobby armoury and the 16 front-view lobby poses, the mode banners, and the Earth Respond #0 comic with its own viewer (COMIC on the menu). Lobby ARSENAL (A): every weapon and throwable racked by family with its details. Menu colours from the ChatGPT style sheet. Map previews retaken with the new look.
 - **0.31.3:** No more frozen characters behind the countdown: you and your partner stay out of sight during the intro and the countdown, then at FIGHT you come down slowly on your jetpacks, side by side on the same ground (your partner follows your path from where you land). Machines without a jetpack (Android, Robot, Scrap Bot) show a real thruster flame under each boot, pointing down and bright, whenever they fly. Fix B-024.

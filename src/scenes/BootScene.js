@@ -128,7 +128,8 @@ export default class BootScene extends Phaser.Scene {
     const T = TITLE;
     // The title scenes, one at a time, cross-fading (slow drift on each).
     this.scenes = TITLE.scenes.map((_, i) => `title-scene-${i}`).filter((k) => this.textures.exists(k)).map((k, i) => {
-      const bg = this.add.image(W / 2, H / 2, k).setAlpha(i === 0 ? 1 : 0);
+      const top = T.sceneAnchor === 'top';
+      const bg = this.add.image(W / 2, top ? 0 : H / 2, k).setOrigin(0.5, top ? 0 : 0.5).setAlpha(i === 0 ? 1 : 0);
       bg.base = Math.max(W / bg.width, H / bg.height) * 1.04;
       bg.setScale(bg.base);
       return bg;
@@ -138,13 +139,21 @@ export default class BootScene extends Phaser.Scene {
     this.drift(this.scenes[0]);
     this.add.rectangle(W / 2, H / 2, W, H, 0x0d1114, T.darken);
     this.add.rectangle(W / 2, H - 90, W, 180, 0x0d1114, 0.5); // calmer band for the bar
+    // A soft dark band at the top, so the logo and the line under it read on any scene.
+    const shade = this.add.graphics();
+    shade.fillGradientStyle(0x0d1114, 0x0d1114, 0x0d1114, 0x0d1114, T.topShade.alpha, T.topShade.alpha, 0, 0);
+    shade.fillRect(0, 0, W, T.topShade.height);
     if (this.textures.exists('logo')) {
-      const logo = this.add.image(W / 2, 118, 'logo');
-      logo.setScale(500 / logo.width);
+      const logo = this.add.image(W / 2, T.logoY, 'logo');
+      logo.setScale(T.logoWidth / logo.width);
     } else {
-      this.add.text(W / 2, 150, 'KEYS MILITIA', { fontFamily: T.font, fontSize: '92px', fontStyle: 'bold', color: T.gold, stroke: '#131112', strokeThickness: 10 }).setOrigin(0.5);
+      this.add.text(W / 2, T.logoY, 'KEYS MILITIA', { fontFamily: T.font, fontSize: '72px', fontStyle: 'bold', color: T.gold, stroke: '#131112', strokeThickness: 10 }).setOrigin(0.5);
     }
-    this.add.text(W / 2, 252, 'E A R T H   R E S P O N D', { fontFamily: T.font, fontSize: '20px', fontStyle: 'bold', color: T.bone, stroke: '#131112', strokeThickness: 5 }).setOrigin(0.5);
+    const L = T.tagline;
+    const tag = this.add.text(W / 2, L.y, L.text, { fontFamily: T.font, fontSize: `${L.size}px`, fontStyle: 'bold', color: L.color, stroke: L.stroke, strokeThickness: L.strokeThickness }).setOrigin(0.5);
+    tag.setShadow(0, 2, '#000000', 4, true, true);
+    this.add.rectangle(W / 2, L.y, tag.width + 36, tag.height + 6, 0x0d1114, L.plate).setDepth(tag.depth - 1);
+    this.children.bringToTop(tag);
     // The bar
     const bw = T.bar.width;
     const by = H - 110;

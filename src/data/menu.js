@@ -28,6 +28,14 @@ export const TITLE = {
   scenes: ['assets/menu/title/action.jpg', 'assets/menu/title/assembly-glacier.jpg'],
   switchMs: 1300, slowSwitchMs: 4000, fadeMs: 500,
   logo: 'assets/menu/logo.png',
+  // Where the logo and the EARTH RESPOND line sit (0.33.2: smaller and
+  // higher, so the logo clears the characters' heads; the scenes are pinned
+  // to the top of the screen so their heads sit lower), with a soft dark
+  // band behind them so they read on any scene.
+  logoWidth: 400, logoY: 72,
+  tagline: { text: 'E A R T H   R E S P O N D', y: 150, size: 22, color: '#e9c46a', stroke: '#0d1114', strokeThickness: 7, plate: 0.55 },
+  topShade: { height: 200, alpha: 0.6 },
+  sceneAnchor: 'top', // 'top' or 'center'
   darken: 0.18,
   font: 'monospace',
   gold: '#d2a35f', bone: '#dcd1bf', teal: '#a49d95',
