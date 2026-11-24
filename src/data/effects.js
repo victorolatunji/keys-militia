@@ -1,3 +1,5 @@
+import { CRAZYGAMES } from './platform.js';
+
 // Phase 6 effects: blood, sparks, splats and gibs (death pieces).
 // Everything is placeholder shapes for now (circles and rectangles), like
 // the rest of the game; the art pass can swap in sprites later.
@@ -7,7 +9,7 @@
 //   cartoon: bright round drops, small splats, chunky body pieces (default)
 //   full:    more and darker blood, bigger splats that stay longer, red bits
 export const GORE = {
-  levels: ['off', 'cartoon', 'full'],
+  levels: CRAZYGAMES ? ['off', 'cartoon'] : ['off', 'cartoon', 'full'], // (CrazyGames: PEGI 12)
   default: 'cartoon',
   toggleKey: 'F2',
   storageKey: 'keys-militia.gore', // remembered in this browser

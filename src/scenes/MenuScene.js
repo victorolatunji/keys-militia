@@ -6,6 +6,7 @@ import { CREDITS, ABOUT } from '../data/credits.js';
 import { makeButton } from '../ui/Button.js';
 import { AudioSettings, uiSound } from '../systems/AudioSettings.js';
 import { Music } from '../systems/Music.js';
+import { CRAZYGAMES } from '../data/platform.js';
 
 // The main menu (Phase 9): PLAY, TRAINING, COMIC, STORY MODE and ONLINE
 // (both coming soon), SETTINGS and CONTROLS, ABOUT VAO LABS and CREDITS in the
@@ -96,16 +97,17 @@ export default class MenuScene extends Phaser.Scene {
       sound: () => `SOUND ${AudioSettings.get().muted ? 'OFF' : 'ON'}`,
       music: () => `MUSIC ${AudioSettings.get().music > 0 ? 'ON' : 'OFF'}`,
     };
-    const sound = makeButton(this, W - 330, 30, label.sound(), () => {
+    const right = CRAZYGAMES ? 130 : 0; // (no fullscreen button: slide these into its place)
+    const sound = makeButton(this, W - 330 + right, 30, label.sound(), () => {
       AudioSettings.toggleMute();
       sound.list[1].setText(label.sound());
     }, { size: 14, once: false, width: 118 });
-    const music = makeButton(this, W - 200, 30, label.music(), () => {
+    const music = makeButton(this, W - 200 + right, 30, label.music(), () => {
       const s = AudioSettings.get();
       AudioSettings.set(s.music > 0 ? { music: 0, musicWas: s.music } : { music: s.musicWas || 0.7 });
       music.list[1].setText(label.music());
     }, { size: 14, once: false, width: 118 });
-    makeButton(this, W - 72, 30, 'FULLSCREEN', () => this.scale.toggleFullscreen(), { size: 14, once: false });
+    if (!CRAZYGAMES) makeButton(this, W - 72, 30, 'FULLSCREEN', () => this.scale.toggleFullscreen(), { size: 14, once: false }); // (CrazyGames has its own)
   }
 
   // ---- Pages ----

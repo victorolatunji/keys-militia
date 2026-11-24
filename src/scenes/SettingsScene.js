@@ -7,6 +7,7 @@ import { SOUND_SETTINGS } from '../data/sounds.js';
 import { AUDIO_STORAGE_KEY } from '../data/audio.js';
 import { makeButton } from '../ui/Button.js';
 import { Music } from '../systems/Music.js';
+import { CRAZYGAMES } from '../data/platform.js';
 
 // SETTINGS (Phase 9): from the main menu, or from the pause box in a match
 // (then drawn over the paused match). Up / Down choose a line, Left / Right
@@ -72,7 +73,7 @@ export default class SettingsScene extends Phaser.Scene {
       { name: 'FULLSCREEN', get: () => (this.scale.isFullscreen ? 'ON' : 'OFF'), change: () => this.scale.toggleFullscreen(), press: true },
       { name: 'RESET PROGRESS', get: () => (this.confirming ? 'PRESS AGAIN TO ERASE' : ''), change: () => this.reset(), press: true, danger: true },
       { name: 'BACK', get: () => '', change: () => this.close(), press: true },
-    ];
+    ].filter((r) => !(CRAZYGAMES && r.name === 'FULLSCREEN')); // (CrazyGames has its own fullscreen)
     const top = H / 2 - 190;
     this.rows.forEach((r, i) => {
       const y = top + i * 42;

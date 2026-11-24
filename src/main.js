@@ -6,6 +6,14 @@ import LobbyScene from './scenes/LobbyScene.js';
 import IntroScene from './scenes/IntroScene.js';
 import ComicScene from './scenes/ComicScene.js';
 import SettingsScene from './scenes/SettingsScene.js';
+import { CRAZYGAMES } from './data/platform.js';
+
+// CrazyGames: no text selection or magnifier on the page.
+if (CRAZYGAMES) {
+  const css = document.createElement('style');
+  css.textContent = 'body { -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none; -webkit-touch-callout: none; }';
+  document.head.appendChild(css);
+}
 
 const config = {
   type: Phaser.AUTO,          // WebGL if available, else Canvas
